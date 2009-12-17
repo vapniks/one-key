@@ -78,7 +78,8 @@ using some button will expand them"
     (unwind-protect
 	(let* (mode-names
 	       (dummy (maphash #'(lambda (key value)
-				   (push key mode-names)) yas/snippet-tables))
+				   (when (yas/real-mode? key)
+				     (push key mode-names))) yas/snippet-tables))
 	       (keys '("C-b" "q"))
 	       (menu-alist nil))
 	  
