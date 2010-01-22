@@ -139,43 +139,45 @@ If optional MODE is nil, current buffer's major mode will be used.
 MODE's parent mode's snippets are also shown in the one-key menu."
   (interactive)
   (or mode (setq mode major-mode))
-  (let* ((templates (yas/all-templates (one-key-yas/get-snippet-tables mode)))
-	 (full-file-names (mapcar #'(lambda (template) (yas/template-file template)) templates))
-	 (mode-snippets-path (let ((path ""))
-			       (dolist (file-name full-file-names)
-				 (when (string-match (concat "/" (symbol-name mode) "/") file-name)
-				   (setq path (substring file-name 0 (match-beginning 0)))
-				   (return)))
-			       path))
-	 (parent-templates (remove nil
-				   (mapcar #'(lambda (template)
-					       (unless (string-match (concat "/" (symbol-name mode) "/")
-								     (yas/template-file template))
-						 template))
-					   templates)))
-	 (parent-file-names (mapcar #'(lambda (template) (file-name-nondirectory (yas/template-file template)))
-				    parent-templates))
-	 (key-name-list (one-key-yas/build-key-name-list
-			 (file-name-as-directory (file-truename (concat mode-snippets-path
-									"/" (symbol-name mode) "/")))
-			 'dont-show-parent-dir))
-	 (keys (mapcar #'(lambda (key-name)
-			   (car key-name))
-		       key-name-list)))
-    
-    ;; The parent mode's key-name-list
-    (mapcar* #'(lambda (file-name template)
-    		 (let ((key (one-key-yas/generate-key file-name keys))
-    		       (snippet-def (yas/template-content template)))
-    		   (push key keys)
-    		   (push `(,key ,(yas/template-name template) nil nil ,snippet-def) key-name-list)))
-    	     parent-file-names parent-templates)
+  (if (one-key-yas/get-snippet-tables mode)
+      (let* ((templates (yas/all-templates (one-key-yas/get-snippet-tables mode)))
+	     (full-file-names (mapcar #'(lambda (template) (yas/template-file template)) templates))
+	     (mode-snippets-path (let ((path ""))
+				   (dolist (file-name full-file-names)
+				     (when (string-match (concat "/" (symbol-name mode) "/") file-name)
+				       (setq path (substring file-name 0 (match-beginning 0)))
+				       (return)))
+				   path))
+	     (parent-templates (remove nil
+				       (mapcar #'(lambda (template)
+						   (unless (string-match (concat "/" (symbol-name mode) "/")
+									 (yas/template-file template))
+						     template))
+					       templates)))
+	     (parent-file-names (mapcar #'(lambda (template) (file-name-nondirectory (yas/template-file template)))
+					parent-templates))
+	     (key-name-list (one-key-yas/build-key-name-list
+			     (file-name-as-directory (file-truename (concat mode-snippets-path
+									    "/" (symbol-name mode) "/")))
+			     'dont-show-parent-dir))
+	     (keys (mapcar #'(lambda (key-name)
+			       (car key-name))
+			   key-name-list)))
+	
+	;; The parent mode's key-name-list
+	(mapcar* #'(lambda (file-name template)
+		     (let ((key (one-key-yas/generate-key file-name keys))
+			   (snippet-def (yas/template-content template)))
+		       (push key keys)
+		       (push `(,key ,(yas/template-name template) nil nil ,snippet-def) key-name-list)))
+		 parent-file-names parent-templates)
 
-    (let ((one-key-menu-yas/mode-alist (one-key-yas/build-menu-alist key-name-list)))      
-      (flet ((one-key-menu-yas-func ()
-				    (one-key-menu mode
-						  one-key-menu-yas/mode-alist)))
-	(one-key-menu-yas-func)))))
+	(let ((one-key-menu-yas/mode-alist (one-key-yas/build-menu-alist key-name-list)))      
+	  (flet ((one-key-menu-yas-func ()
+					(one-key-menu mode
+						      one-key-menu-yas/mode-alist)))
+	    (one-key-menu-yas-func))))
+    (one-key-yas/show-modes)))
 
 ;;; Function that return an alist that can be used by one-key
 ;;; ((("c" . "c-mode/") . (lambda () (interactive) (one-key-yas/show-dir "")))
