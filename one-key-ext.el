@@ -66,7 +66,13 @@ In FUNC, `one-key-current-filename' can be used to do operations on current file
   (unless (file-directory-p dir)
     (error "one-key-visit-dir called with a non-directory"))
 
-  (setq one-key-visit-func func)
+  (unless (functionp func)
+    (error "one-key-visit-dir called with a non-funciton."))
+
+  (if (symbolp func)
+      (setq one-key-visit-func (symbol-function func))
+    (setq one-key-visit-func func))
+  
   (setq one-key-current-dir dir)
   
   (let ((old-max-lisp-eval-depth max-lisp-eval-depth))
@@ -74,7 +80,7 @@ In FUNC, `one-key-current-filename' can be used to do operations on current file
     (unwind-protect
 	(let* ((dir-name (file-name-as-directory (file-truename dir)))
 	       (key-name-list (one-key-ext/build-key-name-list dir))
-	       (one-key-menu-ext/dir-alist (one-key-ext/build-menu-alist key-name-list func)))
+	       (one-key-menu-ext/dir-alist (one-key-ext/build-menu-alist key-name-list one-key-visit-func)))
 	  (flet ((one-key-menu-ext-func ()
 					(one-key-menu dir-name
 						      one-key-menu-ext/dir-alist)))
@@ -188,7 +194,17 @@ KEYS contains all the alredy used keys.
 					   (interactive)
 					   (one-key-visit-dir one-key-current-dir one-key-visit-func)))))
 
+(defun one-key-menu-print-filename ()
+  (interactive)
+  (one-key-menu "Print Filename" one-key-menu-print-filename-alist))
+
 (defun one-key-print-filename (dir)
+  "Print current file's name using one-key in minibuffer."
+  (interactive (list (ido-read-directory-name "Directory for root of tree: " default-directory)))
+  (one-key-visit-dir dir 'one-key-menu-print-filename))
+
+;; using lambda expression as function
+(defun one-key-print-filename2 (dir)
   "Print current file's name using one-key in minibuffer."
   (interactive (list (ido-read-directory-name "Directory for root of tree: " default-directory)))
   (one-key-visit-dir dir (lambda ()
