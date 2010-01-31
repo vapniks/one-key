@@ -32,6 +32,9 @@
 (defvar one-key-current-filename nil
   "Current file's name which is visited by one-key.")
 
+(defvar one-key-back-to-topdir-key "SPC"
+  "Keybinding that will be used to back to parent directory.")
+
 (defun one-key-visit-dir (dir func)
   "Visit DIR using one-key.
 For each sub-dir of DIR, the associated command will be `(one-key-visit-dir sub-dir func)',
@@ -78,14 +81,14 @@ FUNC is the function that will be applied to normal files."
 Each element of the returned list has the following form:
  (KEY FILE-NAME FULLPATH DIRP)
 If optional DONT-SHOW-PARENT is non-nil, there will not be a
-\"C-b\" \"Back to parent directory\" item."
+`one-key-back-to-topdir-key' \"Back to parent directory\" item."
   (unless (file-directory-p dir)
     (error "one-key-ext/build-key-name-list called with a non-directory."))
 
   (let* ((dir-name (file-name-as-directory (file-truename dir)))
 	 (sub-dirs (mapcar #'file-name-nondirectory (one-key-ext/subdirs dir)))
 	 (files (mapcar #'file-name-nondirectory (one-key-ext/subdirs dir t)))
-	 (keys (if dont-show-parent '("q") '("C-b" "q")))
+	 (keys (if dont-show-parent '("q") `(,one-key-back-to-topdir-key "q")))
 	 (key-name-list nil))
 
     ;; build key for sub-dirs
@@ -105,11 +108,11 @@ If optional DONT-SHOW-PARENT is non-nil, there will not be a
 		     ,dir-name nil)
 	      key-name-list)))
 
-    ;; Here we push the "C-b"
+    ;; Here we push the `one-key-back-to-topdir-key'
     (unless dont-show-parent
-      (push `("C-b" ,(concat "Back to parent directory: "
-			     (file-name-nondirectory (expand-file-name ".." dir)))
-	      ,(expand-file-name ".." dir-name) t)
+      (push `(,one-key-back-to-topdir-key ,(concat "Back to parent directory: "
+						   (file-name-nondirectory (expand-file-name ".." dir)))
+					  ,(expand-file-name ".." dir-name) t)
 	    key-name-list))
     key-name-list))
 
