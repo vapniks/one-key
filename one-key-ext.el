@@ -27,13 +27,36 @@
 
 ;;; Code:
 (require 'one-key)
-(require 'one-key-yas)
+
+(defvar one-key-ext/max-lisp-eval-depth 2000
+  "The `max-lisp-eval-depth' when using one-key-ext.el.
+Because one-key related functions don't exit until the one-key menu buffer is killed,
+either because a snippet is inserted or an unknown keystroke. Setting this to a larg
+number can avoid error of `Lisp nesting exceeds max-lisp-eval-depth")
 
 (defvar one-key-current-filename nil
   "Current file's name which is visited by one-key.")
 
+(defvar one-key-visit-func nil
+  "The function that will be applied to file.")
+
+(defvar one-key-current-dir nil
+  "Current director which is visited by one-key.")
+
 (defvar one-key-back-to-topdir-key "SPC"
   "Keybinding that will be used to back to parent directory.")
+
+(defconst one-key-ext/alphabets-and-numbers
+  (let (alphabets-and-numbers)
+    (dotimes (i 26)
+      (push (- ?Z i) alphabets-and-numbers))
+    (dotimes (i 26)
+      (push (- ?z i) alphabets-and-numbers))
+    (dotimes (i 10)
+      (push (- ?9 i) alphabets-and-numbers))
+    alphabets-and-numbers)
+  "A list contains characters [0-9a-zA-Z].
+This list will be used when generating keys in `one-key-ext/generate-key'")
 
 (defun one-key-visit-dir (dir func)
   "Visit DIR using one-key.
@@ -43,8 +66,11 @@ In FUNC, `one-key-current-filename' can be used to do operations on current file
   (unless (file-directory-p dir)
     (error "one-key-visit-dir called with a non-directory"))
 
+  (setq one-key-visit-func func)
+  (setq one-key-current-dir dir)
+  
   (let ((old-max-lisp-eval-depth max-lisp-eval-depth))
-    (setq max-lisp-eval-depth one-key-yas/max-lisp-eval-depth)
+    (setq max-lisp-eval-depth one-key-ext/max-lisp-eval-depth)
     (unwind-protect
 	(let* ((dir-name (file-name-as-directory (file-truename dir)))
 	       (key-name-list (one-key-ext/build-key-name-list dir))
@@ -93,7 +119,7 @@ If optional DONT-SHOW-PARENT is non-nil, there will not be a
 
     ;; build key for sub-dirs
     (dolist (sub-dir sub-dirs)
-      (let ((key (one-key-yas/generate-key sub-dir keys)))
+      (let ((key (one-key-ext/generate-key sub-dir keys)))
 	(push key keys)
 	(push `(,key ,(concat sub-dir "/")
 		     ,(concat (file-name-as-directory dir-name) sub-dir)
@@ -102,7 +128,7 @@ If optional DONT-SHOW-PARENT is non-nil, there will not be a
 
     ;; build key for files
     (dolist (file files)
-      (let ((key (one-key-yas/generate-key file keys)))
+      (let ((key (one-key-ext/generate-key file keys)))
 	(push key keys)
 	(push `(,key ,(file-name-nondirectory (file-truename (concat dir-name file)))
 		     ,dir-name nil)
@@ -115,6 +141,28 @@ If optional DONT-SHOW-PARENT is non-nil, there will not be a
 					  ,(expand-file-name ".." dir-name) t)
 	    key-name-list))
     key-name-list))
+
+(defun one-key-ext/generate-key (file-name keys)
+  "Return the generated key for file named FILE-NAME.
+The generated key will be used in one-key menu. FILE-NAME is a string.
+KEYS contains all the alredy used keys.
+"
+  (let (key)
+    (dolist (element one-key-ext/alphabets-and-numbers)
+      (let ((normal-key (char-to-string element)))
+	(when (one-key-ext/key-not-used normal-key keys)
+	  (setq key normal-key)
+	  (return))))
+    
+    (unless key
+      (error "Can not generate a unique key for file : %s" file-name))
+    key))
+
+(defun one-key-ext/key-not-used (key key-name-list)
+  "Return t if KEY is not used in KEY-NAME-LIST."
+  (dolist (key-name key-name-list t)
+    (if (string= key key-name)
+	(return nil))))
 
 (defun one-key-ext/subdirs (directory &optional file?)
   "Return subdirs or files of DIRECTORY according to FILE?."
@@ -131,12 +179,21 @@ If optional DONT-SHOW-PARENT is non-nil, there will not be a
 ;;;;;;;;;; example function ;;;;;;;;;;;;;;
 (require 'ido)
 
+(defvar one-key-menu-print-filename-alist
+  '(
+    (("p" . "Print current file name") . (lambda ()
+					   (interactive)
+					   (message "current file name: %s" one-key-current-filename)))
+    (("SPC" . "Back to previous menu") . (lambda ()
+					   (interactive)
+					   (one-key-visit-dir one-key-current-dir one-key-visit-func)))))
+
 (defun one-key-print-filename (dir)
   "Print current file's name using one-key in minibuffer."
   (interactive (list (ido-read-directory-name "Directory for root of tree: " default-directory)))
-  
   (one-key-visit-dir dir (lambda ()
-			   (message "current file name: %s"  one-key-current-filename))))
+			   (interactive)
+			   (one-key-menu "Print Filename" one-key-menu-print-filename-alist))))
 
 (provide 'one-key-ext)
 ;;; one-key-ext.el ends here
