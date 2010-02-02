@@ -82,7 +82,7 @@ In FUNC, `one-key-current-filename' can be used to do operations on current file
 	       (key-name-list (one-key-ext/build-key-name-list dir))
 	       (one-key-menu-ext/dir-alist (one-key-ext/build-menu-alist key-name-list one-key-visit-func)))
 	  (flet ((one-key-menu-ext-func ()
-					(one-key-menu dir-name
+					(one-key-menu (concat dir-name "\n")
 						      one-key-menu-ext/dir-alist)))
 	    (one-key-menu-ext-func)))
       (setq max-lisp-eval-depth old-max-lisp-eval-depth))
@@ -189,7 +189,8 @@ KEYS contains all the alredy used keys.
   '(
     (("p" . "Print current file name") . (lambda ()
 					   (interactive)
-					   (message "current file name: %s" one-key-current-filename)))
+					   (message "current file name: %s" one-key-current-filename)
+					   (one-key-menu "Print Filename" one-key-menu-print-filename-alist)))
     (("SPC" . "Back to previous menu") . (lambda ()
 					   (interactive)
 					   (one-key-visit-dir one-key-current-dir one-key-visit-func)))))
