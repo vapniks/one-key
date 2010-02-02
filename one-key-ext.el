@@ -106,7 +106,7 @@ directory tree."
 					    one-key-visit-func
 					    one-key-filename-map-func)))
 	  (flet ((one-key-menu-ext-func ()
-					(one-key-menu dir-name one-key-menu-ext/dir-alist)))
+					(one-key-menu (concat dir-name "\n") one-key-menu-ext/dir-alist)))
 	    (one-key-menu-ext-func)))
       (setq max-lisp-eval-depth old-max-lisp-eval-depth))
     (setq max-lisp-eval-depth old-max-lisp-eval-depth)))
