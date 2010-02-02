@@ -219,7 +219,10 @@ KEYS contains all the alredy used keys.
   (let ((topdir-name (file-name-as-directory (file-truename one-key-visit-dir/topdir)))
 	(dir-name (file-name-as-directory (file-truename dir))))
     (and (not (string= topdir-name dir-name))
-	 (string-prefix-p topdir-name dir-name))))
+	 (= (- (abs (compare-strings topdir-name 0 nil dir-name 0 nil)) 1) (length topdir-name)))))
+;	 (string-prefix-p topdir-name dir-name))))
+
+
 
 ;;;;;;;;;; example function ;;;;;;;;;;;;;;
 (require 'ido)
