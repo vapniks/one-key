@@ -49,6 +49,10 @@ number can avoid error of `Lisp nesting exceeds max-lisp-eval-depth")
 (defvar one-key-back-to-topdir-key "SPC"
   "Keybinding that will be used to back to parent directory.")
 
+(defvar one-key-visit-dir/topdir "~/"
+  "The fixed top level dir that `one-key-visit-dir' can explore the subdirs of,
+but can't go above this dir.")
+
 (defconst one-key-ext/alphabets-and-numbers
   (let (alphabets-and-numbers)
     (dotimes (i 26)
@@ -68,13 +72,18 @@ for each file under DIR, the associated command will be `(funcall func)'.
 In FUNC, `one-key-current-filename' can be used to do operations on current file.
 The optional FILENAME-MAP-FUNC specifies a function to be called on each file name,
 it has one argument (string), the original file name, and returns a string, the
-new file name which will be displayed in the one-key menu."
+new file name which will be displayed in the one-key menu.
+DIR should be `one-key-visit-dir/topdir' or under `one-key-visit-dir/topdir' in the
+directory tree."
   (unless (file-directory-p dir)
     (error "one-key-visit-dir called with a non-directory"))
 
   (unless (functionp func)
     (error "one-key-visit-dir called with a non-funciton."))
 
+  (unless (one-key-visit-dir/legal-dir-p dir)
+    (error "one-key-visit-dir called with an illegal directory."))
+  
   (if (symbolp func)
       (setq one-key-visit-func (symbol-function func))
     (setq one-key-visit-func func))
@@ -91,15 +100,13 @@ new file name which will be displayed in the one-key menu."
     (setq max-lisp-eval-depth one-key-ext/max-lisp-eval-depth)
     (unwind-protect
 	(let* ((dir-name (file-name-as-directory (file-truename dir)))
-	       ;; TODO: here we compute whether to show parent
-	       (key-name-list (one-key-ext/build-key-name-list dir))
+	       (key-name-list (one-key-ext/build-key-name-list dir (not (one-key-visit-dir/descendant-p dir))))
 	       (one-key-menu-ext/dir-alist (one-key-ext/build-menu-alist
 					    key-name-list
 					    one-key-visit-func
 					    one-key-filename-map-func)))
 	  (flet ((one-key-menu-ext-func ()
-					(one-key-menu (concat dir-name "\n")
-						      one-key-menu-ext/dir-alist)))
+					(one-key-menu dir-name one-key-menu-ext/dir-alist)))
 	    (one-key-menu-ext-func)))
       (setq max-lisp-eval-depth old-max-lisp-eval-depth))
     (setq max-lisp-eval-depth old-max-lisp-eval-depth)))
@@ -200,6 +207,19 @@ KEYS contains all the alredy used keys.
                        (file-directory-p file)
                      (not (file-directory-p file)))))
              (directory-files directory t)))
+
+(defun one-key-visit-dir/legal-dir-p (dir)
+  "Return t if DIR is `one-key-visit-dir/topdir' or a descendant of `one-key-visit-dir/topdir'."
+  (or (string= (file-name-as-directory (file-truename dir))
+	       (file-name-as-directory (file-truename one-key-visit-dir/topdir)))
+      (one-key-visit-dir/descendant-p dir)))
+
+(defun one-key-visit-dir/descendant-p (dir)
+  "Return t if DIR is a descendant of `one-key-visit-dir/topdir'."
+  (let ((topdir-name (file-name-as-directory (file-truename one-key-visit-dir/topdir)))
+	(dir-name (file-name-as-directory (file-truename dir))))
+    (and (not (string= topdir-name dir-name))
+	 (string-prefix-p topdir-name dir-name))))
 
 ;;;;;;;;;; example function ;;;;;;;;;;;;;;
 (require 'ido)
