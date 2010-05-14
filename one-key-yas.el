@@ -147,7 +147,9 @@ MODE's parent mode's snippets are also shown in the one-key menu."
 				     (when (string-match (concat "/" (symbol-name mode) "/") file-name)
 				       (setq path (substring file-name 0 (match-beginning 0)))
 				       (return)))
-				   path))
+			       (if (equal path "") 
+				   "~/.emacs.d/yasnippet-0.6.1c/snippets/text-mode"
+				 path)))
 	     (parent-templates (remove nil
 				       (mapcar #'(lambda (template)
 						   (unless (string-match (concat "/" (symbol-name mode) "/")
