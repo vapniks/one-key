@@ -121,7 +121,7 @@ if optional HAS-PARENT is non-nil, using `C-b' you can return to `top-level'"
 
     (let ((one-key-menu-yas/mode-alist (one-key-yas/build-menu-alist key-name-list)))      
       (when has-parent
-	;; using "C-b" to return to top level
+	;; using "C-b" to return to top level.
 	(setq one-key-menu-yas/mode-alist
 	      (append one-key-menu-yas/mode-alist
 		      (list (cons (cons "C-b" "Show all loaded snippets in modes")
