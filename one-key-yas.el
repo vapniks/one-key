@@ -144,7 +144,7 @@ MODE's parent mode's snippets are also shown in the one-key menu."
 	     (full-file-names (mapcar #'(lambda (template) (yas/template-file template)) templates))
 	     (mode-snippets-path (let ((path ""))
 				   (dolist (file-name full-file-names)
-				     (when (string-match (concat "/" (symbol-name mode) "/") file-name)
+				     (when (string-match (regexp-opt (list (concat "/" (symbol-name mode) "/"))) file-name)
 				       (setq path (substring file-name 0 (match-beginning 0)))
 				       (return)))
 			       (if (equal path "") 
