@@ -152,7 +152,7 @@ MODE's parent mode's snippets are also shown in the one-key menu."
 				 path)))
 	     (parent-templates (remove nil
 				       (mapcar #'(lambda (template)
-						   (unless (string-match (concat "/" (symbol-name mode) "/")
+						   (unless (string-match (concat "/" (regexp-opt `(,(symbol-name mode))) "/")
 									 (yas/template-file template))
 						     template))
 					       templates)))
