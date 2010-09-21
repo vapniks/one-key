@@ -1,31 +1,101 @@
-;;; one-key-yas.el --- Integrate One-key and Yasnippet
+;;; one-key-yas.el --- functions for using one-key menus to access yasnippets
 
-;;; Commentary:
+;; Filename: one-key-yas.el
+;; Description: functions for using one-key menus to access yasnippets
+;; Author:  Joe Bloggs <vapniks@yahoo.com>
+;; Maintainer: Joe Bloggs <vapniks@yahoo.com>
+;; Copyright (C) 2010, , all rights reserved.
+;; Created: 2010-09-21 14:31:52
+;; Version: 0.1
+;; Last-Updated: 2010-09-21 14:31:52
+;;           By: Joe Bloggs
+;; URL: http://www.emacswiki.org/emacs/download/one-key-yas.el
+;; Keywords: yasnippet one-key snippet
+;; Compatibility: GNU Emacs 24.0.50.1
+;;
+;; Features that might be required by this library:
+;;
+;; one-key.el (tested on version 0.6.9) yasnippet.el (tested on version 0.6.1c)
+;;
 
+;;; This file is NOT part of GNU Emacs
+
+;;; License
+;;
+;; This program is free software; you can redistribute it and/or modify
+;; it under the terms of the GNU General Public License as published by
+;; the Free Software Foundation; either version 3, or (at your option)
+;; any later version.
+
+;; This program is distributed in the hope that it will be useful,
+;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;; GNU General Public License for more details.
+
+;; You should have received a copy of the GNU General Public License
+;; along with this program; see the file COPYING.  If not, write to
+;; the Free Software Foundation, Inc., 51 Franklin Street, Fifth
+;; Floor, Boston, MA 02110-1301, USA.
+
+;;; Commentary: 
+;; 
+;; Functions for using one-key menus to access yasnippets.
+;;
+;; You can quickly access your yasnippets using one-key by binding a 
+;; key-combo to `one-key-yas/show-mode-nr' or to one of the following 
+;; commands:
 ;; `one-key-yas/show-dir' can be used to show a directory using
-;; One-key. 
-
+;; one-key. You can navigate the subdirs by pressing keys indicated 
+;; in the menus. Pressing a key corresponding to a snippet file will
+;; expand that snippet at point.
+;; `one-key-yas/show-yas-root-directory' can be used to navigate
+;; the `yas/root-directory' using one-key, and expand snippets
+;; (it calls `one-key-yas/show-dir' on `yas/root-directory').
 ;; `one-key-yas/show-modes' can be used to show all the loaded
-;; modes' snippet definition using One-key
+;; modes' snippet definitions using one-key.
+;; `one-key-yas/show-mode' shows a one-key menu for snippets in the 
+;; yasnippet directory of the current major mode and it's parents, 
+;; but doesn't show any subdirs of that directory.
+;; `one-key-yas/show-mode-nr' works like `one-key-yas/show-mode' but 
+;; also shows menu items to navigate subdirs of the yasnippet directory
+ 
+;;; Installation:
+;;
+;; Put one-key-yas.el in a directory in your load-path, e.g. ~/.emacs.d/
+;; You can add a directory to your load-path with the following line in ~/.emacs:
+;; (add-to-list 'load-path (expand-file-name "~/elisp"))
+;; where ~/elisp is the directory you want to add.
+;; (you don't need to do this for ~/.emacs.d - it's added by default).
+;;
+;; Add the following to your ~/.emacs startup file.
+;;
+;; (require 'one-key-yas)
 
-;; `one-key-yas/show-mode' can be used to show snippets that can
-;; be applied to current buffer's major mode
+;;; Customize: 
+;;
+;; You may need to change the value of `yas/root-directory'
+;; so that it matches the location of your snippets files.
+;; This can be done by:
+;;      M-x customize-variable RET yas/root-directory RET
+;;
 
-;; `one-key-yas/show-yas-root-directory' can be used to show
-;; `yas/root-directory' using One-key.
+;;; Change log:
+;;	
+;; 2010/09/21
+;;      * First released.
+;; 
 
-;; `one-key-yas/show-mode-nr' can be used to show snippets that
-;; can be applied to current buffer's major mode, non-recursively,
-;; which means the snippets in corresponding mode's directory's
-;; sub-directories will not be listed in the menu.
+;;; Require
+(require 'one-key)
+(require 'yasnippet)
 
 ;;; Code:
 
 (defvar one-key-yas/max-lisp-eval-depth 2000
   "The `max-lisp-eval-depth' when using one-key-yas.el.
 Because one-key related functions don't exit until the one-key menu buffer is killed,
-either because a snippet is inserted or an unknown keystroke. Setting this to a larg
-number can avoid error of `Lisp nesting exceeds max-lisp-eval-depth")
+either because a snippet is inserted or an unknown keystroke was entered, setting this 
+to a large number can avoid the error of `Lisp nesting exceeds max-lisp-eval-depth")
 
 (defconst one-key-yas/alphabets-and-numbers
   (let (alphabets-and-numbers)
@@ -36,10 +106,10 @@ number can avoid error of `Lisp nesting exceeds max-lisp-eval-depth")
       (push (+ i ?0) alphabets-and-numbers))
     alphabets-and-numbers)
   "A list contains characters [a-zA-Z0-9].
-This list may be used when generating keys in `one-key-yas/generate-key'")
+This list is used when generating keys in `one-key-yas/generate-key'")
 
 (defun one-key-yas/show-yas-root-directory ()
-  "Show `yas/root-directory' using `One-key'.
+  "Show `yas/root-directory' using `one-key'.
 If `yas/root-directory' is set to a list, only show the first directory"
   (interactive)
   (unless yas/root-directory
@@ -51,8 +121,8 @@ If `yas/root-directory' is set to a list, only show the first directory"
     
 (defun one-key-yas/show-dir (dir)
   "Show DIR's content in a one-key menu.
-For directories, using some button can enter that menu; for snippet files
-using some button will expand them"
+For directories, entering the corresponding menu key will navigate to that directory recursively.
+For snippet files entering the corresponding menu key will expand the snippet."
   (interactive (list (ido-read-directory-name "Directory for root of tree: " default-directory)))  
   (unless (file-directory-p dir)
     (error "one-key-yas/show-dir called with a non-directory"))
@@ -71,7 +141,7 @@ using some button will expand them"
     (setq max-lisp-eval-depth old-max-lisp-eval-depth)))
 
 (defun one-key-yas/show-modes ()
-  "Show all the major modes that have snippets definition using `One-key'."
+  "Show all the major modes that have snippets definition using `one-key'."
   (interactive)
   (let ((old-max-lisp-eval-depth max-lisp-eval-depth))
     (setq max-lisp-eval-depth one-key-yas/max-lisp-eval-depth)
@@ -95,14 +165,15 @@ using some button will expand them"
 					(one-key-menu "All loaded modes in Yasnippet"
 						      menu-alist)))
 	    (one-key-menu-yas-func)))
-      ;; if error happens, restore the orignial value
+      ;; if an error happens, restore the orignial value
       (setq max-lisp-eval-depth old-max-lisp-eval-depth))
     (setq max-lisp-eval-depth old-max-lisp-eval-depth)))
 
 (defun one-key-yas/show-mode (&optional mode has-parent)
   "Show all the applicable snippets for mode MODE.
-If optional MODE is nil, current buffer's major mode will be used;
-if optional HAS-PARENT is non-nil, using `C-b' you can return to `top-level'"
+If optional MODE is nil, current buffer's major mode will be used.
+If optional HAS-PARENT is non-nil, a menu item with key `C-b' will be added for showing
+all snippet directories."
   (interactive)
   (or mode (setq mode major-mode))  
   (let* ((templates (yas/all-templates (one-key-yas/get-snippet-tables mode)))
@@ -134,7 +205,7 @@ if optional HAS-PARENT is non-nil, using `C-b' you can return to `top-level'"
 	(one-key-menu-yas-func)))))
 
 (defun one-key-yas/show-mode-nr (&optional mode)
-  "Show the applicable snippets for mode MODE, non-recursively.
+ "Show the applicable snippets for mode MODE, and it's subdirectories.
 If optional MODE is nil, current buffer's major mode will be used.
 MODE's parent mode's snippets are also shown in the one-key menu."
   (interactive)
@@ -148,7 +219,7 @@ MODE's parent mode's snippets are also shown in the one-key menu."
 				       (setq path (substring file-name 0 (match-beginning 0)))
 				       (return)))
 			       (if (equal path "") 
-				   "~/.emacs.d/yasnippet-0.6.1c/snippets/text-mode"
+				   (concat yas/root-directory "/text-mode")
 				 path)))
 	     (parent-templates (remove nil
 				       (mapcar #'(lambda (template)
@@ -186,7 +257,7 @@ MODE's parent mode's snippets are also shown in the one-key menu."
 ;;;  (("+" . "c++-mode/") . (lambda () (interactive) (one-key-yas/show-dir "")))
 ;;;  (("t" . "time") . (lambda () (interactive) (yas/expand-snippet ""))))
 (defun one-key-yas/build-menu-alist (key-name-list)
-  "Return the menu alist that will be used by One-key.
+  "Return the menu alist that will be used by one-key.
 KEY-NAME-LIST is generated by `one-key-yas/build-key-name-list'"
   (let (menu-alist)
     (dolist (key-name key-name-list)
@@ -228,7 +299,7 @@ If optional DONT-SHOW-PARENT is non-nil, there will not be a
 			 t)
 		  key-name-list)))
 
-    ;; build key for snippet files
+    ;; build keys for snippet files
     ;; If it is, instead of the file name, we use the snippet name
     ;; as the NAME part of the key-name-list
     ;; FIXME : Should we check whether this file is a snippet file? How?    
@@ -245,9 +316,9 @@ If optional DONT-SHOW-PARENT is non-nil, there will not be a
     
     ;;; Here we push the "C-b"
     ;; FIXME : for this we should only expand to the yas/root-directory
-    ;; Or we use an variable `one-key-yas/restricted-to-root-directory'
+    ;; Or we use a variable `one-key-yas/restricted-to-root-directory'
     ;; By default it is t, which means don't go up to the root directory
-    ;; otherwise, expand it until to /
+    ;; otherwise, expand it until /
     (unless dont-show-parent
       (push `("C-b" ,(concat "Back to parent directory: "
 			     (file-name-nondirectory (expand-file-name ".." dir)))
@@ -264,7 +335,7 @@ If optional DONT-SHOW-PARENT is non-nil, there will not be a
 ;; 1. If current char is not in key-name-list, we use this char as current
 ;; file/directory name's key.
 ;; 2. If all the characters are used for keys, then we re-search this name,
-;; and using the revert-case of each character. If it is not used as a key,
+;; and use the revert-case of each character. If it is not used as a key,
 ;; use it. Otherwise,
 ;; 3. We add a prefix "C-", and use the downcase character as the key.
 ;; 4. We add a prefix "C-", and use the upcase character as the key.
@@ -279,11 +350,11 @@ If optional DONT-SHOW-PARENT is non-nil, there will not be a
 
 ;; FIXME :
 ;; 1. Extract the generating key strategies as simple functions
-;; 2. This function is not only used for file-name, but also for mode-name.
+;; 2. This function is not only used for the file-name, but also for the mode-name.
 ;;    So the argument name should be changed
 (defun one-key-yas/generate-key (file-name keys)
   "Return the generated key for file named FILE-NAME.
-The generated key will be used in one-key menu.  FILE-NAME is a string.
+The generated key will be used in the one-key menu.  FILE-NAME is a string.
 KEYS contains all the already used keys."
   (let (key)
     (dotimes (idx (length file-name))
@@ -294,7 +365,7 @@ KEYS contains all the already used keys."
     
     (unless key
       ;; using character in original file isn't OK
-      ;; Now try revert the case
+      ;; Now try to revert the case
       ;; lower case=>upper case
       ;; upper case=>lower case
       (dotimes (idx (length file-name))
@@ -316,7 +387,7 @@ KEYS contains all the already used keys."
 	      (setq key C-prefix-key)
 	      (return))))))
     
-    ;; try "C-" as prefix and using upcase characters
+    ;; try "C-" as prefix and upcase characters
     (unless key
       (let ((u-file-name (upcase file-name)))
 	(dotimes (idx (length u-file-name))
@@ -326,7 +397,7 @@ KEYS contains all the already used keys."
 	      (setq key C-prefix-key)
 	      (return))))))
 
-    ;; try "M-" as prefix and using lower case characters
+    ;; try "M-" as prefix and lower case characters
     (unless key
       (let ((l-file-name (downcase file-name)))
 	(dotimes (idx (length l-file-name))
@@ -336,7 +407,7 @@ KEYS contains all the already used keys."
 	      (setq key C-prefix-key)
 	      (return))))))
 
-    ;; try "M-" as prefix and using upcase characters
+    ;; try "M-" as prefix and upcase characters
     (unless key
       (let ((l-file-name (upcase file-name)))
 	(dotimes (idx (length l-file-name))
@@ -381,7 +452,7 @@ KEYS contains all the already used keys."
 	(return nil))))
 
 (defun one-key-yas/revert-char-case (char)
-  "Revert character CHAR's case if it is an alphabet."
+  "Revert character CHAR's case if it is in alphabet."
   (cond ((and (<= char ?z) (>= char ?a)) (upcase char))
 	((and (<= char ?Z) (>= char ?A)) (downcase char))
 	(t char)))
