@@ -404,7 +404,13 @@
 
 ;;; TODO
 ;;
-;;
+;; Add configurable colourization of menu items.
+;; Could have alist of alists, called e.g. `one-key-colours-regexp-alist',
+;; the keys to the list would be symbols for the one-key menu alists (e.g. 'one-key-menu-bookmark-alist)
+;; and each values would be an alist of regexp/colour pairs.
+;; Then when a menu is formatted, any items matching a regexp in the associated colours-regexp alist
+;; would be coloured with the associated colour. E.g. could make items that are themselves one-key menus
+;; all the same colour, and other items a different colour.
 ;;
 
 ;;; Require
