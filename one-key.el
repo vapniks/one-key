@@ -10,7 +10,7 @@
 ;; Copyright (C) 2009, rubikitch, all rights reserved.
 ;; Created: 2008-12-22 21:54:30
 ;; Version: 0.7.1
-;; Last-Updated: 18/11/2010 18:40:00
+;; Last-Updated: 7/12/2010 20:22:00
 ;;           By: Joe Bloggs
 ;; URL: http://www.emacswiki.org/emacs/download/one-key.el
 ;; Keywords: one-key
@@ -963,10 +963,13 @@ last command when it miss matches in key alist."
             (funcall self))
            ((one-key-match-keystroke key one-key-key-edit)
             ;; try to find file containing one-key menu, and open it if found.
-            (let ((file (find-lisp-object-file-name (intern-soft (concat "one-key-menu-" title "-alist")) 'defvar)))
-              (if file 
+            (let* ((varname (concat "one-key-menu-" title "-alist"))
+                   (file (find-lisp-object-file-name (intern-soft varname) 'defvar)))
+              (if file
                   (progn (find-file-other-window file)
                          (one-key-template-mode)
+                         (goto-char (point-min))
+                         (re-search-forward varname nil t)
                          (setq one-key-help-window-configuration nil))
                 (message "Can't find associated source file!"))))
            ((one-key-match-keystroke key one-key-key-down)
