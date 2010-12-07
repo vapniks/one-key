@@ -275,6 +275,10 @@
 ;;         `one-key-key-down' `one-key-key-pgup' `one-key-key-pgdown' `one-key-key-help' `one-key-key-edit'
 ;;         (they are called one-key-key-??? instead of one-key-???-key so that they will group together in the
 ;;          customization buffer).
+;;       * Deleted `one-key-highlight-prompt' function since this is not used anywhere.
+;;       * Added new variable `one-key-column-major-order', and altered `one-key-help-format' function so that
+;;         now you can choose whether items should be listed column first or row first.
+;;
 ;; 2010/11/27
 ;;    * Joe Bloggs
 ;;       * Quick fix to one-key-template-write so that it remains in one-key-template-mode after writing
@@ -432,6 +436,12 @@
   "Number of items in one line.
 If nil, it is calculated by `window-width'."
   :type 'int
+  :group 'one-key)
+
+(defcustom one-key-column-major-order t
+  "If true then menu items are displayed in column major order (i.e. items will fill first column,
+then second, etc.). Otherwise menu items are displayed in row major order."
+  :type 'boolean
   :group 'one-key)
 
 (defcustom one-key-help-window-max-height nil
@@ -852,13 +862,6 @@ Will highlight this `MSG' with face `MSG-FACE'."
                            msg-face))
     (buffer-string)))
 
-(defun one-key-highlight-prompt (prompt)
-  "Highlight PROMPT information."
-  (let ((msg (format "The keystroke menu of <%s> type '?' for help." prompt)))
-    (message (one-key-highlight msg
-                                " \\(<[^<>]*>\\|'[^']*'\\) "
-                                '(face one-key-prompt)))))
-
 (defun one-key-highlight-help (title keystroke)
   "Highlight TITLE help information with KEYSTROKE."
   (setq title (one-key-highlight (format "Here is a list of <%s> keystrokes. Type '%s' to hide, '%s' to exit, '%s/%s' and '%s/%s' to scroll.\n               Type '%s' for help about next keystroke, and type '%s' to edit this menu\n" title one-key-key-hide one-key-key-quit one-key-key-up one-key-key-down one-key-key-pgup one-key-key-pgdown one-key-key-help one-key-key-edit)
@@ -1151,28 +1154,37 @@ Argument INFO-ALIST is help information as format ((key . describe) . command)."
          (items-per-line (or one-key-items-per-line
                              (floor (/ (- (window-width) 3)
                                        (+ max-length 4)))))
-         (numitems (length info-alist))
-         (column-sizes
-          (reverse (let ((a 0) (b 0))
-                     (loop for col downfrom items-per-line to 1 do
-                           (setq b (/ (- numitems a) col))
-                           (setq a (+ a b))
-                           collect b))))
          keystroke-msg)
-    (loop for row from 0 to (1- (nth 0 column-sizes)) with current-length
-          for ((key . desc) . command) = (nth row info-alist) do
-          (push (format "[%s] %s " key desc) keystroke-msg)
-          (setq current-length (+ (string-width key) (string-width desc)))
-          (push (make-string (- max-length current-length) ? ) keystroke-msg)
-          (loop for col from 0 to (- items-per-line 2) with colsum = row
-                for ((key1 . desc1) . command1) = (nth (+ colsum (nth col column-sizes)) info-alist) do
-                (setq colsum (+ colsum (nth col column-sizes)))
-                (if (< (+ col 1 (* row items-per-line)) numitems)
-                    (progn (push (format "[%s] %s " key1 desc1) keystroke-msg)
-                           (setq current-length (+ (string-width key1) (string-width desc1)))
-                           (push (make-string (- max-length current-length) ? ) keystroke-msg))
-                  (push (make-string max-length ? ) keystroke-msg)))
-          (push "\n" keystroke-msg))
+    (if one-key-column-major-order
+        (let* ((numitems (length info-alist))
+               (column-sizes
+                (reverse (let ((a 0) (b 0))
+                           (loop for col downfrom items-per-line to 1 do
+                                 (setq b (/ (- numitems a) col))
+                                 (setq a (+ a b))
+                                 collect b)))))
+          (loop for row from 0 to (1- (nth 0 column-sizes)) with current-length
+                for ((key . desc) . command) = (nth row info-alist) do
+                (push (format "[%s] %s " key desc) keystroke-msg)
+                (setq current-length (+ (string-width key) (string-width desc)))
+                (push (make-string (- max-length current-length) ? ) keystroke-msg)
+                (loop for col from 0 to (- items-per-line 2) with colsum = row
+                      for ((key1 . desc1) . command1) = (nth (+ colsum (nth col column-sizes)) info-alist) do
+                      (setq colsum (+ colsum (nth col column-sizes)))
+                      (if (< (+ col 1 (* row items-per-line)) numitems)
+                          (progn (push (format "[%s] %s " key1 desc1) keystroke-msg)
+                                 (setq current-length (+ (string-width key1) (string-width desc1)))
+                                 (push (make-string (- max-length current-length) ? ) keystroke-msg))
+                        (push (make-string max-length ? ) keystroke-msg)))
+                (push "\n" keystroke-msg)))
+      (loop for ((key . desc) . command) in info-alist
+            for counter from 1  do
+            (push (format "[%s] %s " key desc) keystroke-msg)
+            (setq current-length (+ (string-width key) (string-width desc)))
+            (push (if (zerop (% counter items-per-line))
+                      "\n"
+                    (make-string (- max-length current-length) ? ))
+                  keystroke-msg)))
     (mapconcat 'identity (nreverse keystroke-msg) "")))
 
 
