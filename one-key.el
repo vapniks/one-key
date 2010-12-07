@@ -966,6 +966,7 @@ last command when it miss matches in key alist."
             (let ((file (find-lisp-object-file-name (intern-soft (concat "one-key-menu-" title "-alist")) 'defvar)))
               (if file 
                   (progn (find-file-other-window file)
+                         (one-key-template-mode)
                          (setq one-key-help-window-configuration nil))
                 (message "Can't find associated source file!"))))
            ((one-key-match-keystroke key one-key-key-down)
