@@ -245,6 +245,13 @@
 ;;
 
 ;;; Change log:
+;; 2010/12/07
+;;    * Joe Bloggs
+;;       * Added key-binding ("C-/" by default) to jump to source file of current one-key menu for editing.
+;;       * Made fixed menu keys configurable with variables `one-key-key-hide' `one-key-key-quit' `one-key-key-up'
+;;         `one-key-key-down' `one-key-key-pgup' `one-key-key-pgdown' `one-key-key-help' `one-key-key-edit'
+;;         (they are called one-key-key-??? instead of one-key-???-key so that they will group together in the
+;;          customization buffer).
 ;; 2010/11/27
 ;;    * Joe Bloggs
 ;;       * Quick fix to one-key-template-write so that it remains in one-key-template-mode after writing
@@ -441,6 +448,62 @@ Contains list of key items for toplevel one-key menu.
 Each item contains a key, description and command, in that order.
 The key should be entered in the same format as that returned by `describe-key'."
   :type '(alist :key-type (cons string string) :value-type function)
+  :group 'one-key)
+
+(defcustom one-key-key-quit "q"
+  "String representing the quit key for one-key menus. This key is available in all one-key menus, and when
+pressed will quit the menu.
+The string should be the same as the string displayed by the `describe-key' function after pressing the key."
+  :type 'string
+  :group 'one-key)
+
+(defcustom one-key-key-hide "?"
+  "String representing the hide key for one-key menus. This key is available in all one-key menus, and when
+pressed will hide the menu.
+The string should be the same as the string displayed by the `describe-key' function after pressing the key."
+  :type 'string
+  :group 'one-key)
+
+(defcustom one-key-key-help "C-?"
+  "String representing the help key for one-key menus. This key is available in all one-key menus, and when
+pressed then the next keypress will show help for the corresponding command from the menu.
+The string should be the same as the string displayed by the `describe-key' function after pressing the key."
+  :type 'string
+  :group 'one-key)
+
+(defcustom one-key-key-edit "C-/"
+  "String representing the edit key for one-key menus. This key is available in all one-key menus, and when
+pressed will try to find the source file for the menu and open it if found. The menu can then be editing.
+The string should be the same as the string displayed by the `describe-key' function after pressing the key."
+  :type 'string
+  :group 'one-key)
+
+(defcustom one-key-key-up "<up>"
+  "String representing the up key for one-key menus. This key is available in all one-key menus, and when
+pressed will scroll the menu down one line.
+The string should be the same as the string displayed by the `describe-key' function after pressing the key."
+  :type 'string
+  :group 'one-key)
+
+(defcustom one-key-key-down "<down>"
+  "String representing the down key for one-key menus. This key is available in all one-key menus, and when
+pressed will scroll the menu up one line.
+The string should be the same as the string displayed by the `describe-key' function after pressing the key."
+  :type 'string
+  :group 'one-key)
+
+(defcustom one-key-key-pgup "<prior>"
+  "String representing the page up key for one-key menus. This key is available in all one-key menus, and when
+pressed will scroll the menu down one page
+The string should be the same as the string displayed by the `describe-key' function after pressing the key."
+  :type 'string
+  :group 'one-key)
+
+(defcustom one-key-key-pgdown "<next>"
+  "String representing the page down key for one-key menus. This key is available in all one-key menus, and when
+pressed will scroll the menu up one page.
+The string should be the same as the string displayed by the `describe-key' function after pressing the key."
+  :type 'string
   :group 'one-key)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Faces ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -775,7 +838,7 @@ Will highlight this `MSG' with face `MSG-FACE'."
 
 (defun one-key-highlight-help (title keystroke)
   "Highlight TITLE help information with KEYSTROKE."
-  (setq title (one-key-highlight (format "Here is a list of <%s> keystrokes. Type '?' to hide, 'q' to exit, 'up/down' and 'page up/page down' to scroll.\n                                         Type 'C-?' for help about next keystroke\n" title)
+  (setq title (one-key-highlight (format "Here is a list of <%s> keystrokes. Type '%s' to hide, '%s' to exit, '%s/%s' and '%s/%s' to scroll.\n               Type '%s' for help about next keystroke, and type '%s' to edit this menu\n" title one-key-key-hide one-key-key-quit one-key-key-up one-key-key-down one-key-key-pgup one-key-key-pgdown one-key-key-help one-key-key-edit)
                                  "\\(<[^<>]*>\\|'[^']*'\\)"
                                  '(face one-key-title)))
   (setq keystroke (one-key-highlight keystroke
@@ -864,32 +927,37 @@ last command when it miss matches in key alist."
             ;; Handle last.
             (one-key-handle-last alternate-function self recursion-p))
            ;; Match build-in keystroke.
-           ((one-key-match-keystroke key "q")
+           ((one-key-match-keystroke key one-key-key-quit)
             ;; quit
             (keyboard-quit))
-           ((one-key-match-keystroke key "?")
+           ((one-key-match-keystroke key one-key-key-hide)
             ;; toggle help window
             (one-key-help-window-toggle title info-alist)
             (funcall self))
-           ((one-key-match-keystroke key "C-?")
+           ((one-key-match-keystroke key one-key-key-help)
             ;; show help
 	    (setq one-key-menu-show-help t)
             (funcall self))
-           ((one-key-match-keystroke key "<down>")
+           ((one-key-match-keystroke key one-key-key-edit)
+            ;; try to find file containing one-key menu, and open it if found.
+            (let ((file (find-lisp-object-file-name (intern-soft (concat "one-key-menu-" title "-alist")) 'defvar)))
+              (if file 
+                  (progn (find-file-other-window file)
+                         (setq one-key-help-window-configuration nil))
+                (message "Can't find associated source file!"))))
+           ((one-key-match-keystroke key one-key-key-down)
             ;; scroll up one line
             (one-key-help-window-scroll-up-line)
             (funcall self))
-           ((one-key-match-keystroke key "<up>")
+           ((one-key-match-keystroke key one-key-key-up)
             ;; scroll down one line
             (one-key-help-window-scroll-down-line)
             (funcall self))
-           ((or (one-key-match-keystroke key "C-j")
-                (one-key-match-keystroke key [next]))
+           ((one-key-match-keystroke key one-key-key-pgdown)
             ;; scroll up one screen
             (one-key-help-window-scroll-up)
             (funcall self))
-           ((or (one-key-match-keystroke key "C-k")
-                (one-key-match-keystroke key [prior]))
+           ((one-key-match-keystroke key one-key-key-pgup)
             ;; scroll down one screen
             (one-key-help-window-scroll-down)
             (funcall self))
@@ -1010,6 +1078,7 @@ Argument INFO-ALIST is help information as format ((key . describe) . command)."
   "Close the help window."
   ;; Kill help buffer.
   (when (bufferp (get-buffer one-key-buffer-name))
+    (delete-window (get-buffer-window one-key-buffer-name))
     (kill-buffer one-key-buffer-name))
   ;; Restore window layout if
   ;; `one-key-help-window-configuration' is valid value.
