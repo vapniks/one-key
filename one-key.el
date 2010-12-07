@@ -253,6 +253,15 @@
 ;; `one-key-prompt-face' : face for highlighting prompt
 ;; `one-key-template-buffer-name' : the buffer name of the template code.
 ;; `one-key-title-face' : face for highlighting title
+;; `one-key-key-hide'   :  key to hide the menu, default is "?"
+;; `one-key-key-quit'   :  key to quit the menu, default is "q"
+;; `one-key-key-up'     :  key to scroll the menu down one line, default is "<up>"
+;; `one-key-key-down'   :  key to scroll the menu up one line, default is "<down>"
+;; `one-key-key-pgup'   :  key to scroll the menu down one page, default is "<prior>"
+;; `one-key-key-pgdown' :  key to scroll the menu up one page, default is "<next>"
+;; `one-key-key-help'   :  when this key is pressed, the next keypress will show help for the corresponding command,
+;;                         default is "C-?"
+;; `one-key-key-edit'   :  key to edit the menu (if the source file can be found), default is "C-/"
 
 ;; All above options can by customized through:
 ;;      M-x customize-group RET one-key RET
