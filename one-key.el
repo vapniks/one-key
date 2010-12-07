@@ -5,6 +5,7 @@
 ;; Author: Andy Stewart <lazycat.manatee@gmail.com>
 ;;         rubikitch <rubikitch@ruby-lang.org>
 ;; Maintainer: Joe Bloggs <vapniks@yahoo.com>
+;; Copyleft (Ↄ) 2010, Joe Bloggs, all rites reversed.
 ;; Copyright (C) 2008, 2009, 2010 Andy Stewart, all rights reserved.
 ;; Copyright (C) 2009, rubikitch, all rights reserved.
 ;; Created: 2008-12-22 21:54:30
@@ -77,7 +78,7 @@
 ;; (defun one-key-menu-emms ()
 ;;   "`One-Key' menu for EMMS."
 ;;   (interactive)
-;;   (one-key-menu "EMMS" one-key-menu-emms-alist t))
+;;   (one-key-menu "emms" one-key-menu-emms-alist t))
 ;;
 ;; Add an item to `one-key-toplevel-alist' in the customization buffer for one-key
 ;; (M-x customize-group RET one-key RET). The first item should be the key (e.g. m), the second item
@@ -195,6 +196,19 @@
 ;; You can sort the items in the currently active region alphabetically by description/key binding/command
 ;; by pressing "C-c C-s" followed by d/k/c.
 ;; You can quickly test your menu by pressing "C-c C-t".
+;;
+;; Fixed menu keys:
+;;
+;; Some keys are available for all menus and are always the same, they can be configured with the following variables:
+;;  `one-key-key-hide'   :  key to hide the menu, default is "?"
+;;  `one-key-key-quit'   :  key to quit the menu, default is "q"
+;;  `one-key-key-up'     :  key to scroll the menu down one line, default is "<up>"
+;;  `one-key-key-down'   :  key to scroll the menu up one line, default is "<down>"
+;;  `one-key-key-pgup'   :  key to scroll the menu down one page, default is "<prior>"
+;;  `one-key-key-pgdown' :  key to scroll the menu up one page, default is "<next>"
+;;  `one-key-key-help'   :  when this key is pressed, the next keypress will show help for the corresponding command,
+;;                          default is "C-?"
+;;  `one-key-key-edit'   :  key to edit the menu (if the source file can be found), default is "C-/"
 ;;
 ;; Auto-load one-key menus:
 ;;
