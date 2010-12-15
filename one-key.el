@@ -1238,7 +1238,7 @@ TITLE is title name that any string you like."
       ;; Insert (("key" . "desc") . command).
       (while (not (eobp))
         (let ((pair (split-string (buffer-substring (point-at-bol) (point-at-eol)) "\t+")))
-          (if (eq 2 (length pair))
+          (if (and (eq 2 (length pair)) (not (equal "" (car pair))))
               (destructuring-bind (key cmd)
                   (split-string (buffer-substring (point-at-bol) (point-at-eol)) "\t+")
                 (delete-region (point-at-bol) (point-at-eol))
