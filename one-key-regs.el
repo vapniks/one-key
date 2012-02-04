@@ -267,12 +267,8 @@ The second sexp is stored in the register and will be evaluated when the registe
 The chars are the chars associated with each register, and the labels are strings that
 will be displayed with each char in `one-key-regs-menu-alist' for the one-key menu.")
 
-(defvar one-key-regs-currently-loaded-file one-key-regs-default-file
-  "The currently loaded registers file, or nil if none have been loaded.
-This variable is used by one-key-regs when saving changes to the current register list or their labels.")
-
 (defcustom one-key-regs-prompt-for-label nil
-  "If set to t then you will be prompted for a label when creating a new one-key-register.
+  "If set to t then you will be prompted for a label when creating a new one-key register.
 If you select the register type from a prompt (by using a non-numeric prefix key with the one-key-regs-function)
 you will be prompted for a label regardless of the value of this variable.
 Otherwise a default label for the register will be created using the appropriate function in `one-key-regs-reserved-register-types' or `one-key-regs-custom-register-types'."
@@ -341,6 +337,10 @@ This file will be loaded when this library is loaded."
   :group 'one-key-regs
   :type '(file))
 
+(defvar one-key-regs-currently-loaded-file one-key-regs-default-file
+  "The currently loaded registers file, or nil if none have been loaded.
+This variable is used by one-key-regs when saving changes to the current register list or their labels.")
+
 (defcustom one-key-regs-merge-conflicts 'prompt
   "What method to use to handle conflicts when loading new registers.
 If a new register uses the same char as a currently loaded register this variable is used to decide how to resolve
@@ -356,7 +356,7 @@ the conflict."
 (defcustom one-key-regs-prefix-key "C-s"
   "The default prefix for `one-key-regs' keys.
 Keys formed from this key joined with the keys defined by `one-key-regs-quick-keys' will be bound to
-the `one-key-regs-function-'s by the `one-key-regs-make-keybindings' function."
+the `one-key-regs-function-'s by the `one-key-regs-define-keybindings' function."
   :group 'one-key-regs
   :type '(string))
 
@@ -368,7 +368,7 @@ opens the main menu for `one-key-regs'."
   :type '(string))
 
 (defcustom one-key-regs-quick-keys (number-sequence 33 126)
-  "List of keys to use with `one-key-regs-make-keybindings'.
+  "List of keys to use with `one-key-regs-define-keybindings'.
 These keys will be used with the prefix key supplied to that function to define
 shortcut keys to `one-key-regs-functions' which copy/insert registers."
   :group 'one-key-regs
@@ -382,12 +382,11 @@ The register type is one of the symbols listed in the cars of the elements of `o
             if (funcall (cadddr type) reg) do (return (car type)))
       (and (consp reg) (symbolp (car reg)) (car reg))))
 
-(defun one-key-regs-make-function (char)
+(defmacro define-one-key-regs-function (funcname char)
   "Function to create function with name one-key-regs-function-<CHAR> (where <CHAR> is (char-to-string CHAR)).
 The one-key-regs-function-<CHAR> function either executes the register associated with char <CHAR>, or creates
 a new register depending on whether a region is active and if a prefix arg is supplied."
-  (eval
-   `(defun ,(intern (concat "one-key-regs-function-" (char-to-string char))) (prefixarg &optional regtype)
+   `(defun ,funcname (prefixarg &optional regtype)
       ,(format "Create new register and place in char '%c', or execute existing register in char '%c'.
 If region is active and no prefix is used, create a register of type `one-key-regs-default-region-register-type'.
 If region is not active an no prefix arg is used then execute the register in '%c' or create a new one of type
@@ -428,8 +427,7 @@ If a non-numeric prefix arg is used then prompt the user for the type of registe
                                 (substring (mapconcat 'identity (split-string str "\n") "\\n") 0 minlen))
                             defaultlabel)))
               (add-to-list 'one-key-regs-labels-alist (cons ,char label))))
-        (one-key-regs-execute-register ,char))) ;; end of one-key-regs-function-char
-   ))
+        (one-key-regs-execute-register ,char))))
 
 (defun one-key-regs-execute-register (char)
   "Execute the register stored in char CHAR.
@@ -444,20 +442,22 @@ elisp form in `one-key-regs-custom-register-types'."
             (eval (cdr val))
           (error "Invalid register: %S" val)))))
 
-(defun one-key-regs-make-keybindings (prefixkey)
-  "Bind keys with prefix PREFIXKEY to functions with names of the form one-key-regs-function-<CHAR>.
+(defun one-key-regs-define-keybindings (prefixkey)
+  "Bind keys with prefix PREFIXKEY to functions with names of the form `one-key-regs-function-<CHAR>'.
 The <CHAR>'s are those stored in `one-key-regs-quick-keys', and the one-key-regs-function's are created by the
-`one-key-regs-make-function' function."
+`define-one-key-regs-function' macro."
   (interactive (list (read-string "Prefix key (default = C-s): " nil nil "C-s")))
   (dolist (char one-key-regs-quick-keys)
-    (one-key-regs-make-function char)
-    (if (and (< char 91) (> char 64))
+    (let* ((charstr (char-to-string char))
+           (funname (intern (concat "one-key-regs-function-" charstr))))
+      (eval `(define-one-key-regs-function ,funname ,char))
+      (if (and (< char 91) (> char 64))
+          (eval `(global-set-key
+                  (kbd ,(concat prefixkey "-S-" (char-to-string (+ char 32))))
+                  ',funname))
         (eval `(global-set-key
-                (kbd ,(concat prefixkey "-S-" (char-to-string (+ char 32))))
-                ',(intern (concat "one-key-regs-function-" (char-to-string char)))))
-      (eval `(global-set-key
-              (kbd ,(concat prefixkey "-" (char-to-string char)))
-              ',(intern (concat "one-key-regs-function-" (char-to-string char))))))))
+                (kbd ,(concat prefixkey "-" charstr))
+                ',funname))))))
 
 (defvar one-key-regs-menu-alist nil
   "The `one-key' menu alist for one-key-regs-functions.")
@@ -695,7 +695,7 @@ bookmark should be added to the `one-key' menu."
   (add-to-list 'one-key-regs-bookmarks-alist '(("<return>" . "Bookmarks list") . edit-bookmarks))
   (one-key-menu "filtered-bookmarks" one-key-regs-bookmarks-alist))
 
-(one-key-regs-make-keybindings one-key-regs-prefix-key)
+(one-key-regs-define-keybindings one-key-regs-prefix-key)
 (global-set-key (eval `(kbd ,(concat one-key-regs-prefix-key "-"
                                      one-key-regs-menu-key))) 'one-key-regs-menu)
 
