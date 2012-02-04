@@ -1,0 +1,197 @@
+;;; one-key-registers.el --- Code for fast, simple and flexible handling of registers, macros and bookmarks
+
+;; Filename: one-key-registers.el
+;; Description: Code for fast, simple and flexible handling of registers, macros and bookmarks
+;; Author: Joe Bloggs <vapniks@yahoo.com>
+;; Maintainer: Joe Bloggs <vapniks@yahoo.com>
+;; Copyleft (Ↄ) 2012, Joe Bloggs, all rites reversed.
+;; Created: 2012-01-22 16:27:08
+;; Version: 0.1
+;; Last-Updated: 2012-01-22 16:27:08
+;;           By: Joe Bloggs
+;; URL: http://www.emacswiki.org/emacs/download/one-key-registers.el
+;; Keywords: macros, registers, one-key, utility
+;; Compatibility: GNU Emacs 24.0.50.2
+;;
+;; Features that might be required by this library:
+;;
+;; one-key.el, better-registers.el
+;;
+
+;;; This file is NOT part of GNU Emacs
+
+;;; License
+;;
+;; This program is free software; you can redistribute it and/or modify
+;; it under the terms of the GNU General Public License as published by
+;; the Free Software Foundation; either version 3, or (at your option)
+;; any later version.
+
+;; This program is distributed in the hope that it will be useful,
+;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;; GNU General Public License for more details.
+
+;; You should have received a copy of the GNU General Public License
+;; along with this program; see the file COPYING.  If not, write to
+;; the Free Software Foundation, Inc., 51 Franklin Street, Fifth
+;; Floor, Boston, MA 02110-1301, USA.
+
+;;; Commentary: 
+;; 
+;; Code for fast, simple and flexible handling of registers, macros and bookmarks
+;; This library provides code for easy access and storage of different kinds of registers
+;; (including keyboard macros and bookmarks). Register sets can be defined, saved,
+;; and loaded on demand,
+;; or associated with particular buffers or major-modes.
+;; A one-key menu is created for the currently loaded register set which allows
+;; fast access and labelling of the registers so you can remember what they do.
+
+;;; Installation:
+;;
+;; Put one-key-registers.el in a directory in your load-path, e.g. ~/.emacs.d/
+;; You can add a directory to your load-path with the following line in ~/.emacs
+;; (add-to-list 'load-path (expand-file-name "~/elisp"))
+;; where ~/elisp is the directory you want to add 
+;; (you don't need to do this for ~/.emacs.d - it's added by default).
+;;
+;; Add the following to your ~/.emacs startup file.
+;;
+;; (require 'one-key-registers)
+;;
+;; The following elisp packages are also required: better-registers.el and one-key.el
+;; These are available from the emacswiki: http://www.emacswiki.org
+
+
+;;; Customize:
+;;
+;; 
+;;
+;; All of the above can customized by:
+;;      M-x customize-group RET one-key-registers RET
+;;
+
+;;; Change log:
+;;	
+;; 2012/01/22
+;;      * First released.
+;; 
+
+;;; Acknowledgements:
+;;
+;; 
+;;
+
+;;; TODO
+;;
+;; 
+;;
+
+;;; Require
+(require 'better-registers)
+(require 'one-key)
+
+;;; Code:
+
+
+
+
+
+
+(defun make-register-key-insert-func (char1)
+  "Function to create function with name aleblanc-register-? (where ? is (char-to-string CHAR1)), 
+which either inserts or copies into register CHAR1, depending on the value of the prefix arg, 
+and whether region is active.
+The function takes a single argument, which when called interactively is the current prefix argument.
+If region is active and no prefix arg is given it will copy region into register CHAR1.
+If region is active an a prefix arg is given it will copy the rectangle defined by the region into register CHAR1.
+If region is not active and no prefix arg is given it will insert/jump to the register CHAR1 depending on what type
+of register it is.
+If region is not active and a numeric prefix arg is given it will create a register using one of the following 
+functions depending on the value of the prefix arg:
+
+1 : point-to-register
+2 : better-registers-put-buffer-in-register 
+3 : better-registers-put-buffer-filename-in-register
+4 : window-configuration-to-register
+5 : better-registers-put-keyboard-macro-in-register
+6 : number-to-register
+7 : frame-configuration-to-register
+"
+  (eval
+   `(defun ,(intern (concat "aleblanc-register-" (char-to-string char1))) (prefixarg)
+      ,(concat "If region is active copy it to register " (char-to-string char1) ", otherwise insert register contents to buffer. The following prefix args can be used to select different kinds of registers to save:
+1 : point-to-register
+2 : better-registers-put-buffer-in-register 
+3 : better-registers-put-buffer-filename-in-register
+4 : window-configuration-to-register
+5 : better-registers-put-keyboard-macro-in-register
+6 : number-to-register
+7 : frame-configuration-to-register
+")
+      (interactive "P")
+      (if (use-region-p)
+          (let ((start (region-beginning))
+                (end (region-end)))
+            (if prefixarg
+                (progn (copy-rectangle-to-register ,char1 start end)
+                       (message (concat "Rectangle copied to register " ,(char-to-string char1))))
+              (copy-to-register ,char1 start end)
+              (message (concat "Region copied to register " ,(char-to-string char1))))
+            (keyboard-quit))
+        (cond ((not prefixarg) (better-registers-jump-to-register ,char1))
+              ((equal prefixarg 1) (point-to-register ,char1) 
+               (message (concat "Point copied to register " ,(char-to-string char1))))
+              ((equal prefixarg 2) (better-registers-put-buffer-in-register ,char1)
+               (message (concat "Buffer copied to register " ,(char-to-string char1))))
+              ((equal prefixarg 3) (better-registers-put-buffer-filename-in-register ,char1)
+               (message (concat "Buffer filename copied to register " ,(char-to-string char1))))
+              ((equal prefixarg 4) (window-configuration-to-register ,char1)
+               (message (concat "Window config copied to register " ,(char-to-string char1))))
+              ((equal prefixarg 5) (better-registers-put-keyboard-macro-in-register ,char1)
+               (message (concat "Keyboard macro copied to register " ,(char-to-string char1))))
+              ((equal prefixarg 6) (number-to-register nil ,char1)
+               (message (concat "Number copied to register " ,(char-to-string char1))))
+              ((equal prefixarg 7) (frame-configuration-to-register ,char1)
+               (message (concat "Frame config copied to register " ,(char-to-string char1)))))))))
+
+(defun aleblanc-registers-help nil
+  "Show short message explaining how to use register shortcuts."
+  (interactive)
+  (message "To save/execute register in key x, press C-s-x after pressing one of the following prefix keys:
+1 : point
+2 : buffer 
+3 : filename
+4 : window configuration
+5 : keyboard macro
+6 : number
+7 : frame configuration"))
+
+(defcustom my-register-quick-keys (list ?0 ?1 ?2 ?3 ?4 ?5 ?6 ?7 ?8 ?9 ?q ?w ?e ?r ?t ?y ?u ?i ?o ?p ?a ?s ?d ?f ?g ?h ?j ?k ?l ?z ?x ?c ?v ?b ?n ?m ?A ?B ?C ?D ?E ?F ?G ?H ?I ?J ?K ?L ?M ?N ?O ?P ?Q ?R ?S ?T ?U ?V ?W ?X ?Y ?Z ?. ?, ?/ ?[ ?] ?- ?= ?# ?; ?' ?`)
+  "List of keys to use with aleblanc-make-register-insert-keybindings
+These keys will be used with the prefix key supplied to that function to define 
+shortcut keys to aleblanc-register-insert- functions which copy/insert registers."
+  :group 'convenience
+  :type '(repeat character))
+
+;;# (message "aleblanc-make-register-insert-keybindings")
+(defun aleblanc-make-register-insert-keybindings (prefixkey)
+  "Bind keys with prefix prefixkey to a function that either inserts the register that is in the
+postfix key, or if region is active it will save the region to the register in that key.
+prefixkey should be a string such as \"C-s\". All alphanumeric postfix keys will be bound, 
+e.g. C-s-1, C-s-2, ... , C-s-z"
+  (interactive (list (read-string "Prefix key (default = C-s): " nil nil "C-s")))
+  (let ((messagetext "Keys for copying/inserting text:\n"))
+    (dolist (char2 my-register-quick-keys)
+      (make-register-key-insert-func char2)
+      (if (and (< char2 91) (> char2 64))
+	  (eval `(global-set-key (kbd ,(concat prefixkey "-S-" (char-to-string (+ char2 32)))) ',(intern (concat "aleblanc-register-" (char-to-string char2)))))
+	(eval `(global-set-key (kbd ,(concat prefixkey "-" (char-to-string char2))) ',(intern (concat "aleblanc-register-" (char-to-string char2))))))
+      (setq messagetext (concat messagetext prefixkey "-" (char-to-string char2) ", ")))
+    (store-substring messagetext (- (length messagetext) 2) " ")
+    (message (concat messagetext "\n Use prefix to copy rectangles."))))
+
+
+(provide 'one-key-registers)
+
+;;; one-key-registers.el ends here
