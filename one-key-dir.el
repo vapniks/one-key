@@ -98,15 +98,15 @@ Setting this to a large number can avoid error of `Lisp nesting exceeds max-lisp
   "Filesystem navigation using `one-key'."
   :group 'one-key)
 
-(defcustom one-key-dir-back-to-topdir-key "^"
-  "Keybinding that will be used to return to the parent directory."
+(defcustom one-key-dir-back-to-topdir-key ?^
+  "Key that will be used to return to the parent directory."
   :group 'one-key-dir
-  :type 'string)
+  :type 'character)
 
-(defcustom one-key-dir-current-directory-key "."
-  "Keybinding that will be used to open the current directory."
+(defcustom one-key-dir-current-directory-key ?.
+  "Key that will be used to open the current directory."
   :group 'one-key-dir
-  :type 'string)
+  :type 'character)
 
 (defcustom one-key-dir/topdir "~/"
   "The fixed top level dir that `one-key-dir-visit' can explore the subdirs of,
@@ -201,22 +201,22 @@ If optional DONT-SHOW-PARENT is non-nil, there will not be a `one-key-dir-back-t
   (let* ((dirname (file-name-as-directory (file-truename dir)))
 	 (subdirs (mapcar #'file-name-nondirectory (one-key-dir/subdirs dir)))
 	 (files (mapcar #'file-name-nondirectory (one-key-dir/subdirs dir t)))
-	 (usedkeys (if dont-show-parent '("q") `(,one-key-dir-back-to-topdir-key "q")))
+	 (usedkeys (if dont-show-parent '(?q) `(,one-key-dir-back-to-topdir-key ?q)))
 	 (key-name-list nil))
     ;; Push the `one-key-dir-back-to-topdir-key'
     (unless dont-show-parent
-      (push `(,one-key-dir-back-to-topdir-key ".." ,(expand-file-name ".." dirname) 1) key-name-list))
+      (push `(,(char-to-string one-key-dir-back-to-topdir-key) ".." ,(expand-file-name ".." dirname) 1) key-name-list))
     ;; Push menu item for opening current directory
-    (push `(,one-key-dir-current-directory-key "." ,dirname 0) key-name-list)
+    (push `(,(char-to-string one-key-dir-current-directory-key) "." ,dirname 0) key-name-list)
     ;; build key for subdirs
     (dolist (subdir subdirs)
       (let ((key (one-key-dir/generate-key subdir usedkeys)))
-	(push `(,key ,(concat subdir "/") ,(concat (file-name-as-directory dirname) subdir) 1) key-name-list)
+	(push `(,(char-to-string key) ,(concat subdir "/") ,(concat (file-name-as-directory dirname) subdir) 1) key-name-list)
 	(push key usedkeys)))
     ;; build key for files
     (dolist (file files)
       (let ((key (one-key-dir/generate-key file usedkeys)))
-	(push `(,key ,(file-name-nondirectory (file-truename (concat dirname file))) ,dirname 2) key-name-list)
+	(push `(,(char-to-string key) ,(file-name-nondirectory (file-truename (concat dirname file))) ,dirname 2) key-name-list)
 	(push key usedkeys)))
     key-name-list))
 
@@ -225,16 +225,9 @@ If optional DONT-SHOW-PARENT is non-nil, there will not be a `one-key-dir-back-t
 The generated key will be used in the one-key menu. FILE-NAME is a string.
 USEDKEYS contains all the already used keys."
   (or (dolist (element one-key-dir/alphabets-and-numbers)
-        (let ((normal-key (char-to-string element)))
-          (when (one-key-dir/key-not-used normal-key usedkeys)
-            (return normal-key))))
+        (when (not (memq element usedkeys))
+          (return element)))
       (error "Can not generate a unique key for file : %s" file-name)))
-
-(defun one-key-dir/key-not-used (key key-name-list)
-  "Return t if KEY is not used in KEY-NAME-LIST."
-  (dolist (key-name key-name-list t)
-    (if (string= key key-name)
-	(return nil))))
 
 (defun one-key-dir/subdirs (directory &optional file?)
   "Return subdirs or files of DIRECTORY according to FILE?.
