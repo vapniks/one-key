@@ -550,6 +550,44 @@ The string should be the same as the string displayed by the `describe-key' func
   :type 'string
   :group 'one-key)
 
+(defcustom one-key-special-keybindings '(("q" . (lambda (self) (keyboard-quit)))
+                                         ("?"  . (lambda (self)
+                                                   (one-key-help-window-toggle title info-alist)
+                                                   (funcall self)))
+                                         ("<up>" . (lambda (self)
+                                                     (one-key-help-window-scroll-down-line)
+                                                     (funcall self)))
+                                         ("<down>" . (lambda (self)
+                                                       (one-key-help-window-scroll-up-line)
+                                                       (funcall self)))
+                                         ("<prior>" . (lambda (self)
+                                                        (one-key-help-window-scroll-down)
+                                                        (funcall self)))
+                                         ("<next>" . (lambda (self)
+                                                       (one-key-help-window-scroll-up)
+                                                       (funcall self)))
+                                         ("C-?" . (lambda (self)
+                                                    (setq one-key-menu-show-help t)
+                                                    (funcall self)))
+                                         ("C-/" . (lambda (self) 
+                                                    (let* ((varname (concat "one-key-menu-" title "-alist"))
+                                                           (file (find-lisp-object-file-name (intern-soft varname) 'defvar)))
+                                                      (if file
+                                                          (progn (find-file-other-window file)
+                                                                 (one-key-template-mode)
+                                                                 (goto-char (point-min))
+                                                                 (search-forward varname nil t)
+                                                                 (setq one-key-help-window-configuration nil))
+                                                        (message "Can't find associated source file!"))))))
+                                         
+  "An alist of (KEY . FUNCTION) pairs. KEY is a special key in the `one-key' menu that invokes FUNCTION.
+These keys and functions apply to all `one-key' menus and are not displayed with the menu specific keys.
+They are for general tasks such as displaying command help, scrolling the window, sorting menu items, etc.
+Each FUNCTION will be passed a single argument which is a function which will recreate the current `one-key' menu
+when called (using `funcall', e.g. (funcall arg)).
+Then functions may also make use of the arguments passed to the `one-key-menu' function."
+  :type '(alist :key-type string :value-type function)
+  :group 'one-key)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Faces ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defface one-key-title
@@ -575,7 +613,7 @@ The string should be the same as the string displayed by the `describe-key' func
   "t if `one-key-menu' has been called non-recursively.")
 
 (defvar one-key-menu-show-help nil
-  "If true show help for function when associated key is pressed in one-key-menu.")
+  "If true show help for function associated with next keystroke, when it is pressed in the one-key-menu.")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Major Mode ;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (define-derived-mode one-key-template-mode emacs-lisp-mode "one-key"
@@ -866,8 +904,7 @@ TITLE is title name of the menu. It can be any string you like."
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Utilities Functions ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun one-key-highlight (msg msg-regexp msg-face)
-  "Highlight special `MSG' with regular expression `MSG-REGEXP'.
-Will highlight this `MSG' with face `MSG-FACE'."
+  "Highlight text in string `MSG' that matches regular expression `MSG-REGEXP' with face `MSG-FACE'."
   (with-temp-buffer
     (insert msg)
     (goto-char (point-min))
@@ -909,168 +946,74 @@ that call in `unwind-protect'.
 `ALTERNATE-FUNCTION' the alternate function execute at last.
 `EXECUTE-LAST-COMMAND-WHEN-MISS-MATCH' whether to execute the
 last command when it miss matches in key alist."
-  (let ((self (function
-               (lambda ()
-                 (one-key-menu
-                  title info-alist miss-match-exit-p
-                  recursion-p
-                  protect-function
-                  alternate-function
-                  execute-last-command-when-miss-match))))
+  (let ((self (function (lambda () (one-key-menu
+                                    title info-alist miss-match-exit-p
+                                    recursion-p
+                                    protect-function
+                                    alternate-function
+                                    execute-last-command-when-miss-match))))
         last-key)
-    ;; Execute.
     (unwind-protect
-        (let* ((event (read-event
-                       ;; Just show help message when first call,
-                       ;; don't overwritten message from command.
-                       (if one-key-menu-call-first-time
-			   ;;  ensure popup window opens first time
-			   (progn (setq one-key-menu-call-first-time nil)
-				  (if one-key-popup-window
-				      (one-key-help-window-toggle title info-alist)))
-                         "")))
-               (key (if (if (<= emacs-major-version 22)
-                            (with-no-warnings
-                              (char-valid-p event)) ;for compatibility Emacs 22
-                          (characterp event))
-                        ;; Transform to string when event is char.
-                        (char-to-string event)
-                      ;; Otherwise return vector.
-                      (make-vector 1 event)))
-               match-key)
-          (cond
-           ;; Match user keystrokes.
-           ((catch 'match
-              (loop for ((k . desc) . command) in info-alist do
-                    ;; Get match key.
-                    (setq match-key k)
-                    ;; Call function when match keystroke.
-                    (when (one-key-match-keystroke key match-key)
-		      (if one-key-menu-show-help
-			  (progn 
-			    ;; Show help about command
-			    (describe-function command)
-			    ;; Set `one-key-menu-call-first-time' with "nil".
-			    (setq one-key-menu-call-first-time nil)
-			    (setq one-key-menu-show-help nil)
-			    (setq recursion-p t)
-			    (throw 'match t))
-			;; Close help window first.
-			(one-key-help-window-close)
-			;; Set `one-key-menu-call-first-time' with "t" for recursion execute.
-			(setq one-key-menu-call-first-time t)
-			;; Execute.
-			(call-interactively command)
-			;; Set `one-key-menu-call-first-time' with "nil".
-			(setq one-key-menu-call-first-time nil)
-			(throw 'match t))))
-              nil)
-            ;; Handle last.
-            (one-key-handle-last alternate-function self recursion-p))
-           ;; Match build-in keystroke.
-           ((one-key-match-keystroke key one-key-key-quit)
-            ;; quit
-            (keyboard-quit))
-           ((one-key-match-keystroke key one-key-key-hide)
-            ;; toggle help window
-            (one-key-help-window-toggle title info-alist)
-            (funcall self))
-           ((one-key-match-keystroke key one-key-key-help)
-            ;; show help
-	    (setq one-key-menu-show-help t)
-            (funcall self))
-           ((one-key-match-keystroke key one-key-key-edit)
-            ;; try to find file containing one-key menu, and open it if found.
-            (let* ((varname (concat "one-key-menu-" title "-alist"))
-                   (file (find-lisp-object-file-name (intern-soft varname) 'defvar)))
-              (if file
-                  (progn (find-file-other-window file)
-                         (one-key-template-mode)
-                         (goto-char (point-min))
-                         (search-forward varname nil t)
-                         (setq one-key-help-window-configuration nil))
-                (message "Can't find associated source file!"))))
-           ((one-key-match-keystroke key one-key-key-down)
-            ;; scroll up one line
-            (one-key-help-window-scroll-up-line)
-            (funcall self))
-           ((one-key-match-keystroke key one-key-key-up)
-            ;; scroll down one line
-            (one-key-help-window-scroll-down-line)
-            (funcall self))
-           ((one-key-match-keystroke key one-key-key-pgdown)
-            ;; scroll up one screen
-            (one-key-help-window-scroll-up)
-            (funcall self))
-           ((one-key-match-keystroke key one-key-key-pgup)
-            ;; scroll down one screen
-            (one-key-help-window-scroll-down)
-            (funcall self))
-           ;; Not match any keystrokes.
-           (t
-            ;; Close help window first.
-            (one-key-help-window-close)
-            ;; Quit when keystroke not match
-            ;; and argument `miss-match-exit-p' is `non-nil'.
-            (when miss-match-exit-p
-              ;; Record last key.
-              (setq last-key key)
-              ;; Abort.
-              (keyboard-quit))
-            ;; Handle last.
-            (one-key-handle-last alternate-function self recursion-p))))
-      ;; Restore value of `one-key-call-first-time'.
-      (setq one-key-menu-call-first-time t)
-      ;; Restore value of `one-key-menu-show-help'.
-      (setq one-key-menu-show-help nil)
-      ;; Close help window.
+        (let* ((event (read-event (if one-key-menu-call-first-time ; Just show the help message when first called.
+                                      (progn (setq one-key-menu-call-first-time nil)
+                                             (if one-key-popup-window
+                                                 (one-key-help-window-toggle title info-alist)))
+                                    "")))
+               (key (single-key-description event))) ; get string representation of event
+          (cond ((catch 'match          ; Match user keystrokes.
+                   (loop for ((match-key . desc) . command) in info-alist do
+                         (when (equal key match-key)
+                           (if one-key-menu-show-help 
+                               (progn (if (symbolp command)
+                                          (describe-function command)
+                                        (with-help-window (help-buffer)
+                                          (princ command)))
+                                 (setq one-key-menu-call-first-time nil)
+                                 (setq one-key-menu-show-help nil)
+                                 (setq recursion-p t)
+                                 (throw 'match t))
+                             (one-key-help-window-close)
+                             (setq one-key-menu-call-first-time t) ; allow recursive execution of `one-key-menu'
+                             (call-interactively command)
+                             (setq one-key-menu-call-first-time nil)
+                             (throw 'match t)))) nil)
+                 (one-key-handle-last alternate-function self recursion-p)) 
+                ((assoc key one-key-special-keybindings) ; Match special keys
+                 (funcall (cdr (assoc key one-key-special-keybindings)) self))
+                (t (one-key-help-window-close) ; If the key doesn't match...
+                   (when miss-match-exit-p ; quit if `miss-match-exit-p' is `non-nil'
+                     (setq last-key key)   ; record the last key
+                     (keyboard-quit))      ; abort
+                   (one-key-handle-last alternate-function self recursion-p)))) 
+      (setq one-key-menu-call-first-time t) 
+      (setq one-key-menu-show-help nil) 
       (one-key-help-window-close)
-      ;; Run protect function
-      ;; when `protect-function' is valid function.
-      (if (and protect-function
+      (if (and protect-function ; execute `protect-function' if it's a valid function
                (functionp protect-function))
           (call-interactively protect-function))
-      ;; Execute last command when miss match
-      ;; user key alist.
-      (when (and execute-last-command-when-miss-match
-                 last-key)
-        ;; Execute command corresponding last input key.
-        (one-key-execute-binding-command last-key)))))
+      (when (and execute-last-command-when-miss-match last-key) ; execute the last-key if it didn't match 
+        (one-key-execute-binding-command last-key))))) ; and `execute-last-command-when-miss-match' is non-nil
 
 (defun one-key-execute-binding-command (key)
-  "Execute the command binding KEY."
-  (let ( ;; Try to get function corresponding `KEY'.
-        (function (key-binding key)))
-    ;; Execute corresponding command, except `keyboard-quit'.
+  "Execute the command bound to KEY, unless this command is `keyboard-quit'."
+  (let ((function (key-binding key)))
     (when (and (not (eq function 'keyboard-quit))
                (functionp function))
-      ;; Make sure `last-command-event' equal `last-input-event'.
       (setq last-command-event last-input-event)
-      ;; Run function.
       (call-interactively function))))
 
-(defun one-key-match-keystroke (key match-key)
-  "Return `non-nil' if `KEY' match `MATCH-KEY'.
-Otherwise, return nil."
-  (cond ((stringp match-key) (setq match-key (read-kbd-macro match-key)))
-        ((vectorp match-key) nil)
-        (t (signal 'wrong-type-argument (list 'array match-key))))
-  (equal key match-key))
-
 (defun one-key-read-keymap (keystroke)
-  "Read keymap.
-If KEYSTROKE is a name of keymap, use the keymap.
-Otherwise it is interpreted as a key stroke."
+  "Read keymap KEYSTROKE.
+If KEYSTROKE is a name of keymap, use the keymap, otherwise it's interpreted as a key stroke."
   (let ((v (intern-soft keystroke)))
     (if (and (boundp v) (keymapp (symbol-value v)))
         (symbol-value v)
       (key-binding (read-kbd-macro keystroke)))))
 
 (defun one-key-handle-last (alternate-function recursion-function recursion-p)
-  "The last process when match user keystroke or not match.
-ALTERNATE-FUNCTION is the alternate function to be execute.
-RECURSION-FUNCTION is the recursion function to be execute
-when option RECURSION-P is non-nil."
+  "Last function called after handling a key press in the `one-key' menu that's not listed in `one-key-special-keys-alist'.
+ALTERNATE-FUNCTION is the alternative function to be executed.
+RECURSION-FUNCTION is the recursion function to be executed when option RECURSION-P is non-nil."
   ;; Execute alternate function.
   (when (and alternate-function
              (functionp alternate-function))
@@ -1080,16 +1023,15 @@ when option RECURSION-P is non-nil."
   (if recursion-p
       (funcall recursion-function)))
 
-(defun one-key-help-window-exist-p ()
-  "Return `non-nil' if `one-key' help window exist.
-Otherwise, return nil."
+(defun one-key-help-window-exist-p nil
+  "Return `non-nil' if `one-key' help window exists, otherwise return nil."
   (and (get-buffer one-key-buffer-name)
        (window-live-p (get-buffer-window (get-buffer one-key-buffer-name)))))
 
 (defun one-key-help-window-toggle (title info-alist)
-  "Toggle the help window.
-Argument TITLE is title name for help information.
-Argument INFO-ALIST is help information as format ((key . describe) . command)."
+  "Toggle the `one-key' help window.
+Argument TITLE is the alist of keys and associated decriptions and functions.
+Each item of this list is in the form: ((key . describe) . command)."
   (if (one-key-help-window-exist-p)
       ;; Close help window.
       (one-key-help-window-close)
@@ -1098,9 +1040,10 @@ Argument INFO-ALIST is help information as format ((key . describe) . command)."
   nil)
 
 (defun one-key-help-window-open (title info-alist)
-  "Open the help window.
-Argument TITLE is title name for help information.
-Argument INFO-ALIST is help information as format ((key . describe) . command)."
+  "Open the `one-key' help window.
+Argument TITLE is a title for the `one-key' menu.
+Argument INFO-ALIST is the alist of keys and associated decriptions and functions.
+Each item of this list is in the form: ((key . describe) . command)."
   ;; Save current window configuration.
   (or one-key-help-window-configuration
       (setq one-key-help-window-configuration (current-window-configuration)))
@@ -1133,36 +1076,37 @@ Argument INFO-ALIST is help information as format ((key . describe) . command)."
     (setq one-key-help-window-configuration nil)))
 
 (defun one-key-help-window-scroll-up ()
-  "Scroll up one screen `one-key' help window."
+  "Scroll up one screen of the `one-key' help window."
   (if (one-key-help-window-exist-p)
       (ignore-errors
         (with-current-buffer one-key-buffer-name
           (scroll-up)))))
 
 (defun one-key-help-window-scroll-down ()
-  "Scroll down one screen `one-key' help window."
+  "Scroll down one screen of the `one-key' help window."
   (if (one-key-help-window-exist-p)
       (ignore-errors
         (with-current-buffer one-key-buffer-name
           (scroll-down)))))
 
 (defun one-key-help-window-scroll-up-line ()
-  "Scroll up one line `one-key' help window."
+  "Scroll up one line of the `one-key' help window."
   (if (one-key-help-window-exist-p)
       (ignore-errors
         (with-current-buffer one-key-buffer-name
           (scroll-up 1)))))
 
 (defun one-key-help-window-scroll-down-line ()
-  "Scroll down one line `one-key' help window."
+  "Scroll down one line of the `one-key' help window."
   (if (one-key-help-window-exist-p)
       (ignore-errors
         (with-current-buffer one-key-buffer-name
           (scroll-down 1)))))
 
 (defun one-key-help-format (info-alist)
-  "Format `one-key' help information.
-Argument INFO-ALIST is help information as format ((key . describe) . command)."
+  "Format `one-key' help window key description text (as displayed by the `one-key-menu' function).
+Argument INFO-ALIST is an alist of keys and corresponding descriptions and functions.
+Each element of this list is in the form: ((key . describe) . command)."
   (let* ((max-length (loop for ((key . desc) . command) in info-alist
                            maximize (+ (string-width key) (string-width desc))))
          (current-length 0)
