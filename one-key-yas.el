@@ -247,7 +247,7 @@ MODE's parent mode's snippets are also shown in the one-key menu."
 
 	(let ((one-key-menu-yas/mode-alist (one-key-yas/build-menu-alist key-name-list)))      
 	  (flet ((one-key-menu-yas-func ()
-					(one-key-menu mode
+					(one-key-menu (symbol-name mode)
 						      one-key-menu-yas/mode-alist)))
 	    (one-key-menu-yas-func))))
     (one-key-yas/show-modes)))
