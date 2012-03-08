@@ -581,6 +581,8 @@ the first item should come before the second in the menu."
        (setq one-key-menu-call-first-time t) t))
     ("<f3>" "Sort menu items by next method"
      (lambda nil (one-key-sort-items-by-next-method info-alist full-list) t))
+    ("<C-f3>" "Sort menu items by previous method"
+     (lambda nil (one-key-sort-items-by-next-method info-alist full-list t) t))
     ("<f4>" "Reverse the order of the menu items"
      (lambda nil (one-key-reverse-item-order info-alist full-list) t))
     ("<f5>" "Limit menu items to those matching regexp"
@@ -1158,23 +1160,27 @@ If COLOUR is \"\" then all highlighting (and more generally any text properties)
                (setq miss-match-recursion-p nil))
       (message "Can't find associated source file!"))))
 
-(defun one-key-get-next-sort-predicate nil
+(defun one-key-get-next-sort-predicate (&optional prev)
   "Return the sort predicate in `one-key-sort-method-alist' that comes after `one-key-current-sort-method'.
-Also set `one-key-current-sort-method' to the car of the new item."
+Also set `one-key-current-sort-method' to the car of the new item. If PREV is non-nil get previous sort predicate instead."
   (let* ((pos (position one-key-current-sort-method one-key-sort-method-alist
                         :test (lambda (a b) (eq a (car b)))))
-         (newpos (if (and pos (< pos (1- (length one-key-sort-method-alist))))
-                     (1+ pos) 0))
+         (len (length one-key-sort-method-alist))
+         (newpos (if prev (if (and pos (> pos 0))
+                              (1- pos) (1- len))
+                   (if (and pos (< pos (1- len)))
+                       (1+ pos) 0)))
          (item (nth newpos one-key-sort-method-alist)))
     (setq one-key-current-sort-method (car item))
     (cdr item)))
 
-(defun one-key-sort-items-by-next-method (info-alist full-list)
+(defun one-key-sort-items-by-next-method (info-alist full-list &optional prev)
   "Sort the items in FULL-LIST according to the method in `one-key-sort-method-alist' after `one-key-current-sort-method'.
+If PREV is non-nil use method before `one-key-current-sort-method'.
 Then update INFO-ALIST or the list that it points to (if its value is a symbol), and call SELF (a call to `one-key-menu').
 The variables INFO-ALIST and FULL-LIST are arguments in the call to SELF."
   (let* ((isref (symbolp info-alist))
-         (sorted-list (sort (copy-list full-list) (one-key-get-next-sort-predicate)))
+         (sorted-list (sort (copy-list full-list) (one-key-get-next-sort-predicate prev)))
          (usingregs (eq info-alist 'one-key-regs-menu-alist))
          (major (if one-key-column-major-order "columns" "rows")))
     (if isref (set info-alist sorted-list)
