@@ -503,6 +503,16 @@ then second, etc.). Otherwise menu items are displayed in row major order."
   :type '(alist :key-type symbol :value-type symbol)
   :group 'one-key)
 
+(defcustom one-key-major-mode-remap-alist '((Custom-mode . "custom-mode"))
+  "A list of cons cells mapping major modes to one-key-menus.
+The car of each cell is the symbol of a major mode function (e.g. 'emacs-lisp-mode), and the cdr is the name of
+a `one-key' menu associated with the major mode.
+When a menu of type \"major-mode\" is opened this alist is checked, and if the current major mode is listed then the
+associated menu will be used, otherwise the menu alist with name one-key-menu-???-alist (where ??? is the name of the
+current major mode) will be used (and created if necessary)."
+  :type '(alist :key-type (function :tag "Major mode" :help-echo "A major mode function") :value-type (string :tag "Name of associated menu" :help-echo "The name of the menu to be associated with the major mode"))
+  :group 'one-key)
+
 (defcustom one-key-toplevel-alist '((("k" . "one-key") . one-key-menu-one-key))
   "The `one-key' top-level alist.
 Contains list of key items for toplevel one-key menu.
@@ -2019,6 +2029,7 @@ CONTENTS may be a command or a list whose first element is a command (it will be
          (lines5 (mapcar converter lines4))
          (menus2 (car pair))
          (submenulines4 (cdr pair))
+         (mainvar (intern (concat "one-key-menu-" name "-alist")))
          (vars (loop for lines on submenulines4
                       for line = (car lines)
                       for key = (car line)
@@ -2044,13 +2055,13 @@ CONTENTS may be a command or a list whose first element is a command (it will be
                       if pos do (let* ((matchmenu (nth pos2 menus2)))
                                   (setf (nth pos2 menus2) (add-to-list 'matchmenu item)))
                       else do (setq lines5 (add-to-list 'lines5 item))
-                      collect var))
-         (mainvar (intern (concat "one-key-menu-" name "-alist")))
-         (vars2 (loop for var in vars
-                      for menu in menus2
-                      do (set var menu)
-                      (add-to-list 'one-key-altered-menus var)
                       collect var)))
+    (add-to-list 'one-key-altered-menus mainvar)
+    (loop for var in vars
+          for menu in menus2
+          do (set var menu)
+          (add-to-list 'one-key-altered-menus var)
+          collect var)
     (set mainvar lines5)
     mainvar))
 
@@ -2141,6 +2152,30 @@ Any menu names that match the regular expressions in `one-key-exclude-from-save'
                             if (string-match regex varname) return t)
         if (not exclude) do (one-key-save-menu name var menulist)))
 
+(defun one-key-get-major-mode-menu (name)
+  "Return a menu name and menu alist for the current major mode.
+This function is used by `one-key-types-of-menu' and the NAME argument is redundant.
+A cons cell in the form (menu-name . menu-alist) will be returned.
+If there is an element of `one-key-major-mode-remap-alist' associated with the current major mode then that will be used,
+otherwise the name of the current major mode will be used.
+In both cases if the variable `one-key-menu-<menu-name>-alist' (where <menu-name> is the menu name associated with this
+major mode) exists then it will be used, otherwise it will be created."
+  (let* ((menuname (or (cdr (assoc major-mode one-key-major-mode-remap-alist))
+                       (with-selected-window
+                           (previous-window)
+                         (symbol-name major-mode))))
+         (symname (concat "one-key-menu-" menuname "-alist"))
+         (menusym (intern-soft symname)))
+    (if (or (not menusym) (not (boundp menusym)))
+        (let* ((mapname (concat menuname "-map"))
+               (mapsym (intern-soft mapname)))
+          (if (and mapsym (boundp mapsym))
+              (progn (one-key-create-menus mapsym menuname)
+                     (setq menusym (intern-soft symname)))
+            (message "Can't create menu for %S" major-mode)
+            (setq menusym nil))))
+    (cons menuname menusym)))
+
 ;; Set the menu-alist, title string format and special keybindings for `one-key' menus for this major mode
 (one-key-add-to-alist 'one-key-types-of-menu
                       (list "top-level"
@@ -2150,18 +2185,7 @@ Any menu names that match the regular expressions in `one-key-exclude-from-save'
 ;; Set the menu-alist, title string format and special keybindings for `one-key' menus for this major mode
 (one-key-add-to-alist 'one-key-types-of-menu
                       (list "major-mode"
-                            (lambda (name)
-                              (let* ((modename (with-selected-window
-                                                   (previous-window)
-                                                 (symbol-name major-mode)))
-                                     (mapname (concat modename "-map"))
-                                     (mapsym (intern-soft mapname))
-                                     (symname (concat "one-key-menu-"
-                                                      modename "-alist"))
-                                     (menusym (intern-soft symname)))
-                                (if (and mapsym (or (not menusym) (not (boundp menusym))))
-                                    (one-key-create-menus mapsym modename))
-                                (cons modename (intern-soft symname))))
+                            'one-key-get-major-mode-menu
                             nil
                             nil) t)
 ;; Set the menu-alist, title string format and special keybindings for adding existing menus
