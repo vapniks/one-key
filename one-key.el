@@ -5,12 +5,12 @@
 ;; Author: Andy Stewart <lazycat.manatee@gmail.com>
 ;;         rubikitch <rubikitch@ruby-lang.org>
 ;; Maintainer: Joe Bloggs <vapniks@yahoo.com>
-;; Copyleft (Ↄ) 2010, Joe Bloggs, all rites reversed.
+;; Copyleft (Ↄ) 2012, Joe Bloggs, all rites reversed.
 ;; Copyright (C) 2008, 2009, 2010 Andy Stewart, all rights reserved.
 ;; Copyright (C) 2009, rubikitch, all rights reserved.
 ;; Created: 2008-12-22 21:54:30
 ;; Version: 0.7.1
-;; Last-Updated: 7/12/2010 20:22:00
+;; Last-Updated: 5/4/2012 17:00:00
 ;;           By: Joe Bloggs
 ;; URL: http://www.emacswiki.org/emacs/download/one-key.el
 ;; Keywords: one-key
@@ -18,7 +18,7 @@
 ;;
 ;; Features that might be required by this library:
 ;;
-;; `cl'
+;; `cl' `hexrgb'
 ;;
 
 ;;; This file is NOT part of GNU Emacs
@@ -43,13 +43,22 @@
 ;;
 ;; With so many Emacs extensions, you have a lot of keystrokes to remember, and you probably forget most of them.
 ;;
-;; This package fixes this problem.
+;; This package fixes that problem.
 ;;
-;; One Key provides a TOP keystroke that when pressed presents you with
-;; a menu of choices in a popup window for commands to execute with a further keystroke.
+;; One Key provides a single keystroke that when pressed presents you with
+;; a menu of choices in a popup window for commands to execute with a further keystrokes.
 ;;
 ;; Just type one of the listed keystrokes to execute the corresponding command.
 ;;
+;; You can delete, edit, sort, highlight and filter the menu items, add new menu items and even add new menus.
+;; You can have access to several different menus from the same window which can be navigated with the arrow keys.
+;; Such a collection of menus is called a menu set and you can define several different menu sets containing different
+;; types of menus.
+;; Several different types of menus are defined (and more may be added) for holding different types of menu items.
+;; The "major-mode" type opens the menu corresponding to the current major-mode, the "menu-sets" type opens a menu
+;; for accessing the currently defined menu sets, and the "top-level" type opens the top-level menu of user defined
+;; items/menus. More different types are defined by one-key extension libraries (e.g. `one-key-dir').
+
 ;; You can also associate different menus with different major modes so that the menu presented depends on the
 ;; current major mode.
 ;;
@@ -130,7 +139,7 @@
 ;;
 ;; ** The arguments of the function `one-key-menu':
 ;;
-;; `title' is the title of menu, any string you like.
+;; `name' is the name of menu, any string you like.
 ;; `info-alist' is a special list that contains KEY, DESCRIPTION
 ;;      and COMMAND.  see above description about `example-menu-alist'.
 ;; `miss-match-exit-p' set to t means the popup window will exit when you
@@ -149,9 +158,9 @@
 ;; or `one-key-show-template' to create a special buffer called "One-Key-Template" containing the template code.
 ;; For example, after you run `one-key-insert-template', you will get a Keymap prompt:
 ;; "Keymap to One-Key: ", in which you enter the name of a keymap or a prefix key with an associated keymap.
-;; After entering the keymap/prefix key you are prompted for a title for the menu, and then code for the menu
+;; After entering the keymap/prefix key you are prompted for a name for the menu, and then code for the menu
 ;; will be automatically generated.
-;; E.g. if you type "C-x r", and then enter the title "bookmark" then it will generate template code
+;; E.g. if you type "C-x r", and then enter the name "bookmark" then it will generate template code
 ;; like the code shown below:
 ;;
 ;; (defvar one-key-menu-bookmark-alist nil
@@ -199,7 +208,7 @@
 ;; Fixed menu keys:
 ;;
 ;; Some keys are available for all menus for performing tasks such as showing help or sorting the menu items,
-;; they can be configured with the `one-key-special-keybindings' variable.
+;; they can be configured with the `one-key-default-special-keybindings' variable.
 ;;
 ;; Auto-load one-key menus:
 ;;
@@ -233,7 +242,6 @@
 ;;
 ;; `one-key-buffer-name' : the buffer name of the popup menu.
 ;; `one-key-menu-window-max-height' : the maximal height use in popup window.
-;; `one-key-items-per-line' : number of items in one line, if this option is `nil', will be calculated by `window-width'.
 ;; `one-key-keystroke-face' : face for highlighting keystroke
 ;; `one-key-auto-load-menus' : if t then automatically load one-key menus from `one-key-menus-location'
 ;; `one-key-menus-location' : location in which one-key menus will be stored
@@ -243,8 +251,8 @@
 ;; `one-key-popup-window' : whether to popup window when first time run, default is `t'.
 ;; `one-key-prompt-face' : face for highlighting prompt
 ;; `one-key-template-buffer-name' : the buffer name of the template code.
-;; `one-key-title-face' : face for highlighting title
-;; `one-key-special-keybindings' : special keybindings and associated descriptions and functions that apply to
+;; `one-key-name-face' : face for highlighting name
+;; `one-key-default-special-keybindings' : special keybindings and associated descriptions and functions that apply to
 ;;                                 all `one-key' menus
 
 ;; All above options can be customized through:
@@ -252,6 +260,11 @@
 ;;
 
 ;;; Change log:
+;; 2012/04/05
+;;    * Joe Bloggs
+;;    * Lots of changes! I have not been keeping track of them all.
+;;    * Removed `one-key-items-per-line'
+;;
 ;; 2012/3/01
 ;;    * Joe Bloggs
 ;;       * Lots of changes! Improved menu layout (can fit in more items), different menu sorting options,
@@ -393,7 +406,7 @@
 
 ;;; TODO
 ;;
-;; Load one-key-menu-alists on demand to save memory.
+;; Make sure only menu functions begin with `one-key-menu' (rename others)
 ;;
 ;; Autohighlighting of menu items using regexp associations (e.g. highlight items corresponding to further one-key menus).
 ;; 
@@ -411,8 +424,22 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Customize ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defgroup one-key nil
-  "One key."
+  "One key - easy access, refactorable menus."
   :group 'editing)
+
+(defcustom one-key-default-menu-keys
+  (let (letters-and-numbers)
+    (dotimes (i 26)
+      (push (- ?Z i) letters-and-numbers))
+    (dotimes (i 26)
+      (push (- ?z i) letters-and-numbers))
+    (dotimes (i 10)
+      (push (- ?9 i) letters-and-numbers))
+    letters-and-numbers)
+  "A list of chars which may be used as the default keys in automatically generated `one-key' menus.
+This list will be used for generating keys by the `one-key-generate-key' function."
+  :group 'one-key
+  :type '(repeat character))
 
 (defcustom one-key-popup-window t
   "Whether to popup window when `one-key-menu' is run for the first time."
@@ -427,12 +454,6 @@
 (defcustom one-key-template-buffer-name "*One-Key-Template*"
   "The name of the template buffer."
   :type 'string
-  :group 'one-key)
-
-(defcustom one-key-items-per-line nil
-  "Number of items in one line.
-If nil, it is calculated by `window-width'."
-  :type 'integer
   :group 'one-key)
 
 (defcustom one-key-column-major-order t
@@ -451,28 +472,28 @@ then second, etc.). Otherwise menu items are displayed in row major order."
            (set symbol (/ (frame-height) 2))))
   :group 'one-key)
 
-(defcustom one-key-menus-location "~/.emacs.d/"
-  "Location in which one-key menus will be stored."
-  :type 'directory
+(defcustom one-key-menus-save-file "~/.emacs.d/one-key-menus-save-file.el"
+  "The file where `one-key' menus are saved."
+  :type 'file
   :group 'one-key)
 
-(defcustom one-key-menus-regexp "one-key-menu.*\\.el$"
-  "Regexp to match filenames of one-key menus.
-If you byte-compile your one-key menus, remember to change the ending of the regexp to elc instead of el."
-  :type 'regexp
-  :group 'one-key)
-
-(defcustom one-key-auto-load-menus nil
-  "If t then automatically load any files in `one-key-menus-location' with names matching `one-key-menus-regexp'."
+(defcustom one-key-autosave-menus nil
+  "If non-nil then one-key menus will automatically be saved when created or changed."
   :type 'boolean
   :group 'one-key)
+
+(defcustom one-key-exclude-from-save nil
+  "List of regular expressions matching names of menus which should not be autosaved."
+  :type '(repeat (regexp :tag "Regexp" :help-echo "Regular expression matching menu names to exclude from autosave." ))
+  :group 'one-key)
+
 
 (defcustom one-key-item-foreground-colour "black"
   "Foreground colour of highlighted items in `one-key' menus."
   :type 'color
   :group 'one-key)
 
-(defcustom one-key-menu-auto-brighten-used-keys t
+(defcustom one-key-auto-brighten-used-keys t
   "If non-nil then set brightness of menu items colours according to how often the keys are pressed."
   :type 'boolean
   :group 'one-key)
@@ -490,48 +511,68 @@ The key should be entered in the same format as that returned by `describe-key'.
   :type '(alist :key-type (cons string string) :value-type function)
   :group 'one-key)
 
-(defcustom one-key-sort-method-alist '((key . (lambda (a b) (string< (caar a) (caar b))))
-                                       (description . (lambda (a b) (string< (cdar a) (cdar b))))
-                                       (command . (lambda (a b) (string< (prin1-to-string (cdr a))
-                                                                             (prin1-to-string (cdr b)))))
-                                       (colour_name . (lambda (a b) (string< (cadr (get-text-property 0 'face (cdar a)))
-                                                                             (cadr (get-text-property 0 'face (cdar b))))))
-                                       (colour_hue . (lambda (a b)
-                                                       (let* ((bg (cdr (assq 'background-color (frame-parameters))))
-                                                              (cola (or (cadr (get-text-property 0 'face (cdar a))) bg))
-                                                              (colb (or (cadr (get-text-property 0 'face (cdar b))) bg))
-                                                              (hsva (destructuring-bind (r g b) (color-values cola)
-                                                                      (color-rgb-to-hsv r g b)))
-                                                              (hsvb (destructuring-bind (r g b) (color-values colb)
-                                                                      (color-rgb-to-hsv r g b))))
-                                                         (> (first hsva) (first hsvb)))))
-                                       (colour_brightness . (lambda (a b)
-                                                              (let* ((bg (cdr (assq 'background-color (frame-parameters))))
-                                                                     (cola
-                                                                      (or (cadr (get-text-property 0 'face (cdar a))) bg))
-                                                                     (colb
-                                                                      (or (cadr (get-text-property 0 'face (cdar b))) bg))
-                                                                     (hsva (destructuring-bind (r g b)
-                                                                               (color-values cola)
-                                                                             (color-rgb-to-hsv r g b)))
-                                                                     (hsvb (destructuring-bind (r g b)
-                                                                               (color-values colb)
-                                                                             (color-rgb-to-hsv r g b))))
-                                                                (> (third hsva) (third hsvb)))))
-                                       (colour_saturation . (lambda (a b)
-                                                              (let* ((bg (cdr (assq 'background-color (frame-parameters))))
-                                                                     (cola
-                                                                      (or (cadr (get-text-property 0 'face (cdar a))) bg))
-                                                                     (colb
-                                                                      (or (cadr (get-text-property 0 'face (cdar b))) bg))
-                                                                     (hsva (destructuring-bind (r g b)
-                                                                               (color-values cola)
-                                                                             (color-rgb-to-hsv r g b)))
-                                                                     (hsvb (destructuring-bind (r g b)
-                                                                               (color-values colb)
-                                                                             (color-rgb-to-hsv r g b))))
-                                                                (> (second hsva) (second hsvb)))))
-                                       (length . (lambda (a b) (> (length (cdar a)) (length (cdar b))))))
+(defcustom one-key-sets-of-menus-alist (list '("Major mode, top-level & menu sets" "major-mode" "top-level" "menu-sets"))
+  "Saved menu sets (sets of menus).
+Each element in this list is a cons cell whose car is a name or description for the set, and whose cdr is a list of names
+of menus which make up the set. Each menu name must correspond to a type in `one-key-types-of-menu' (which see),
+and `one-key' must be able to reconstruct the menu from the name (which it will be able to if the corresponding entry
+in `one-key-types-of-menu' is complete.
+These menu sets may be opened from the `one-key-menu-set' menu, and you may want to create different sets for different
+projects."
+  :type '(alist :key-type (string :tag "Set description/name" :help-echo "A name or description for this collection of menus")
+                :value-type (repeat (string :tag "Menu" :help-echo "The name of the menu. Must correspond to a type in `one-key-types-of-menu'.")))
+  :group 'one-key)
+
+(defcustom one-key-default-menu-set "Major mode, top-level & menu sets"
+  "The default menu set. It's value should be the car of one of the items in `one-key-sets-of-menus-alist'.
+It may be changed by the user from the menu-sets `one-key' menu.
+This is only meaningful if it is used with `one-key-open-menu-set' bound to a key so that the key can open a different
+menu set if the user has altered its value."
+  :type 'string
+  :group 'one-key)
+
+(defcustom one-key-default-sort-method-alist '((key . (lambda (a b) (string< (caar a) (caar b))))
+                                               (description . (lambda (a b) (string< (cdar a) (cdar b))))
+                                               (command . (lambda (a b) (string< (prin1-to-string (cdr a))
+                                                                                 (prin1-to-string (cdr b)))))
+                                               (colour_name . (lambda (a b) (string< (cadr (get-text-property 0 'face (cdar a)))
+                                                                                     (cadr (get-text-property 0 'face (cdar b))))))
+                                               (colour_hue . (lambda (a b)
+                                                               (let* ((bg (cdr (assq 'background-color (frame-parameters))))
+                                                                      (cola (or (cadr (get-text-property 0 'face (cdar a))) bg))
+                                                                      (colb (or (cadr (get-text-property 0 'face (cdar b))) bg))
+                                                                      (hsva (destructuring-bind (r g b) (color-values cola)
+                                                                              (color-rgb-to-hsv r g b)))
+                                                                      (hsvb (destructuring-bind (r g b) (color-values colb)
+                                                                              (color-rgb-to-hsv r g b))))
+                                                                 (> (first hsva) (first hsvb)))))
+                                               (colour_brightness . (lambda (a b)
+                                                                      (let* ((bg (cdr (assq 'background-color (frame-parameters))))
+                                                                             (cola
+                                                                              (or (cadr (get-text-property 0 'face (cdar a))) bg))
+                                                                             (colb
+                                                                              (or (cadr (get-text-property 0 'face (cdar b))) bg))
+                                                                             (hsva (destructuring-bind (r g b)
+                                                                                       (color-values cola)
+                                                                                     (color-rgb-to-hsv r g b)))
+                                                                             (hsvb (destructuring-bind (r g b)
+                                                                                       (color-values colb)
+                                                                                     (color-rgb-to-hsv r g b))))
+                                                                        (> (third hsva) (third hsvb)))))
+                                               (colour_saturation . (lambda (a b)
+                                                                      (let* ((bg (cdr (assq 'background-color (frame-parameters))))
+                                                                             (cola
+                                                                              (or (cadr (get-text-property 0 'face (cdar a))) bg))
+                                                                             (colb
+                                                                              (or (cadr (get-text-property 0 'face (cdar b))) bg))
+                                                                             (hsva (destructuring-bind (r g b)
+                                                                                       (color-values cola)
+                                                                                     (color-rgb-to-hsv r g b)))
+                                                                             (hsvb (destructuring-bind (r g b)
+                                                                                       (color-values colb)
+                                                                                     (color-rgb-to-hsv r g b))))
+                                                                        (> (second hsva) (second hsvb)))))
+                                               (length . (lambda (a b) (> (length (cdar a)) (length (cdar b))))))
   "An alist of sorting methods to use on the `one-key' menu items.
 Each element is a cons cell of the form (NAME . PREDICATE) where NAME is a symbol for the name of the sort method,
 and PREDICATE is a function which takes two items from the `one-key' menu alist as arguments and returns non-nil if
@@ -540,55 +581,59 @@ the first item should come before the second in the menu."
                 :value-type (function :help-echo "Predicate that returns non-nil if 1st item comes before 2nd"))
   :group 'one-key)
 
-(defcustom one-key-special-keybindings
+(defcustom one-key-default-special-keybindings
   '(("ESC" "Quit and close menu window" (lambda nil (keyboard-quit) nil))
-    ("<C-escape>" "Quit and keep menu window open"
+    ("<C-escape>" "Quit, but keep menu window open"
      (lambda nil (setq keep-window-p t) nil))
-    ("<C-menu>" "Keep menu window open and dont quit"
+    ("<C-menu>" "Toggle menu persistence"
      (lambda nil (if match-recursion-p
                      (setq match-recursion-p nil
                            miss-match-recursion-p nil)
                    (setq match-recursion-p t
                          miss-match-recursion-p t))))
-    ("<menu>" "Toggle menu window display" (lambda nil (one-key-menu-window-toggle title filtered-list) t))
+    ("<menu>" "Toggle menu display" (lambda nil (one-key-menu-window-toggle) t))
     ("<left>" "Change to next menu" (lambda nil (if menu-number
-                                                     (progn
-                                                       (setq menu-number
-                                                             (if (equal menu-number 0)
-                                                                 (1- (length info-alists))
-                                                               (1- menu-number)))
-                                                       (setq one-key-menu-call-first-time t))) t))
+                                                    (progn
+                                                      (setq menu-number
+                                                            (if (equal menu-number 0)
+                                                                (1- (length info-alists))
+                                                              (1- menu-number)))
+                                                      (setq one-key-menu-call-first-time t))) t))
     ("<right>" "Change to previous menu" (lambda nil (if menu-number
-                                                        (progn
-                                                          (setq menu-number
-                                                                (if (equal menu-number (1- (length info-alists)))
-                                                                    0 (1+ menu-number)))
-                                                          (setq one-key-menu-call-first-time t))) t))
-    ("<up>" "Scroll menu or move item up by one line" (lambda nil (one-key-scroll-or-move-up full-list) t))
-    ("<down>" "Scroll menu or move item down by one line" (lambda nil (one-key-scroll-or-move-down full-list) t))
+                                                         (progn
+                                                           (setq menu-number
+                                                                 (if (equal menu-number (1- (length info-alists)))
+                                                                     0 (1+ menu-number)))
+                                                           (setq one-key-menu-call-first-time t))) t))
+    ("<up>" "Scroll/move up one line" (lambda nil (one-key-scroll-or-move-up info-alist full-list) t))
+    ("<down>" "Scroll/move down one line" (lambda nil (one-key-scroll-or-move-down info-alist full-list) t))
     ("<prior>" "Scroll menu down one page" (lambda nil (one-key-menu-window-scroll-down) t))
     ("<next>" "Scroll menu up one page" (lambda nil (one-key-menu-window-scroll-up) t))
-    ("C-h" "Show help for next item chosen" (lambda nil (setq one-key-menu-show-key-help t) t))
-    ("C-f" "Edit the file associated with this menu" (lambda nil (one-key-open-associated-file info-alist) nil))
-    ("C-s" "Save current state of this menu" (lambda nil (one-key-save-menu this-title info-alist full-list) t))
+    ("C-h" "Show help for next item chosen" (lambda nil
+                                              (let ((key (read-key "Enter the key for the item that you want help on")))
+                                                (one-key-show-item-help key full-list)
+                                                (setq match-recursion-p t)) t))
+    ("C-s" "Save current state of menu" (lambda nil (one-key-save-menu this-name info-alist full-list) t))
     ("<f1>" "Toggle this help buffer" (lambda nil (if (get-buffer-window "*Help*")
                                                       (kill-buffer "*Help*")
-                                                    (one-key-show-help)) t))
-    ("<f2>" "Toggle column/row ordering of menu items"
+                                                    (one-key-show-help special-keybindings)) t))
+    ("<f2>" "Toggle column/row ordering of items"
      (lambda nil (if one-key-column-major-order
-                        (setq one-key-column-major-order nil)
-                      (setq one-key-column-major-order t))
+                     (setq one-key-column-major-order nil)
+                   (setq one-key-column-major-order t))
        (setq one-key-menu-call-first-time t) t))
-    ("<f3>" "Sort menu items by next method"
-     (lambda nil (one-key-sort-items-by-next-method info-alist full-list) t))
-    ("<C-f3>" "Sort menu items by previous method"
-     (lambda nil (one-key-sort-items-by-next-method info-alist full-list t) t))
-    ("<f4>" "Reverse the order of the menu items"
-     (lambda nil (one-key-reverse-item-order info-alist full-list) t))
-    ("<f5>" "Limit menu items to those matching regexp"
+    ("<f3>" "Sort items by next method"
+     (lambda nil (setq one-key-current-sort-method
+                       (one-key-sort-items-by-next-method info-alists full-list menu-number)) t))
+    ("<C-f3>" "Sort items by previous method"
+     (lambda nil (setq one-key-current-sort-method
+                       (one-key-sort-items-by-next-method info-alists full-list menu-number t)) t))
+    ("<f4>" "Reverse order of items"
+     (lambda nil (one-key-reverse-item-order info-alists full-list menu-number) t))
+    ("<f5>" "Limit items to those matching regexp"
      (lambda nil (setq filter-regex (read-regexp "Regular expression"))
        (setq one-key-menu-call-first-time t) t))
-    ("<f6>" "Highlight menu items matching regexp"
+    ("<f6>" "Highlight items matching regexp"
      (lambda nil (let ((regex (read-regexp "Regular expression"))
                        (bgcolour (read-color "Colour: ")))
                    (one-key-highlight-matching-items
@@ -599,14 +644,18 @@ the first item should come before the second in the menu."
     ("<f8>" "Delete a menu item"
      (lambda nil (one-key-delete-menu-item info-alist full-list) t))
     ("<f9>" "Swap menu item keys"
-     (lambda nil (one-key-swap-menu-items full-list) t))
+     (lambda nil (one-key-swap-menu-items info-alist full-list) t))
     ("<f10>" "Add a menu item"
-     (lambda nil (one-key-add-menu-item info-alist full-list) t))
-    ("<f11>" "Reposition a menu item"
+     (lambda nil (one-key-prompt-to-add-menu-item info-alist full-list) t))
+    ("<C-f10>" "Add a menu"
+     (lambda nil (one-key-add-menus) nil)) ; no need to return t since `one-key-add-menus' does recursion itself
+    ("<C-S-f10>" "Remove this menu"
+     (lambda nil (one-key-delete-menu) t))
+    ("<f11>" "Reposition item (with arrow keys)"
      (lambda nil (let ((key (single-key-description
-                                (read-key "Enter key of item to be moved"))))
-                      (setq one-key-current-item-being-moved key)
-                      (setq one-key-menu-call-first-time t)) t)))
+                             (read-key "Enter key of item to be moved"))))
+                   (setq one-key-current-item-being-moved key)
+                   (setq one-key-menu-call-first-time t)) t)))
 
   "An list of special keys, their labels and associated functions that apply to all `one-key' menus.
 Each item in the list contains (in this order):
@@ -630,10 +679,164 @@ You may wish to temporarily alter this list when creating your own types of `one
                        (string :tag "Description" :help-echo "Description to display in help buffer")
                        (function :tag "Function" :help-echo "Function for performing action. See description below for further details."))))
 
+(defcustom one-key-menu-sets-special-keybindings
+  '(("ESC" "Quit and close menu window" (lambda nil (keyboard-quit) nil))
+    ("<C-escape>" "Quit, but keep menu window open"
+     (lambda nil (setq keep-window-p t) nil))
+    ("<C-menu>" "Toggle menu persistence"
+     (lambda nil (if match-recursion-p
+                     (setq match-recursion-p nil
+                           miss-match-recursion-p nil)
+                   (setq match-recursion-p t
+                         miss-match-recursion-p t))))
+    ("<menu>" "Toggle menu display" (lambda nil (one-key-menu-window-toggle) t))
+    ("<left>" "Change to next menu" (lambda nil (if menu-number
+                                                    (progn
+                                                      (setq menu-number
+                                                            (if (equal menu-number 0)
+                                                                (1- (length info-alists))
+                                                              (1- menu-number)))
+                                                      (setq one-key-menu-call-first-time t))) t))
+    ("<right>" "Change to previous menu" (lambda nil (if menu-number
+                                                         (progn
+                                                           (setq menu-number
+                                                                 (if (equal menu-number (1- (length info-alists)))
+                                                                     0 (1+ menu-number)))
+                                                           (setq one-key-menu-call-first-time t))) t))
+    ("<up>" "Scroll/move up one line" (lambda nil (one-key-scroll-or-move-up info-alist full-list) t))
+    ("<down>" "Scroll/move down one line" (lambda nil (one-key-scroll-or-move-down info-alist full-list) t))
+    ("<prior>" "Scroll menu down one page" (lambda nil (one-key-menu-window-scroll-down) t))
+    ("<next>" "Scroll menu up one page" (lambda nil (one-key-menu-window-scroll-up) t))
+    ("C-h" "Show menus in menu set" (lambda nil
+                                      (let* ((key (read-key "Enter the key for the menu set"))
+                                             (item (one-key-get-menu-item key full-list))
+                                             (menuset (assoc (cdar item) one-key-sets-of-menus-alist))
+                                             (desc (car menuset))
+                                             (names (cdr menuset)))
+                                        (message "%S" names) t)))
+    ("C-s" "Customize menu sets" (lambda nil
+                                         (setq one-key-menu-window-configuration nil)
+                                         (with-selected-window (previous-window)
+                                          (customize-variable 'one-key-sets-of-menus-alist)) nil))
+    ("<f1>" "Toggle this help buffer" (lambda nil (if (get-buffer-window "*Help*")
+                                                      (kill-buffer "*Help*")
+                                                    (one-key-show-help special-keybindings)) t))
+    ("<f2>" "Toggle column/row ordering of items"
+     (lambda nil (if one-key-column-major-order
+                     (setq one-key-column-major-order nil)
+                   (setq one-key-column-major-order t))
+       (setq one-key-menu-call-first-time t) t))
+    ("<f3>" "Sort items by next method"
+     (lambda nil (setq one-key-current-sort-method
+                       (one-key-sort-items-by-next-method info-alists full-list menu-number)) t))
+    ("<C-f3>" "Sort items by previous method"
+     (lambda nil (setq one-key-current-sort-method
+                       (one-key-sort-items-by-next-method info-alists full-list menu-number t)) t))
+    ("<f4>" "Reverse order of items"
+     (lambda nil (one-key-reverse-item-order info-alists full-list menu-number) t))
+    ("<f5>" "Limit items to those matching regexp"
+     (lambda nil (setq filter-regex (read-regexp "Regular expression"))
+       (setq one-key-menu-call-first-time t) t))
+    ("<f6>" "Highlight items matching regexp"
+     (lambda nil (let ((regex (read-regexp "Regular expression"))
+                       (bgcolour (read-color "Colour: ")))
+                   (one-key-highlight-matching-items
+                    info-alist full-list bgcolour
+                    (lambda (item) (string-match regex (cdar item))))) t))
+    ("<f7>" "Change default menu set"
+     (lambda nil
+       (let* ((key (read-event "Press the key of item to set as default"))
+              (item (one-key-get-menu-item key full-list))
+              (name (cdar item))
+              (pos (position "menu-sets" names :test 'equal)))
+         (if name (setq one-key-default-menu-set
+                        (substring-no-properties name)))
+         (if pos (setf (nth pos info-alists) (one-key-build-menu-sets-menu-alist))
+           (setq info-alists (one-key-build-menu-sets-menu-alist))))
+       (setq one-key-menu-call-first-time t)
+       (one-key-menu-window-close) t))
+    ("<C-f10>" "Add a menu"
+     (lambda nil (one-key-add-menus) nil)) ; no need to return t since `one-key-add-menus' does recursion itself
+    ("<C-S-f10>" "Remove this menu"
+     (lambda nil (one-key-delete-menu) t)))
+
+  "An list of special keys, their labels and associated functions that apply to all `one-key' menus.
+Each item in the list contains (in this order):
+
+  1) A string representation of the key (as returned by `single-key-description').
+
+  2) A short description of the associated action.
+     This description will be displayed in the *One-Key* buffer.
+
+  3) A function for performing the action. The function takes no arguments but may use dynamic binding to
+     read and change some of the values in the initial `one-key-menu' function call.
+     The function should return t to display the `one-key' menu again after the function has finished,
+     or nil to close the menu.
+
+These keys and functions apply to all `one-key' menus and are not displayed with the menu specific keys.
+They are for general tasks such as displaying command help, scrolling the window, sorting menu items, etc.
+
+You may wish to temporarily alter this list when creating your own types of `one-key' menus."
+  :group 'one-key
+  :type '(repeat (list (string :tag "Keybinding" :help-echo "String representation of the keybinding for this action")
+                       (string :tag "Description" :help-echo "Description to display in help buffer")
+                       (function :tag "Function" :help-echo "Function for performing action. See description below for further details."))))
+
+(defcustom one-key-default-title-format-string
+  (lambda nil (format "Sorted by %s (%s first). Press <f1> for help.\n" one-key-current-sort-method (if one-key-column-major-order "columns" "rows")))
+  "A function that takes no arguments and should return a string to display at the top of the menu window.
+The function will be evaluated in the context of the `one-key-highlight-menu' function, and will be processed by
+`one-key-highlight' before display.
+You should look at the `one-key-highlight-menu' function to see which variables may be used in this format string."
+  :type 'function
+  :group 'one-key)
+
+(defcustom one-key-types-of-menu nil
+  "A list of names of different types of `one-key' menu, and associated functions.
+Each item in the list contains (in this order):
+
+  1) Either a name for the menu type or a function which takes a name as its only argument and if that name corresponds
+     to this menu type it should return a new name or list of names for the menu/menus returned by the next item in the
+     list.
+
+  2) A function which takes the menu name as its only argument and returns a cons cell whose car is the new name or list
+     of names for the menus, and whose cdr is a menu alist, a symbol whose value is a menu alist, or a list of symbols
+     and/or menu alists. The number of names returned in the car should be equal to the number of menu alists/symbols
+     returned in the cdr.
+
+  3) An function that takes no arguments and returns a title string for the `one-key' menu in the same form as
+     `one-key-default-title-format-string'. The function will be evaluated in the context of the `one-key-highlight-menu'
+     function, and will be processed by `one-key-highlight' before display.
+     You should look at the `one-key-highlight-menu' function to see which variables may be used in this format string.
+     Alternatively if this item is nil then `one-key-default-title-format-string' will be used.
+
+  4) Either a list of special keybindings in the same form as `one-key-default-special-keybindings', or a symbol
+     whose value is such a list, or nil. If nil then `one-key-default-special-keybindings' will be used."
+  :type '(repeat (list (choice (string :tag "Name"
+                                       :help-echo "A name for this menu type.")
+                               (function :tag "Condition"
+                                         :help-echo "A function which returns the new menu name(s) when passed a name corresponding to this type, and returns nil otherwise."))
+                       (choice (symbol :tag "Menu alist symbol(s)"
+                                       :help-echo "A symbol whose value is a menu alist of keys for menus of this type, or a list of such menus.")
+                               (function :tag "Menu alist function"
+                                         :help-echo "A function which takes the menu name as its only argument and returns either a `one-key' menu alist of keys, or a symbol whose value is such a list, or a list of menus and/or symbols."))
+                       (function :tag "Title string function"
+                                 :help-echo "A function which returns a title string for `one-key' menus of this type.")
+                       (choice (symbol :tag "Special keybindings symbol"
+                                       :help-echo "A symbol whose value is a list of special keybindings for menus of this type")
+                               (repeat :tag "Special keybindings"
+                                       (list (string :tag "Keybinding"
+                                                     :help-echo "String representation of the keybinding for this action")
+                                             (string :tag "Description"
+                                                     :help-echo "Description to display in help buffer")
+                                             (function :tag "Function"
+                                                       :help-echo "Function for performing action. See description below for further details."))))))
+  :group 'one-key)
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Faces ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(defface one-key-title
+(defface one-key-name
   '((t (:foreground "Gold")))
-  "Face for highlighting title."
+  "Face for highlighting name."
   :group 'one-key)
 
 (defface one-key-keystroke
@@ -647,8 +850,9 @@ You may wish to temporarily alter this list when creating your own types of `one
   :group 'one-key)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Global Variables ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 (defvar one-key-menu-window-configuration nil
-  "The window configuration that records the current window configuration before the popup menu window.")
+  "Variable that records the window configuration that was in place before the popup menu window was opened.")
 
 (defvar one-key-menu-call-first-time t
   "t if `one-key-menu' has been called non-recursively.")
@@ -656,22 +860,18 @@ You may wish to temporarily alter this list when creating your own types of `one
 (defvar one-key-menu-show-key-help nil
   "If true show help for function associated with next keystroke, when it is pressed in the one-key-menu.")
 
-(defvar one-key-menu-title-format-string
-  '(if titles
-       (format "Sorted by %s (%s first). Press <f1> for help.\n\n" one-key-current-sort-method (if one-key-column-major-order "columns" "rows"))
-     (format "<%s> keystrokes, sorted by %s (%s first). Press <f1> for help.\n\n"
-             title one-key-current-sort-method (if one-key-column-major-order "columns" "rows")))
-  "An sexp that should return a string to display at the top of the menu window.
-The sexp will be evaluated in the context of the `one-key-highlight-menu' function, and will be processed by
-`one-key-highlight' before display.
-You may wish to alter this temporarily for some `one-key' menus.")
-
 (defvar one-key-current-sort-method nil
-  "The current method used to sort the items in the list")
+  "The current method used to sort the items in the `one-key' menu list")
 
 (defvar one-key-current-item-being-moved nil
   "The key corresponding to the item currently being moved in the `one-key' menu, or nil if none is being moved.")
-  
+
+(defvar one-key-current-window-state nil
+  "The current state of the `one-key' window
+If nil then the window is closed, if t then it is open at normal size, if 'full then it is open at full size.")
+
+(defvar one-key-altered-menus nil
+  "List of menu alist variables that should be saved on exit if `one-key-autosave-menus' is true.")
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Major Mode ;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (define-derived-mode one-key-template-mode emacs-lisp-mode "one-key"
   "Major mode for editing one-key menus produced by `one-key-show-template'.
@@ -724,7 +924,7 @@ If no region is active then just the current line will be moved."
       (message "Can't find one-key menu function definition!"))))
 
 (defun one-key-template-mark-key-items ()
-  "thisandthat."
+  "Mark the one-key-menu alist items."
   (interactive)
   (goto-char (point-min))
   (if (re-search-forward "^\\s-*[; ]*((\".*?\" \\. \".*?\") \\. .*?)\\s-*$" nil t)
@@ -734,7 +934,6 @@ If no region is active then just the current line will be moved."
                         (move-beginning-of-line nil) (forward-line 1))
                (message "Can't find one-key-menu function definition!")))
     (message "Can't find one-key-menu alist!")))
-
 
 (defun one-key-template-sort-key-items-by-command-alphabetically ()
   "Sort one-key key definitions in region by command name alphabetically."
@@ -786,7 +985,7 @@ active region, and REVERSE is set to t if a prefix arg is passed but nil otherwi
 
 
 (defun one-key-template-describe-command ()
-  "Show description for command associated with one-key item on current line."
+  "Show description for command associated with `one-key' item on current line."
   (interactive)
   (save-excursion
     (save-restriction
@@ -794,20 +993,6 @@ active region, and REVERSE is set to t if a prefix arg is passed but nil otherwi
           (describe-function (intern-soft (match-string 1)))
         (message "No command found!")))))
 
-
-(defun one-key-template-write ()
-  "Prompt user to save current one-key menu to `one-key-menus-location' with the name one-key-menu_??.el
-where ?? is the name of the menu."
-  (interactive)
-  (let (name)
-    (goto-char (point-max))
-    (if (re-search-backward "^ *(one-key-menu \"\\(.*?\\)\"" nil t)
-        (progn (setq name (concat "one-key-menu_" (match-string 1) ".el"))
-               (ido-file-internal 'write 'write-file
-                                  (file-name-as-directory one-key-menus-location)
-                                  "Save as: " nil name 'ignore)
-               (one-key-template-mode))
-      (message "No one-key-menu function found!"))))
 
 (define-key one-key-template-mode-map (kbd "M-<up>") 'one-key-template-move-line-region-up)
 (define-key one-key-template-mode-map (kbd "M-<down>") 'one-key-template-move-line-region-down)
@@ -832,7 +1017,7 @@ where ?? is the name of the menu."
 
 ;; menu of commands to help make one-key menus
 (defvar one-key-menu-one-key-alist nil
-  "The `one-key' menu alist for one-key.")
+  "The `one-key' menu alist for creating `one-key' templates.")
 
 (setq one-key-menu-one-key-alist
       '(
@@ -842,12 +1027,12 @@ where ?? is the name of the menu."
 	))
 
 (defun one-key-menu-one-key ()
-  "The `one-key' menu for one-key"
+  "The `one-key' menu for creating `one-key' templates."
   (interactive)
   (one-key-menu "one-key" 'one-key-menu-one-key-alist))
 
 (defvar one-key-menu-one-key-template-alist nil
-  "The `one-key' menu alist for one-key-template.")
+  "The `one-key' menu alist for `one-key-template-mode'")
 
 (setq one-key-menu-one-key-template-alist
       '(
@@ -866,12 +1051,12 @@ where ?? is the name of the menu."
 	))
 
 (defun one-key-menu-one-key-template ()
-  "The `one-key' menu for one-key-template"
+  "The `one-key' menu for `one-key-template'."
   (interactive)
   (one-key-menu "one-key-template" 'one-key-menu-one-key-template-alist))
 
 (defvar one-key-menu-one-key-template-sort-alist nil
-  "The `one-key' menu alist for one-key-template-sort.")
+  "The `one-key' menu alist for sorting template items.")
 
 (setq one-key-menu-one-key-template-sort-alist
       '(
@@ -883,7 +1068,7 @@ where ?? is the name of the menu."
 	(("C-b" . "back to previous menu") . one-key-menu-one-key-template)))
 
 (defun one-key-menu-one-key-template-sort ()
-  "The `one-key' menu for one-key-template-sort"
+  "The `one-key' menu for sorting template items."
   (interactive)
   (one-key-menu "one-key-template-sort" 'one-key-menu-one-key-template-sort-alist))
 
@@ -893,7 +1078,8 @@ where ?? is the name of the menu."
   (one-key-menu "toplevel" 'one-key-toplevel-alist))
 
 (defun one-key-get-menu (mode)
-  "Show appropriate one-key menu for current major mode."
+  "Show appropriate one-key menu for major mode with symbol MODE.
+If called interactively set MODE to the current major mode."
   (interactive `(,major-mode))
   (let ((menu (assoc mode one-key-mode-alist)))
     (if menu
@@ -902,23 +1088,23 @@ where ?? is the name of the menu."
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Interactive Functions ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun one-key-show-help nil
-  "Show information about to special keybindings in the `one-key' menu."
+(defun one-key-show-help (special-keybindings)
+  "Show information about `one-key-menu' special keybindings in the alist SPECIAL-KEYBINDINGS."
   (interactive)
-  (let* ((maxkey (loop for elt in one-key-special-keybindings
+  (let* ((maxkey (loop for elt in special-keybindings
                        maximize (1+ (length (car elt)))))
-         (maxstr (loop for elt in one-key-special-keybindings
+         (maxstr (loop for elt in special-keybindings
                        maximize (+ 3 maxkey (length (cadr elt)))))
          (width (/ (window-width) 2))
          (keystr (if (> maxstr width)
                      (mapconcat (lambda (elt) (format "%s\t: %s" (car elt) (cadr elt)))
-                                one-key-special-keybindings "\n")
-                   (loop with colsize = (+ (/ (length one-key-special-keybindings) 2)
-                                           (% (length one-key-special-keybindings) 2))
+                                special-keybindings "\n")
+                   (loop with colsize = (+ (/ (length special-keybindings) 2)
+                                           (% (length special-keybindings) 2))
                          with finalstr
                          for n from 0 to (1- colsize)
-                         for (key1 desc1) = (nth n one-key-special-keybindings)
-                         for (key2 desc2) = (nth (+ n colsize) one-key-special-keybindings)
+                         for (key1 desc1) = (nth n special-keybindings)
+                         for (key2 desc2) = (nth (+ n colsize) special-keybindings)
                          for keyspc1 = (make-string (- maxkey (length key1)) ? )
                          for keyspc2 = (make-string (- maxkey (length key2)) ? )
                          for str1 = (format "%s%s: %s" key1 keyspc1 desc1)
@@ -932,14 +1118,14 @@ where ?? is the name of the menu."
 The following special keys may also be used:\n\n"
                      keystr)))))
 
-(defun one-key-show-template (keystroke title)
+(defun one-key-show-template (keystroke name)
   "Show template code in buffer `one-key-template-buffer-name'.
 KEYSTROKE is keymap/keystroke that you want generate menu items for.
-TITLE is title name of the menu. It can be any string you like."
+NAME is name name of the menu. It can be any string you like."
   (interactive (let* ((mmode (replace-regexp-in-string "-mode" "" (symbol-name major-mode)))
                       (kmap (concat mmode "-mode-map")))
                  (list (read-string (concat "Keystroke or keymap name (" kmap "): ") nil nil kmap)
-                       (read-string (concat "Title (" mmode "): ") nil nil mmode))))
+                       (read-string (concat "Name (" mmode "): ") nil nil mmode))))
   (let ((keymap (one-key-read-keymap keystroke)))
     (with-current-buffer (get-buffer-create one-key-template-buffer-name)
       ;; Load `emacs-lisp' syntax highlight, and set one-key-template-mode.
@@ -950,52 +1136,66 @@ TITLE is title name of the menu. It can be any string you like."
       (one-key-template-mode)
       ;; Insert template.
       (erase-buffer)
-      (insert (concat ";; one-key menu for " title "\n\n"))
-      (insert (one-key-make-template keymap title))
+      (insert (concat ";; one-key menu for " name "\n\n"))
+      (insert (one-key-make-template keymap name))
       (insert "\n;; Use the `one-key-get-menu' command to show menu/keybindings for this buffer.\n")
       (insert "\n;; Uncomment and edit following line to set this menu as default for mode.")
       (insert (concat "\n;;(add-to-list 'one-key-mode-alist '("
                       (replace-regexp-in-string "-map" "" keystroke) " . one-key-menu-"
-                      (replace-regexp-in-string " " "-" title) "))"))
+                      (replace-regexp-in-string " " "-" name) "))"))
       (insert "\n;; Uncomment and edit following line to add this menu to toplevel menu.")
       (insert (concat "\n;;(add-to-list 'one-key-toplevel-alist '((\"type key here\" . \""
-                      title "\") . one-key-menu-" (replace-regexp-in-string " " "-" title) "))"))
+                      name "\") . one-key-menu-" (replace-regexp-in-string " " "-" name) "))"))
       ;; Pop to buffer.
       (switch-to-buffer (current-buffer))
       (forward-line -3)
       (beginning-of-line))))
 
-(defun one-key-insert-template (keystroke title)
+(defun one-key-insert-template (keystroke name)
   "Insert template code.
 KEYSTROKE is keymap/keystroke that you want generate menu items for.
-TITLE is title name of the menu. It can be any string you like."
+NAME is name name of the menu. It can be any string you like."
   (interactive (let* ((mmode (replace-regexp-in-string "-mode" "" (symbol-name major-mode)))
                       (kmap (concat mmode "-mode-map")))
                  (list (read-string (concat "Keystroke or keymap name (" kmap "): ") nil nil kmap)
-                       (read-string (concat "Title (" mmode "): ") nil nil mmode))))
+                       (read-string (concat "Name (" mmode "): ") nil nil mmode))))
   (let ((keymap (one-key-read-keymap keystroke)))
     ;; Insert.
-    (insert (concat ";; one-key menu for " title "\n\n"))
+    (insert (concat ";; one-key menu for " name "\n\n"))
     (forward-line 1)
-    (insert (one-key-make-template keymap title))
+    (insert (one-key-make-template keymap name))
     (insert "\n;; Use the `one-key-get-menu' command to show menu/keybindings for this buffer.\n")
     (insert "\n;; Uncomment and edit following line to set this menu as default for mode.")
     (insert (concat "\n;;(add-to-list 'one-key-mode-alist '("
                     (replace-regexp-in-string "-map" "" keystroke) " . one-key-menu-"
-                    (replace-regexp-in-string " " "-" title) "))"))
+                    (replace-regexp-in-string " " "-" name) "))"))
     (insert "\n;; Uncomment and edit following line to add this menu to toplevel menu.")
     (insert (concat "\n;;(add-to-list 'one-key-toplevel-alist '((\"type key here\" . \""
-                    title "\") . one-key-menu-" (replace-regexp-in-string " " "-" title) "))"))
+                    name "\") . one-key-menu-" (replace-regexp-in-string " " "-" name) "))"))
     (forward-line -3)
     (beginning-of-line)))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Utilities Functions ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun one-key-scroll-or-move-up (full-list)
+(defun one-key-add-to-alist (alist-var elt-cons &optional no-replace)
+  "Add to the value of ALIST-VAR an element ELT-CONS if it isn't there yet.
+If an element with the same car as the car of ELT-CONS is already present,
+replace it with ELT-CONS unless NO-REPLACE is non-nil; if a matching
+element is not already present, add ELT-CONS to the front of the alist.
+The test for presence of the car of ELT-CONS is done with `equal'."
+  (let ((existing-element (assoc (car elt-cons) (symbol-value alist-var))))
+    (if existing-element
+        (or no-replace
+            (rplacd existing-element (cdr elt-cons)))
+      (set alist-var (cons elt-cons (symbol-value alist-var)))))
+  (symbol-value alist-var))
+
+(defun one-key-scroll-or-move-up (info-alist full-list)
   "Either scroll the `one-key' menu window down by one line or move an item down.
 If `one-key-current-item-being-moved' contains a string representation of one of the keys in the menu move that item
-down one line, otherwise scroll the window down one line."
+down one line, otherwise scroll the window down one line.
+FULL-LIST is as in the `one-key-menu' function."
   (let* ((key one-key-current-item-being-moved)
          (pos (position-if (lambda (x) (equal (caar x) key)) full-list)))
     (if pos
@@ -1007,14 +1207,17 @@ down one line, otherwise scroll the window down one line."
           (setf (car item) (car previtem) (cdr item) (cdr previtem)
                 (car previtem) (car copy) (cdr previtem) (cdr copy))
           (setq one-key-menu-call-first-time t)
-          (one-key-menu-window-close))
+          (one-key-menu-window-close)
+          (if (symbolp info-alist)
+              (add-to-list 'one-key-altered-menus info-alist)))
       (one-key-menu-window-scroll-down-line))
     (setq protect-function (lambda nil (interactive) (setq one-key-current-item-being-moved nil)))))
 
-(defun one-key-scroll-or-move-down (full-list)
+(defun one-key-scroll-or-move-down (info-alist full-list)
   "Either scroll the `one-key' menu window down by one line or move an item down.
 If `one-key-current-item-being-moved' contains a string representation of one of the keys in the menu move that item
-down one line, otherwise scroll the window down one line."
+down one line, otherwise scroll the window down one line.
+FULL-LIST is as in the `one-key-menu' function."
   (let* ((key one-key-current-item-being-moved)
          (pos (position-if (lambda (x) (equal (caar x) key)) full-list)))
     (if pos
@@ -1026,86 +1229,95 @@ down one line, otherwise scroll the window down one line."
           (setf (car item) (car nextitem) (cdr item) (cdr nextitem)
                 (car nextitem) (car copy) (cdr nextitem) (cdr copy))
           (setq one-key-menu-call-first-time t)
-          (one-key-menu-window-close))
+          (one-key-menu-window-close)
+          (if (symbolp info-alist)
+              (add-to-list 'one-key-altered-menus info-alist)))
       (one-key-menu-window-scroll-up-line))
     (setq protect-function (lambda nil (interactive) (setq one-key-current-item-being-moved nil)))))
 
-(defun one-key-add-menu-item (info-alist full-list)
-  "Prompt the user for item details and add it to FULL-LIST, then update INFO-ALIST and redisplay the `one-key' menu."
-  (let* ((isref (symbolp info-alist))
-         (key (read-event "Enter the key for the new item"))
-         (keystr (single-key-description key))
-         (usingregs (eq info-alist 'one-key-regs-menu-alist)))
-    (if usingregs (progn (one-key-regs-function key '(4))
-                         (one-key-regs-update-menu-alist))
-      (let ((desc (read-string "Item description: "))
-            (contents (read-from-minibuffer "Command: " nil nil t))
-            (newitem (cons (cons keystr desc) contents)))
-        (if isref (set info-alist (add-to-list 'full-list newitem))
-          (setq info-alist (add-to-list 'full-list newitem)))))
-    (setq one-key-menu-call-first-time t)
-    (one-key-menu-window-close)))
+(defun one-key-show-item-help (key menu-alist)
+  "Show help for item in MENU-ALIST that is associated with the key KEY.
+MENU-ALIST should be a menu of items as used by the `one-key-menu' function."
+  (let* ((item (one-key-get-menu-item key menu-alist))
+         (cmd (cdr item)))
+    (if (and (symbolp cmd) (commandp cmd))
+        (describe-function cmd)
+      (with-help-window (help-buffer)
+        (princ cmd)))))
 
-(defun one-key-swap-menu-items (full-list)
-  "Prompt user for a pair of items from FULL-LIST and swap the corresponding keys."
+(defun one-key-prompt-to-add-menu-item (info-alist full-list)
+  "Prompt the user for item details and add it to the current `one-key' menu.
+INFO-ALIST and FULL-LIST are as in the `one-key-menu' function."
+  (let* ((isref (symbolp info-alist))
+         (newkey (let ((key (read-key "Enter the key for the new item")))
+                   (while (and (one-key-get-menu-item key full-list)
+                               (not (y-or-n-p "That key is already used! Overwrite old item?")))
+                     (setq key (read-key "Enter new key for the item")))
+                   key))
+         (desc (read-string "Item description: "))
+         (contents (read-from-minibuffer "Command: " nil nil t)))
+    (if isref
+        (progn (add-to-list 'one-key-altered-menus info-alist)
+               (set info-alist (one-key-add-menu-item newkey desc contents full-list)))
+      (setq info-alist (one-key-add-menu-item newkey desc contents full-list))))
+    (setq one-key-menu-call-first-time t)
+    (one-key-menu-window-close))
+
+(defun one-key-swap-menu-items (info-alist full-list)
+  "Prompt user for a pair of items in the `one-key' menu and swap the corresponding keys.
+INFO-ALIST and FULL-LIST are as in the `one-key-menu' function."
   (let* ((keya (read-event "Press key for first item"))
          (keyastr (single-key-description keya))
-         (itema (assoc-if (lambda (itemcar) (equal (car itemcar) keyastr)) full-list))
+         (itema (one-key-get-menu-item keyastr full-list))
          (keyb (read-key "Press key for second item"))
          (keybstr (single-key-description keyb))
-         (itemb (assoc-if (lambda (itemcar) (equal (car itemcar) keybstr)) full-list))
-         (usingregs (eq info-alist 'one-key-regs-menu-alist)))
+         (itemb (one-key-get-menu-item keybstr full-list)))
     (if (not (and itema itemb)) (message "Invalid key!")
-      (setf (caar itema) keybstr (caar itemb) keyastr)
-      (if usingregs (let ((rega (assq keya register-alist))
-                          (regb (assq keyb register-alist)))
-                      (setf (car rega) keyb (car regb) keya))))
+      (setf (caar itema) keybstr (caar itemb) keyastr))
+    (if (symbolp info-alist)
+        (add-to-list 'one-key-altered-menus info-alist))
     (setq one-key-menu-call-first-time t)
     (one-key-menu-window-close)))
 
 (defun one-key-delete-menu-item (info-alist full-list)
-  "Prompt the user for an item to delete from FULL-LIST, delete it, and then redisplay the `one-key' menu."
+  "Prompt the user for an item to delete from the `one-key' menu.
+INFO-ALIST and FULL-LIST are as in the `one-key-menu' function."
   (let* ((isref (symbolp info-alist))
          (key (read-event "Press the key of the item you want to delete"))
-         (keystr (single-key-description key))
-         (item (assoc-if (lambda (itemcar) (equal (car itemcar) keystr)) full-list))
-         (usingregs (eq info-alist 'one-key-regs-menu-alist)))
+         (item (one-key-get-menu-item key full-list)))
     (if (and item (y-or-n-p (format "Delete item \"%s\"?" (cdar item))))
         (if isref (set info-alist (delete item full-list))
           (setq info-alist (delete item full-list))))
-    (if usingregs (setq register-alist (assq-delete-all key register-alist)))
+    (if isref (add-to-list 'one-key-altered-menus info-alist))
     (setq one-key-menu-call-first-time t)
     (one-key-menu-window-close)))
 
 (defun one-key-edit-menu-item (info-alist full-list)
-  "Prompt user for details of item in FULL-LIST to edit, make changes and then reopen `one-key' menu."
+  "Prompt user for the key of a menu item to edit, make changes and then reopen `one-key' menu.
+INFO-ALIST and FULL-LIST are as in the `one-key-menu' function."
   (let* ((oldkey (read-event "Press the key of the item you want to edit"))
-         (oldkeystr (single-key-description oldkey))
-         (item (assoc-if (lambda (itemcar) (equal (car itemcar) oldkeystr)) full-list))
+         (item (one-key-get-menu-item oldkey full-list))
          (newkey (let ((key (read-key "Enter new key for the item")))
-                   (while (and (assoc-if (lambda (x) (equal (car x) (single-key-description key)))
-                                         full-list)
+                   (while (and (one-key-get-menu-item key full-list)
                                (not (eq key oldkey))
                                (not (y-or-n-p "That key is already used! Use it anyway?")))
                      (setq key (read-key "Enter new key for the item")))
                    key))
-         (newkeystr (single-key-description newkey))
          (desc (read-string "Item description: " (cdar item) nil nil))
-         (usingregs (eq info-alist 'one-key-regs-menu-alist))
-         (oldcontents (if usingregs (cdr (assq oldkey register-alist)) (cdr item)))
-         (contents (read-from-minibuffer (if usingregs "Register contents: "
-                                           "Item contents: ") (format "%S" oldcontents) nil t)))
-    (if item (setf (caar item) newkeystr (cdar item) desc (cdr item) (if usingregs (cdr item) contents)))
-    (if usingregs (progn (setq register-alist (assq-delete-all oldkey register-alist))
-                         (setq register-alist (assq-delete-all newkey register-alist))
-                         (add-to-list 'register-alist (cons newkey contents))))
-    (setq one-key-menu-call-first-time t)
-    (one-key-menu-window-close)))
+         (oldcontents (cdr item))
+         (contents (read-from-minibuffer "Item contents: " (format "%S" oldcontents) nil t)))
+    (setf (caar item) (single-key-description newkey))
+    (setf (cdar item) desc)
+    (setf (cdr item) contents))
+  (if (symbolp info-alist)
+      (add-to-list 'one-key-altered-menus info-alist))
+  (setq one-key-menu-call-first-time t)
+  (one-key-menu-window-close))
 
 (defun one-key-highlight-matching-items (info-alist full-list colour pred)
   "Highlight items in FULL-LIST with colour COLOUR using predicate function PRED to select items.
 The predicate function should take a single item from FULL-LIST as it's only argument.
-FULL-LIST should be the `one-key' menu alist pointed to by info-alist in the SELF call.
+INFO-ALIST and FULL-LIST are as in the `one-key-menu' function.
 If COLOUR is \"\" then all highlighting (and more generally any text properties) are removed from the item."
   (loop for item in-ref full-list
         for str = (cdar item)
@@ -1114,94 +1326,196 @@ If COLOUR is \"\" then all highlighting (and more generally any text properties)
             (setf (cdar item) (substring-no-properties str))
           (setf (cdar item)
                 (propertize str 'face (list :background colour :foreground one-key-item-foreground-colour)))))
-    (setq one-key-menu-call-first-time t)
-    (one-key-menu-window-close)
-    (if (eq info-alist 'one-key-regs-menu-alist)
-        (one-key-regs-update-menu-alist)))
+  (if (symbolp info-alist)
+      (add-to-list 'one-key-altered-menus info-alist))
+  (setq one-key-menu-call-first-time t)
+  (one-key-menu-window-close))
 
-(defun one-key-save-menu (title info-alist full-list)
-  "Save the current `one-key' menu to a file (prompting the user if an associated file can't be found)."
+(defun one-key-save-menu (name info-alist full-list)
+  "Save the current `one-key' menu to the file `one-key-menus-save-file'.
+NAME is the name of the current `one-key' menu, INFO-ALIST and FULL-LIST are as in the `one-key-menu' function."
   (let* ((varname (if (symbolp info-alist) (symbol-name info-alist)
-                    (concat "one-key-menu-" title "-alist")))
-         (dir (file-name-as-directory one-key-menus-location))
-         (file (or (find-lisp-object-file-name info-alist 'defvar)
-                   (if (y-or-n-p "Can't find associated source file, create a new one?")
-                       (expand-file-name (read-file-name
-                                          "File name: " dir (concat "one-key-menu_" title ".el"))
-                                         dir))))
-         (usingregs (eq info-alist 'one-key-regs-menu-alist)))
-    (if usingregs (one-key-regs-save-registers)
-      (if file (with-current-buffer (find-file-noselect file)
-                 (goto-char (point-min))
-                 (if (not (search-forward (concat "(setq " varname) nil t))
-                     (goto-char (point-max))
-                   (beginning-of-line)
-                   (mark-sexp)
-                   (kill-region (point) (marker-position (mark-marker)))
-                   (deactivate-mark))
-                 (insert (concat "(setq " varname "\n      '"
-                                 (replace-regexp-in-string
-                                  ") ((" ")\n        ((" (eval `(prin1-to-string full-list))) ")"))
-                 (save-buffer))
-        (message "Save aborted")))))
-
-(defun one-key-open-associated-file (info-alist)
-  "Open the file associated with INFO-ALIST, which should be a symbol whose value is a list of `one-key' menu items."
-  (let* ((usingregs (eq info-alist 'one-key-regs-menu-alist))
-         (file (if usingregs (one-key-regs-open-registers-file)
-                 (find-lisp-object-file-name info-alist 'defvar))))
+                    (concat "one-key-menu-" name "-alist")))
+         (file one-key-menus-save-file)
+         (buf (get-file-buffer file)))
     (if file
-        (progn (find-file-other-window file)
-               (one-key-template-mode)
-               (goto-char (point-min))
-               (search-forward (symbol-name info-alist) nil t)
-               (setq one-key-menu-window-configuration nil)
-               (setq match-recursion-p nil)
-               (setq miss-match-recursion-p nil))
-      (message "Can't find associated source file!"))))
+        (if (file-exists-p file)
+            (if (file-writable-p file)
+                (with-current-buffer (find-file-noselect file)
+                  (goto-char (point-min))
+                  (if (not (search-forward (concat "(setq " varname) nil t))
+                      (goto-char (point-max))
+                    (beginning-of-line)
+                    (mark-sexp)
+                    (kill-region (point) (marker-position (mark-marker)))
+                    (deactivate-mark))
+                  (insert (concat "(setq " varname "\n      '"
+                                  (replace-regexp-in-string
+                                   ") ((" ")\n        ((" (eval `(prin1-to-string full-list))) ")"))
+                  (save-buffer)
+                  (if (not buf) (kill-buffer (get-file-buffer file))))
+              (message "Can't write to file %s" file))
+          (message "Can't file file %s" file))
+      (message "`one-key-menus-save-file' not set" file))))
 
-(defun one-key-get-next-sort-predicate (&optional prev)
-  "Return the sort predicate in `one-key-sort-method-alist' that comes after `one-key-current-sort-method'.
-Also set `one-key-current-sort-method' to the car of the new item. If PREV is non-nil get previous sort predicate instead."
-  (let* ((pos (position one-key-current-sort-method one-key-sort-method-alist
-                        :test (lambda (a b) (eq a (car b)))))
-         (len (length one-key-sort-method-alist))
+(defun one-key-get-next-alist-item (currentcar allitems-alist &optional prev)
+  "Get the item in ALLITEMS-ALIST which comes after the item with car equal to CURRENTCAR.
+If CURRENTCAR is the car of the last item in ALLITEMS-ALIST, then return the first item in the list.
+If PREV is non-nil then return the previous item instead of the next item (returning the last item if CURRENTCAR is
+the car of the first item)."
+  (let* ((pos (position currentcar allitems-alist
+                        :test (lambda (a b) (equal a (car b)))))
+         (len (length allitems-alist))
          (newpos (if prev (if (and pos (> pos 0))
                               (1- pos) (1- len))
                    (if (and pos (< pos (1- len)))
-                       (1+ pos) 0)))
-         (item (nth newpos one-key-sort-method-alist)))
-    (setq one-key-current-sort-method (car item))
-    (cdr item)))
+                       (1+ pos) 0))))
+    (nth newpos allitems-alist)))
 
-(defun one-key-sort-items-by-next-method (info-alist full-list &optional prev)
-  "Sort the items in FULL-LIST according to the method in `one-key-sort-method-alist' after `one-key-current-sort-method'.
-If PREV is non-nil use method before `one-key-current-sort-method'.
-Then update INFO-ALIST or the list that it points to (if its value is a symbol), and call SELF (a call to `one-key-menu').
-The variables INFO-ALIST and FULL-LIST are arguments in the call to SELF."
-  (let* ((isref (symbolp info-alist))
-         (sorted-list (sort (copy-list full-list) (one-key-get-next-sort-predicate prev)))
-         (usingregs (eq info-alist 'one-key-regs-menu-alist))
+(defun* one-key-sort-items-by-next-method (info-alists full-list menu-number &optional prev)
+  "Sort the items in the current `one-key' menu.
+This function is called in the context of the `one-key-menu', where INFO-ALISTS, FULL-LIST and MENU-NUMBER are defined.
+Sort the items in FULL-LIST according to the method in `one-key-default-sort-method-alist' that comes after `one-key-current-sort-method', or the previous method if PREV is non-nil.
+Return the symbol corresponding to the sort method used."
+  (let* ((info-alist (if menu-number (nth menu-number info-alists) info-alists))
+         (isref (symbolp info-alist))
+         (nextmethod (one-key-get-next-alist-item
+                      one-key-current-sort-method
+                      one-key-default-sort-method-alist prev))
+         (sorted-list (sort (copy-list full-list)
+                            (cdr nextmethod)))
          (major (if one-key-column-major-order "columns" "rows")))
-    (if isref (set info-alist sorted-list)
-      (setq info-alist sorted-list))
+    (if isref (progn (set info-alist sorted-list)
+                     (add-to-list 'one-key-altered-menus info-alist))
+      (if menu-number
+          (setf (nth menu-number info-alists) sorted-list)
+        (setq info-alists sorted-list)))
     (setq one-key-menu-call-first-time t)
     (one-key-menu-window-close)
-    (if usingregs
-        (one-key-regs-update-menu-alist))))
+    (car nextmethod)))
 
-(defun one-key-reverse-item-order (info-alist full-list)
-  "Reverse the order of items in FULL-LIST.
-Then update INFO-ALIST or the list that it points to (if its value is a symbol), and call SELF (a call to `one-key-menu').
-The variables INFO-ALIST and FULL-LIST are arguments in the call to SELF."
-  (let ((isref (symbolp info-alist))
-        (reversed-list (reverse full-list))
-        (usingregs (eq info-alist 'one-key-regs-menu-alist)))
-    (if isref (set info-alist reversed-list)
-      (setq info-alist reversed-list))
+(defun one-key-reverse-item-order (info-alists full-list menu-number)
+  "Reverse the order of items in the current `one-key' menu.
+This function is called in the context of the `one-key-menu', where INFO-ALISTS, FULL-LIST and MENU-NUMBER are defined.
+The function will reverse the order of the items in FULL-LIST, and then update the MENU-NUMBER'th item in INFO-ALIST,
+or the list that it points to (if its value is a symbol)."
+  (let* ((info-alist (nth menu-number info-alists))
+         (isref (symbolp info-alist))
+         (reversed-list (reverse full-list)))
+    (if isref (progn (set info-alist reversed-list)
+                     (add-to-list 'one-key-altered-menus info-alist))
+      (if menu-number
+          (setf (nth menu-number info-alists) reversed-list)
+        (setq info-alists reversed-list)))
     (setq one-key-menu-call-first-time t)
-    (one-key-menu-window-close)
-    (if usingregs (one-key-regs-update-menu-alist))))
+    (one-key-menu-window-close)))
+
+(defun one-key-get-menu-type (name)
+  "Return the element of ``one-key-types-of-menu' corresponding to menu with name NAME, or nil if none exists."
+  (assoc-if (lambda (x) (or (equal x name)
+                            (and (functionp x)
+                                 (funcall x name))))
+            one-key-types-of-menu))
+
+(defun one-key-get-menus-for-type (name)
+  "Given the name of an existing menu or menu type in `one-key-types-of-menu', return associated names and menu alists.
+If no such menu or menu type exists, return nil."
+  (let* ((listname (concat "one-key-menu-" name "-alist"))
+         (func (or (second (one-key-get-menu-type name))
+                   (loop for sym being the symbols
+                         for symname = (symbol-name sym)
+                         when (equal listname symname)
+                         return (cons name sym)))))
+    (if (functionp func) (funcall func name) func)))
+
+(defun one-key-prompt-for-menu nil
+  "Prompt the user for a `one-key' menu type."
+  (let* ((alltypes (remove nil
+                           (mapcar (lambda (x) (let ((y (car x))) (if (stringp y) y)))
+                                   one-key-types-of-menu)))
+         (type (if (featurep 'ido)
+                   (ido-completing-read "Menu type: " alltypes)
+                 (completing-read "Menu type: " alltypes))))
+    (one-key-get-menus-for-type type)))
+    
+(defun one-key-add-menus (&optional newnames newlists)
+  "Add a menu/menus to the current list of menus in the `one-key' menu function call.
+This function assumes dynamic binding of the `info-alists', `menu-number' and `names' arguments to the `one-key-menu'
+function, and is called within that function."
+  (let* ((both (if (and newnames newlists)
+                   (cons newnames newlists)
+                 (one-key-prompt-for-menu)))
+         (newnames (car both))
+         (newlists (cdr both))
+         (multi (listp newnames)))
+    (if menu-number
+        (let* ((listlen (length info-alists))
+               (namen (length names))
+               (titnum (min menu-number namen)))
+          (setq names
+                (concatenate 'list
+                             (subseq names 0 (1+ titnum))
+                             (if multi newnames (list newnames))
+                             (subseq names (1+ titnum) namen))
+                info-alists
+                (concatenate 'list
+                             (subseq info-alists 0 (1+ menu-number))
+                             (if multi newlists (list newlists))
+                             (subseq info-alists (1+ menu-number) listlen))
+                menu-number (1+ menu-number)))
+      (setq menu-number 1
+            info-alists (if multi (concatenate 'list (list info-alists) newlists)
+                          (list info-alists newlists))
+            names (if multi (concatenate 'list (list this-name) newnames)
+                    (list this-name newnames)))))
+  (setq one-key-menu-call-first-time t)
+  (one-key-handle-last nil self t))
+
+(defun one-key-delete-menu nil
+  "Remove the current menu from the list of menus."
+  (if menu-number
+      (let* ((listlen (length info-alists))
+             (namen (length names))
+             (titnum (min menu-number (1- namen))))
+        (setq names
+              (concatenate 'list
+                           (subseq names 0 titnum)
+                           (subseq names (1+ titnum) namen))
+              info-alists
+              (concatenate 'list
+                           (subseq info-alists 0 menu-number)
+                           (subseq info-alists (1+ menu-number) listlen))
+              menu-number (min menu-number (- listlen 2))
+              this-name (nth (max 0 (1- titnum)) names)
+              one-key-menu-call-first-time t))
+    (one-key-menu-close)))
+    
+(defun one-key-open-menus (names)
+  "Invoke `one-key-menu' with names and corresponding menu-alists.
+NAMES should be the name of a single `one-key' menu or menu type, or a list of such names.
+If called interactively a single name will be prompted for."
+  (let* ((names (if (stringp names) (list names) names))
+         (pairs (mapcar 'one-key-get-menus-for-type names))
+         (names (mapcan (lambda (x) (let ((y (car x))) (if (stringp y) (list y) y))) pairs))
+         (alists (mapcan (lambda (x) (let ((a (car x)) (b (cdr x)))
+                                       (if (stringp a) (list b) b))) pairs)))
+    (one-key-menu names alists)))
+
+(defun one-key-open-menu-set (menuset)
+  "Open `one-key' menus defined by `one-key' menu set MENUSET.
+MENUSET should be the car of an element of `one-key-sets-of-menus-alist'.
+If called interactively, MENUSET will be prompted for."
+  (interactive (list (if (featurep 'ido)
+                         (ido-completing-read "Menu set: " (mapcar 'car one-key-sets-of-menus-alist))
+                       (completing-read "Menu set: " (mapcar 'car one-key-sets-of-menus-alist)))))
+  (let* ((item (assoc menuset one-key-sets-of-menus-alist))
+         (names (cdr item)))
+    (one-key-open-menus names)))
+
+(defun one-key-open-default-menu-set nil
+  "Open the menu set defined by `one-key-default-menu-set'."
+  (interactive)
+  (one-key-open-menu-set one-key-default-menu-set))
 
 (defun one-key-highlight (msg msg-regexp msg-face)
   "Highlight text in string `MSG' that matches regular expression `MSG-REGEXP' with face `MSG-FACE'."
@@ -1214,23 +1528,42 @@ The variables INFO-ALIST and FULL-LIST are arguments in the call to SELF."
                            msg-face))
     (buffer-string)))
 
-(defun one-key-highlight-menu (title keystroke &optional titles)
-  "Highlight menu TITLE and KEYSTROKE information.
-Title is the name of the `one-key' menu, and KEYSTROKE is the alist of menu items."
-  (let* ((titlefunc (lambda (x) (if (equal title x) (propertize x 'face 'one-key-title) x)))
-         (titles2 (mapcar titlefunc titles))
-         (titlesline (if titles
-                         (concat "| " (mapconcat 'identity titles2 " | ") " |\n")))
-         (infoline (one-key-highlight (eval one-key-menu-title-format-string)
-                                      "\\(<[^<>]*>\\|'[^']*'\\)" '(face one-key-title)))
+(defun one-key-highlight-menu (name keystroke &optional names)
+  "Highlight menu NAME and KEYSTROKE information, and return contents for insertion in *One-Key* buffer.
+NAME is the name of the currently selected menu, if multiple menus are in use then NAMES should be
+the list of corresponding menu names (which will include NAME).
+KEYSTROKE is the alist of menu items."
+  (let* ((namefunc (lambda (x) (if (equal x name) (propertize x 'face 'one-key-name) x)))
+         (names1 (if names
+                     (if (listp names) names (list names))
+                   (list name)))
+         (names2 (mapcar namefunc names1))
+         (namesline (if names2 (concat "| " (mapconcat 'identity names2 " | ") " |")
+                         (propertize name 'face 'one-key-name)))
+         (namelen (length name))
+         (winwidth (window-width))
+         (namepos (/ (- winwidth namelen) 2))
+         (namepos2 (if names2 (next-property-change 0 namesline)))
+         (namepos3 (if names2 (+ namepos2 namelen)))
+         (namediff (if names2 (- namepos2 namepos)))
+         (nameendpos (if names2 (+ winwidth namediff)))
+         (centredline (if names2 (concat (if (< namediff 0) (make-string (- namediff) ? ))
+                                          (substring namesline (max 0 namediff) namepos2)
+                                          (substring namesline namepos2 namepos3)
+                                          (substring namesline namepos3 (min nameendpos (length namesline)))
+                                          "\n")
+                        (concat (make-string namepos ? ) namesline "\n")))
+         (title-func (or (third (one-key-get-menu-type name))
+                         one-key-default-title-format-string))
+         (infoline (one-key-highlight (funcall title-func)
+                                      "\\(<[^<>]*>\\|'[^']*'\\)" '(face one-key-name)))
          (keystrokelist (one-key-highlight keystroke "\\[\\([^\\[\\]\\)*\\]" '(face one-key-keystroke))))
-    (concat titlesline infoline keystrokelist)))
+    (concat centredline infoline keystrokelist)))
 
-(defun* one-key-menu (titles
+(defun* one-key-menu (names
                       info-alists
                       &key
-                      
-                      (menu-number (if  ; hack to check if info-alists is a list of lists or just a single list
+                      (menu-number (if ; hack to check if info-alists is a list of lists or just a single list
                                        (and (listp info-alists) (not (and (listp (car info-alists))
                                                                           (listp (caar info-alists))
                                                                           (stringp (caaar info-alists)))))
@@ -1243,39 +1576,45 @@ Title is the name of the `one-key' menu, and KEYSTROKE is the alist of menu item
                       alternate-function
                       filter-regex)
   "Function to open `one-key' menu of commands. The commands are executed by pressing the associated keys.
-If `one-key-popup-window' is t (default) then a menu window will be displayed showing the keybindings.
-TITLES is the title of the menu as displayed in the menu window, or a list of titles corresponding to different menu
-lists in INFO-ALIST.
-INFO-ALIST is either a list of menu items, a list of such lists or a symbol whose value is a list or list of lists.
+If global variable `one-key-popup-window' is t (default) then a menu window will be displayed showing the keybindings.
+NAMES is the name of the menu as displayed in the menu window, or a list of names corresponding to different menu
+lists in INFO-ALISTS.
+INFO-ALISTS is either a list of menu items, a list of such lists or a symbol whose value is a list or list of lists.
 Each item in a menu list is of the form: ((key . description) . command).
-If INFO-ALIST is a list then MENU-NUMBER should be an index (starting at 0) indicating which list to display
-initially, otherwise the first list will be used.
-The user can switch between the menu lists by pressing the appropriate keys in `one-key-special-keybindings'.
+If INFO-ALISTS is a list then MENU-NUMBER should be an index (starting at 0) indicating which list to display
+initially (default is 0), otherwise it should be nil. 
+The user can switch between the menu lists by pressing the appropriate keys in `one-key-default-special-keybindings'.
 If KEEP-WINDOW-P is non-nil then the menu window will be kept open even after exiting.
-If EXECUTE-WHEN-MISS-MATCH-P is nil then keys not matching menu items or `one-key-special-keybindings' will be ignored,
-otherwise the associated commands in the current keymaps will be executed.
+If EXECUTE-WHEN-MISS-MATCH-P is nil then keys not matching menu items or `one-key-default-special-keybindings' will be ignored, otherwise the associated commands in the current keymaps will be executed.
 The arguments MATCH-RECURSION-P and MISS-MATCH-RECURSION-P indicate whether to execute `one-key-menu' recursively after
 a matching or non-matching key are pressed (and corresponding commands executed) respectively.
 PROTECT-FUNCTION, if non-nil, is a function that is called within an `unwind-protect' statement at the end
 of `one-key-menu'.
-ALTERNATE-FUNCTION if non-nil is a function that is called after each key press while the menu is active."
-  (let* ((issymbol (symbolp info-alists))
-         (info-alist (if menu-number
+ALTERNATE-FUNCTION if non-nil is a function that is called after each key press while the menu is active.
+If FILTER-REGEX is non-nil then only menu items whose descriptions match FILTER-REGEX will be displayed."
+  (let* ((info-alist (if menu-number
                          (nth menu-number info-alists)
                        info-alists))
-         (full-list (if (symbolp info-alist) 
+         (issymbol (symbolp info-alist))
+         (full-list (if issymbol 
                         (eval info-alist)
                       info-alist))
-         (this-title (if (stringp titles) titles
-                       (nth menu-number titles)))
+         (this-name (if (stringp names) names
+                       (nth menu-number names)))
          ;; the list of items after filtering
          (filtered-list (if (stringp filter-regex)
                             (remove-if-not
                              (lambda (elt) (string-match filter-regex (cdar elt)))
                              full-list)
                           full-list))
+         ;; the special keybindings for this menu
+         (special-keybindings-var (or (fourth (one-key-get-menu-type this-name))
+                                      one-key-default-special-keybindings))
+         (special-keybindings (if (symbolp special-keybindings-var)
+                                  (eval special-keybindings-var)
+                                special-keybindings-var))
          ;; following function is used for recursively calling itself when needed
-         (self (function (lambda () (one-key-menu titles info-alists
+         (self (function (lambda () (one-key-menu names info-alists
                                                   :menu-number menu-number
                                                   :keep-window-p keep-window-p
                                                   :execute-when-miss-match-p execute-when-miss-match-p
@@ -1286,65 +1625,61 @@ ALTERNATE-FUNCTION if non-nil is a function that is called after each key press 
                                                   :filter-regex filter-regex)))))
     (unwind-protect
         ;; read a key and get the key description
-        (let* ((titlelist (if (listp titles) titles nil))
+        (let* ((namelist (if (listp names) names nil))
                (event (read-key (if one-key-menu-call-first-time
                                     ;; just show the menu buffer when first called
                                     (progn (setq one-key-menu-call-first-time nil)
                                            (if one-key-popup-window
-                                               (one-key-menu-window-open this-title filtered-list titlelist))))))
+                                               (one-key-menu-window-open))))))
                (key (single-key-description event)))
           (cond (
-                 ;; HANDLE KEYSTROKES MATCHING MENU ITEMS:
-                 (catch 'match
-                   (loop for item in filtered-list
-                         for match-key = (caar item)
-                         for desc = (cdar item)
-                         for rest = (cdr item)
-                         for command = (if (commandp rest) rest
-                                         (if (one-key-list-longer-than-1-p rest)
-                                             (car rest)
-                                           (lambda nil (interactive) (message "Invalid command %S" rest)))) do
-                         (when (equal key match-key)
-                           (if one-key-menu-show-key-help
-                               ;; show help for key if previous keypress was for key help
-                               (progn (if (symbolp command)
-                                          (describe-function command)
-                                        (with-help-window (help-buffer)
-                                          (princ command)))
-                                      (setq one-key-menu-show-key-help nil) ; reset `one-key-menu-show-key-help'
-                                      (setq match-recursion-p t)) ; set recursion so that `one-key-menu' is called again
-                             ;; Update key usage statistics if necessary
-                             (if one-key-menu-auto-brighten-used-keys
-                                 (one-key-menu-increment-key-usage item))
-                             ;; We need to close the `one-key' menu window before running the items command.
-                             ;; Save previous state of the `one-key' window before doing this.
-                             (let* ((old-one-key-popup-window one-key-popup-window)
-                                    (one-key-popup-window (one-key-menu-window-exist-p)))
-                               (one-key-menu-window-close)
-                               (setq one-key-menu-call-first-time t) ; allow recursive execution of `one-key-menu'
-                               (call-interactively command) ; call the items command
-                               ;; reopen the `one-key' window if necessary
-                               (if (and one-key-popup-window (or keep-window-p match-recursion-p))
-                                   (one-key-menu-window-open this-title filtered-list titlelist))
-                               (setq one-key-popup-window old-one-key-popup-window)))
-                           (setq one-key-menu-call-first-time nil)
-                           ;; throw t if the key matched so that this clause's body is executed, otherwise return nil
-                           (throw 'match t))) nil)
+                 ;; HANDLE KEYSTROKES MATCHING MENU ITEMS
+                 ;; (unless the help window is open)
+                 (and (not (get-buffer-window "*Help*"))
+                      (catch 'match
+                        (loop for item in filtered-list
+                              for match-key = (caar item)
+                              for desc = (cdar item)
+                              for rest = (cdr item)
+                              for command = (if (commandp rest) rest
+                                              (if (one-key-list-longer-than-1-p rest)
+                                                  (car rest)
+                                                (lambda nil (interactive) (message "Invalid command %S" rest)))) do
+                              (when (equal key match-key)
+                                ;; Update key usage statistics if necessary
+                                (if one-key-auto-brighten-used-keys
+                                    (progn (one-key-menu-increment-key-usage item)
+                                           (if issymbol
+                                               (add-to-list 'one-key-altered-menus info-alist))))
+                                ;; We need to close the `one-key' menu window before running the items command.
+                                ;; Save previous state of the `one-key' window before doing this.
+                                (let* ((old-one-key-popup-window one-key-popup-window)
+                                       (one-key-popup-window (one-key-menu-window-exist-p)))
+                                  (one-key-menu-window-close)
+                                  (setq one-key-menu-call-first-time t) ; allow recursive execution of `one-key-menu'
+                                  (call-interactively command) ; call the items command
+                                  ;; reopen the `one-key' window if necessary
+                                  (if (and one-key-popup-window (or keep-window-p match-recursion-p))
+                                      (one-key-menu-window-open))
+                                  (setq one-key-popup-window old-one-key-popup-window))
+                                (setq one-key-menu-call-first-time nil)
+                                ;; throw t if the key matched so that this clause's body is executed, otherwise return nil
+                                (throw 'match t))) nil))
                  ;; call the `alternate-function' and if `match-recursion-p' is non-nil wait for next keypress
                  (let ((temp (one-key-handle-last alternate-function self match-recursion-p)))
                    ;; if necessary, propagate the value of `keep-window-p' back up
                    (if match-recursion-p
                        (setq keep-window-p temp))))
                 ;; HANDLE SPECIAL KEYS:
-                ((assoc key one-key-special-keybindings)
+                ((assoc key special-keybindings)
                  ;; call the `alternate-function' and the function associated with the special key
                  ;; if this function returns non-nil then wait for the next keypress
-                 (let* ((again (funcall (caddr (assoc key one-key-special-keybindings))))
+                 (let* ((again (funcall (caddr (assoc key special-keybindings))))
                         (temp (one-key-handle-last alternate-function self again)))
                    ;; if necessary, propagate the value of `keep-window-p' back up
                    (if again (setq keep-window-p temp))))
                 ;; HANDLE ALL OTHER KEYS:
-                (t                      
+                (t
                  (when execute-when-miss-match-p
                    ;; If `execute-when-miss-match-p' is non-nil then execute the normal command for this key
                    ;; Need to close the `one-key' menu window before running the command.
@@ -1355,11 +1690,11 @@ ALTERNATE-FUNCTION if non-nil is a function that is called after each key press 
                      (one-key-execute-binding-command key)
                      ;; reopen the `one-key' window if necessary
                      (if (and one-key-popup-window (or keep-window-p miss-match-recursion-p))
-                         (one-key-menu-window-open this-title filtered-list titlelist))
+                         (one-key-menu-window-open))
                      (setq one-key-popup-window old-one-key-popup-window)))
                  ;; call the `alternate-function' and if `miss-match-recursion-p' is non-nil wait for next keypress
                  (let ((temp (one-key-handle-last alternate-function self miss-match-recursion-p)))
-                   ;; if necessary, propagate the value of `keep-window-p' back up
+                   ;; if necessary, copy the value of `keep-window-p' from recursive call
                    (if miss-match-recursion-p
                        (setq keep-window-p temp))))))
       ;; all keypresses have now been handled so reset global variables ready for next time
@@ -1373,6 +1708,7 @@ ALTERNATE-FUNCTION if non-nil is a function that is called after each key press 
       (if (and protect-function 
                (functionp protect-function))
           (call-interactively protect-function)))
+    ;; propagate the value of `keep-window-p' back down the stack
     keep-window-p))
 
 (defun one-key-execute-binding-command (key)
@@ -1393,7 +1729,7 @@ will be tried (in accordance with normal emacs behaviour)."
 
 (defun one-key-read-keymap (keystroke)
   "Read keymap KEYSTROKE.
-If KEYSTROKE is a name of keymap, use the keymap, otherwise it's interpreted as a key stroke."
+If KEYSTROKE is the name of a keymap, use the keymap, otherwise it's interpreted as a key stroke."
   (let ((v (intern-soft keystroke)))
     (if (and (boundp v) (keymapp (symbol-value v)))
         (symbol-value v)
@@ -1418,28 +1754,27 @@ The return value of RECURSION-FUNCTION will be returned by this function also."
   (and (get-buffer one-key-buffer-name)
        (window-live-p (get-buffer-window (get-buffer one-key-buffer-name)))))
 
-(defun one-key-menu-window-toggle (title info-alist &optional titles)
-  "Toggle the `one-key' menu window.
-Argument TITLE is the alist of keys and associated decriptions and functions.
-Each item of this list is in the form: ((key . describe) . command)."
-  (if (one-key-menu-window-exist-p)
-      (one-key-menu-window-close)
-    (one-key-menu-window-open title info-alist titles)))
+(defun one-key-menu-window-toggle nil
+  "Toggle the `one-key' menu window."
+  (if one-key-current-window-state
+      (if (and (stringp one-key-current-window-state)
+               (get-buffer one-key-current-window-state))
+          (one-key-menu-window-close)
+        (setq one-key-current-window-state
+              (with-selected-window (previous-window) (buffer-name)))
+        (fit-window-to-buffer (get-buffer-window one-key-buffer-name)
+                              (frame-height)
+                              one-key-menu-window-max-height))
+    (one-key-menu-window-open)))
 
-(defun one-key-menu-window-open (title info-alist &optional titles)
-  "Open the `one-key' menu window.
-Argument TITLE is a title for the `one-key' menu.
-Argument INFO-ALIST is the alist of keys and associated decriptions and functions, or a symbol referencing the list.
-Each item of this list is in the form: ((key . describe) . command).
-If KEEPOLD is non-nil then if there is already a `one-key' menu buffer, that will be reopened,
-otherwise a new one will be created."
+(defun one-key-menu-window-open nil
+  "Open the `one-key' menu window."
   ;; Save current window configuration.
-  (if (one-key-menu-window-exist-p)
-      (one-key-menu-window-close))
   (or one-key-menu-window-configuration
-      (setq one-key-menu-window-configuration (current-window-configuration)))
+      (setq one-key-menu-window-configuration
+            (current-window-configuration)))
   ;; Update key brightnesses if necessary
-  (if one-key-menu-auto-brighten-used-keys
+  (if one-key-auto-brighten-used-keys
       (one-key-menu-brighten-most-used info-alist))
   ;; Generate buffer information.
   (with-current-buffer (get-buffer-create one-key-buffer-name)
@@ -1447,20 +1782,29 @@ otherwise a new one will be created."
     (goto-char (point-min))
     (save-excursion
       (insert (one-key-highlight-menu
-               title (one-key-menu-format info-alist) titles))))
+               this-name (one-key-menu-format filtered-list) names))))
   ;; Pop `one-key' buffer.
   (pop-to-buffer one-key-buffer-name)
   (set-buffer one-key-buffer-name)
-  ;; Adjust height of menu window to display buffer's contents exactly.
-  (fit-window-to-buffer nil one-key-menu-window-max-height)
+  ;; Adjust height of menu window appropriately.
+  ;; If `one-key-current-window-state' is a string then we have switched
+  ;; from another menu at full height, and so should make this window full height too.
+  (if (stringp one-key-current-window-state)
+      (fit-window-to-buffer nil (frame-height) one-key-menu-window-max-height)
+    (fit-window-to-buffer nil one-key-menu-window-max-height)
+    (setq one-key-current-window-state t))
   nil)
 
-(defun one-key-menu-window-close ()
+(defun one-key-menu-window-close nil
   "Close the menu window."
   ;; Kill menu buffer.
   (when (bufferp (get-buffer one-key-buffer-name))
+    (if (and (stringp one-key-current-window-state)
+             (get-buffer one-key-current-window-state))
+        (pop-to-buffer one-key-current-window-state))
     (delete-window (get-buffer-window one-key-buffer-name))
-    (kill-buffer one-key-buffer-name))
+    (kill-buffer one-key-buffer-name)
+    (setq one-key-current-window-state nil))
   ;; Restore window layout if `one-key-menu-window-configuration' is valid value.
   (when (and one-key-menu-window-configuration
              (boundp 'one-key-menu-window-configuration))
@@ -1506,7 +1850,7 @@ otherwise a new one will be created."
                  (setf (cdr item) rest))))))
 
 (defsubst one-key-list-longer-than-1-p (x)
-  "Return t if x is a list of length > 1"
+  "Return t if x is a list of length > 1, and is not a command."
   (and (not (commandp x))
        (listp x)
        (listp (cdr x))
@@ -1516,35 +1860,45 @@ otherwise a new one will be created."
   "Set values of menu item colours proportionally according to how often they have been used.
 Argument INFO-ALIST is the alist of keys and associated decriptions and functions, or a symbol referencing the list."
   ;; first get min and max keypress values
-  (let* ((menu-alist (if (symbolp info-alist) (eval info-alist) info-alist))
-         (minmaxvals (loop for ((key . desc) . rest) in menu-alist
-                           for val = (if (one-key-list-longer-than-1-p rest)
-                                         (second rest) 0)
-                           maximize val into max
-                           minimize val into min
-                           finally return (list min max)))
-         (minval (first minmaxvals))
-         (maxval (second minmaxvals))
-         (range (- maxval minval)))
-    ;; update the colour value (from HSV) of each item in menu-alist
-    (loop for item in menu-alist
-          for ((key . desc) . rest) = item
-          ;; get current keypress value (indicating number of times key has been pressed)
-          for val = (if (one-key-list-longer-than-1-p rest)
-                        (second rest) 0)
-          ;; calculate colour value from keypress value
-          for vval = (if (= range 0)
-                         0.5
-                       (+ (/ (- val minval) (* 2.0 range)) 0.5))
-          ;; get current HSV values 
-          for oldcol = (or (plist-get (get-text-property 0 'face desc) :background)
-                           (cdr (assq 'background-color (frame-parameters))))
-          for (h s v) = (hexrgb-hex-to-hsv oldcol)
-          ;; set new HSV values to update colour value
-          for newcol = (hexrgb-hsv-to-hex h s vval) do
-          (setf (cdar item)
-                (propertize desc 'face (list :background newcol
-                                             :foreground one-key-item-foreground-colour))))))
+  (if info-alist
+      (let* ((menu-alist (if (symbolp info-alist) (eval info-alist) info-alist))
+             (minmaxvals (loop for ((key . desc) . rest) in menu-alist
+                               for val = (if (one-key-list-longer-than-1-p rest)
+                                             (second rest) 0)
+                               maximize val into max
+                               minimize val into min
+                               finally return (list min max)))
+             (minval (first minmaxvals))
+             (maxval (second minmaxvals))
+             (range (- maxval minval)))
+        ;; update the colour value (from HSV) of each item in menu-alist
+        (loop for item in menu-alist
+              for ((key . desc) . rest) = item
+              ;; get current keypress value (indicating number of times key has been pressed)
+              for val = (if (one-key-list-longer-than-1-p rest)
+                            (second rest) 0)
+              ;; calculate colour value from keypress value
+              for vval = (if (= range 0)
+                             0.5
+                           (+ (/ (- val minval) (* 2.0 range)) 0.5))
+              ;; get current HSV values
+              for descface = (get-text-property 0 'face desc)
+              for oldbgcol = (or (and (facep descface)
+                                      (not (equal (face-attribute descface :background) 'unspecified))
+                                      (face-attribute descface :background))
+                                 (plist-get descface :background)
+                                 (cdr (assq 'background-color (frame-parameters))))
+              for fgcol = (or (and (facep descface)
+                                   (not (equal (face-attribute descface :foreground) 'unspecified))
+                                   (face-attribute descface :foreground))
+                              (plist-get descface :foreground)
+                              one-key-item-foreground-colour)
+              for (h s v) = (hexrgb-hex-to-hsv oldbgcol)
+              ;; set new HSV values to update colour value
+              for newbgcol = (hexrgb-hsv-to-hex h s vval) do
+              (setf (cdar item)
+                    (propertize desc 'face (list :background newbgcol
+                                                 :foreground fgcol)))))))
 
 (defun one-key-optimize-col-widths (lengths maxlength)
   "Given a list of the lengths of the menu items, work out the maximum possible number of columns and return their widths.
@@ -1606,26 +1960,106 @@ Each element of this list is in the form: ((key . describe) . command)."
           (mapconcat 'identity (nreverse keystroke-msg) ""))
       "No menu items!")))
 
-(defun add-to-alist (alist-var elt-cons &optional no-replace)
-  "Add to the value of ALIST-VAR an element ELT-CONS if it isn't there yet.
-If an element with the same car as the car of ELT-CONS is already present,
-replace it with ELT-CONS unless NO-REPLACE is non-nil; if a matching
-element is not already present, add ELT-CONS to the front of the alist.
-The test for presence of the car of ELT-CONS is done with `equal'."
-  (let ((existing-element (assoc (car elt-cons) (symbol-value alist-var))))
-    (if existing-element
-        (or no-replace
-            (rplacd existing-element (cdr elt-cons)))
-      (set alist-var (cons elt-cons (symbol-value alist-var)))))
-  (symbol-value alist-var))
+(defun one-key-get-menu-item (key menu-alist)
+  "Return the member of MENU-ALIST corresponding to key KEY, or nil if no such item exists.
+KEY may be a char or the string representation of a char.
+MENU-ALIST is a list of `one-key' menu items."
+  (let ((thekey (if (stringp key) key (single-key-description key))))
+    (find-if (lambda (x) (equal (caar x) thekey)) menu-alist)))
 
-(defun one-key-make-template (keymap title)
-  "Generate template code.
-KEYMAP is keymap you want generate.
-TITLE is title name that any string you like."
+(defun one-key-add-menu-item (key desc contents menu-alist)
+  "Add a new item to MENU-ALIST in the form ((KEY . DESC) . CONTENTS), overwriting any item with the same key.
+Return the new value of MENU-ALIST after adding the item.
+KEY may be a char or the string representation of a char.
+DESC must be a string (the description to display in the menu).
+CONTENTS may be a command or a list whose first element is a command (it will be executed when KEY is pressed in the menu)."
+  (let* ((thekey (if (stringp key) key (single-key-description key)))
+         (item (one-key-get-menu-item thekey menu-alist)))
+    (if item (progn (setf (cdar item) desc (cdr item) contents) menu-alist)
+      (add-to-list 'menu-alist (cons (cons thekey desc) contents)))))
+
+(defun* one-key-create-menus (keymap &optional (name (if (symbolp keymap)
+                                                         (substring (symbol-name keymap) 0 -4)
+                                                       "unknown")))
+  "Create a menu alist for a keymap and all sub menu alists."
+  (let* ((case-fold-search nil)
+         (keymap1 (if (symbolp keymap) (eval keymap) keymap))
+         (nulllines '("digit-argument" "^\\s-.*" "^$" "^key\\s-+binding" "^[-\\s-]+"))
+         (keystr (substitute-command-keys "\\<keymap1>\\{keymap1}"))
+         (lines (string-split keystr "\n"))
+         (lines2 (remove-if (lambda (line)
+                              (string-match (mapconcat 'identity nulllines "\\|") line)) lines))
+         (lines3 (mapcar (lambda (line) (string-split line "  +" 2)) lines2))
+         (pred1 (lambda (line) (string-match "Prefix Command\\|-map$" (cadr line))))
+         (submenulines (remove-if-not pred1 lines3))
+         (submenulines2 (sort submenulines (lambda (a b) (> (length (car a)) (length (car b))))))
+         (lines4 (remove-if pred1 lines3))
+         ;; function to convert '(key cmd) pairs into menu items
+         (converter (lambda (line) (let* ((keystr (car line))
+                                          (cmdname (cadr line))
+                                          (cmd (intern-soft cmdname))
+                                          (desc (capitalize
+                                                 (replace-regexp-in-string "-" " " cmdname)))
+                                          (lastkey (car (last (string-split keystr " ")))))
+                                     (cons (cons lastkey desc) cmd))))
+         (pair (loop for line in submenulines2
+                     for key1 = (car line)
+                     for key2 = (replace-regexp-in-string "ESC$" "M-" key1)
+                     for keyregex = (concat "^\\("
+                                            (regexp-opt (list (concat key1 " ") key2))
+                                            "\\)")
+                     for pred2 = (lambda (line) (string-match keyregex (car line)))
+                     for newlines = (remove-if-not pred2 lines4)
+                     for items = (mapcar converter newlines)
+                     if newlines collect items into menus
+                     and collect line into submenulines3
+                     and do (setq lines4 (remove-if pred2 lines4))
+                     end
+                     finally return (cons menus submenulines3)))
+         (lines5 (mapcar converter lines4))
+         (menus2 (car pair))
+         (submenulines4 (cdr pair))
+         (vars (loop for lines on submenulines4
+                      for line = (car lines)
+                      for key = (car line)
+                      for lastkey = (car (last (string-split key " ")))
+                      for desc = (capitalize (replace-regexp-in-string "-" " " (cadr line)))
+                      for desc2 = (propertize desc 'face (list :background "cyan"
+                                                               :foreground one-key-item-foreground-colour)) 
+                      for menuname = (concat name "-" (replace-regexp-in-string " " "_" key))
+                      for var = (intern (concat "one-key-menu-" menuname "-alist"))
+                      for cmd = `(lambda nil (interactive) (one-key-add-menus ,menuname ,var))
+                      for item = (cons (cons lastkey desc2) cmd)
+                      for others = (cdr lines)
+                      for i = (if i (1+ i) 1)
+                      for pos = (position-if (lambda (x)
+                                               (let* ((key1 (car x))
+                                                      (key2 (replace-regexp-in-string "ESC$" "M-" key1))
+                                                      (keyregex (concat "^\\("
+                                                                        (regexp-opt (list (concat key1 " ") key2))
+                                                                        "\\)")))
+                                                 (string-match keyregex key))) others)
+                      for pos2 = (if pos (+ i pos))
+                      for matchmenu = (if pos (nth pos2 menus2))
+                      if pos do (let* ((matchmenu (nth pos2 menus2)))
+                                  (setf (nth pos2 menus2) (add-to-list 'matchmenu item)))
+                      else do (setq lines5 (add-to-list 'lines5 item))
+                      collect var))
+         (mainvar (intern (concat "one-key-menu-" name "-alist")))
+         (vars2 (loop for var in vars
+                      for menu in menus2
+                      do (set var menu)
+                      (add-to-list 'one-key-altered-menus var)
+                      collect var)))
+    (set mainvar lines5)
+    mainvar))
+
+(defun one-key-make-template (keymap name)
+  "Generate template code. KEYMAP is keymap you want generate.
+NAME is the name for the menu (any string you like)."
   (with-temp-buffer
     (let ((indent-tabs-mode t)
-          (funcname (replace-regexp-in-string " " "-" title)))
+          (funcname (replace-regexp-in-string " " "-" name)))
       (insert (substitute-command-keys "\\<keymap>\\{keymap}"))
       ;; Remove header/footer
       (goto-char (point-min))
@@ -1637,7 +2071,7 @@ TITLE is title name that any string you like."
       (goto-char (point-min))
       ;; Insert alist variable.
       (insert (format "(defvar one-key-menu-%s-alist nil\n\"The `one-key' menu alist for %s.\")\n\n"
-                      funcname title)
+                      funcname name)
               (format "(setq one-key-menu-%s-alist\n'(\n" funcname))
       ;; Insert (("key" . "desc") . command).
       (while (not (eobp))
@@ -1662,44 +2096,141 @@ TITLE is title name that any string you like."
       (goto-char (point-max))
       (insert "))\n\n")
       ;; Insert function.
-      (insert (format "(defun one-key-menu-%s ()\n\"The `one-key' menu for %s\"\n(interactive)\n(one-key-menu \"%s\" 'one-key-menu-%s-alist))\n" funcname title title funcname))
+      (insert (format "(defun one-key-menu-%s ()\n\"The `one-key' menu for %s\"\n(interactive)\n(one-key-menu \"%s\" 'one-key-menu-%s-alist))\n" funcname name name funcname))
       ;; Indent.
       (emacs-lisp-mode)
       (indent-region (point-min) (point-max))
       ;; Result.
-      (buffer-string)
-      )))
+      (buffer-string))))
 
-;; This function is used to load the one-key menus at startup if `one-key-auto-load-menus' is set to t.
-(defun one-key-load-files (filepattern)
-  "Load all files with paths matching FILEPATTERN"
-  (let ((directory (file-name-directory filepattern))
-	(fp (file-name-nondirectory filepattern))
-	filename
-	(files nil))
-    (setq files (directory-files directory nil fp nil))
-    (if (not files)
-	(if find-files-ignore-no-match
-	    (load-file filepattern)
-	  (error "No matching files for `%s'!" filepattern)))
-    (while files
-      (setq filename (car files))
-      (if directory (setq filename (concat directory filename)))
-      (if (not (file-directory-p filename))
-	  (progn (message "Reading %s" filename)
-		 (if (string-match "XEmacs" emacs-version)
-		     (load-file filename)
-		   (load-file filename))))
-      (setq files (cdr files)))))
+(defun one-key-generate-key (desc usedkeys &optional elements)
+  "Return a key for the menu item whose description string is DESC.
+The generated key can be used in a `one-key' menu. 
+If provided, ELEMENTS should be a list of keys to choose from, otherwise `one-key-default-menu-keys' will be used.
+USEDKEYS should be a list of keys which cannot be used (since they have already be used).
+This function can be used to help automatic creation of `one-key' menus."
+  (let ((elements (or elements one-key-default-menu-keys)))
+    (or (dolist (element elements)
+          (when (not (memq element usedkeys))
+            (return element)))
+        (error "Can not generate a unique key for menu item : %s" item))))
 
-;; Load all one-key menus if necessary.
-(if one-key-auto-load-menus
-    (one-key-load-files (concat (file-name-as-directory one-key-menus-location) one-key-menus-regexp)))
+(defun one-key-build-menu-sets-menu-alist nil
+  "Build menu-alist for opening menu sets defined in `one-key-sets-of-menus-alist'."
+  (let (usedkeys)
+    (loop for (desc . names) in one-key-sets-of-menus-alist
+          for key = (one-key-generate-key desc usedkeys)
+          for keystr = (single-key-description key)
+          for desc2 = (if (equal desc one-key-default-menu-set)
+                          (propertize desc 'face (list :background "red"
+                                                       :foreground one-key-item-foreground-colour))
+                        desc)
+          collect (cons (cons keystr desc2)
+                        `(lambda nil (interactive)
+                          (one-key-open-menu-set ,`desc)))
+          do (push key usedkeys))))
+
+(defun one-key-save-altered-menus nil
+  "Save the menus listed in `one-key-altered-menus' into the file `one-key-menus-save-file'.
+Any menu names that match the regular expressions in `one-key-exclude-from-save' will not be saved."
+  (loop for var in one-key-altered-menus
+        for varname = (symbol-name var)
+        for name = (substring varname 13 -6)
+        for menulist = (eval var)
+        for exclude = (loop for regex in one-key-exclude-from-save
+                            if (string-match regex varname) return t)
+        if (not exclude) do (one-key-save-menu name var menulist)))
+
+;; Set the menu-alist, title string format and special keybindings for `one-key' menus for this major mode
+(one-key-add-to-alist 'one-key-types-of-menu
+                      (list "top-level"
+                            (cons "top-level" 'one-key-toplevel-alist)
+                            nil
+                            nil) t)
+;; Set the menu-alist, title string format and special keybindings for `one-key' menus for this major mode
+(one-key-add-to-alist 'one-key-types-of-menu
+                      (list "major-mode"
+                            (lambda (name)
+                              (let* ((modename (with-selected-window
+                                                   (previous-window)
+                                                 (symbol-name major-mode)))
+                                     (mapname (concat modename "-map"))
+                                     (mapsym (intern-soft mapname))
+                                     (symname (concat "one-key-menu-"
+                                                      modename "-alist"))
+                                     (menusym (intern-soft symname)))
+                                (if (and mapsym (or (not menusym) (not (boundp menusym))))
+                                    (one-key-create-menus mapsym modename))
+                                (cons modename (intern-soft symname))))
+                            nil
+                            nil) t)
+;; Set the menu-alist, title string format and special keybindings for adding existing menus
+(one-key-add-to-alist 'one-key-types-of-menu
+                      (list "existing menu"
+                            (lambda (name)
+                              (let* ((names (loop for sym being the symbols
+                                                  for name = (symbol-name sym)
+                                                  when (string-match "one-key-menu-\\(.+\\)-alist" name)
+                                                  collect (match-string 1 name)))
+                                     (name (if (featurep 'ido)
+                                               (ido-completing-read "Menu: " names)
+                                             (completing-read "Menu: " names))))
+                                (cons name (intern-soft (concat "one-key-menu-" name "-alist")))))
+                            nil
+                            nil) t)
+;; Set the menu-alist, title string format and special keybindings for adding existing menus
+(one-key-add-to-alist 'one-key-types-of-menu
+                      (list "existing keymap"
+                            (lambda (name)
+                              (let* ((names (loop for sym being the symbols
+                                                  for name = (symbol-name sym)
+                                                  when (string-match "\\(.*\\)-map$" name)
+                                                  collect (match-string 1 name)))
+                                     (name (if (featurep 'ido)
+                                               (ido-completing-read "Keymap: " names)
+                                             (completing-read "Keymap: " names)))
+                                     (kmap (intern-soft (concat name "-map"))))
+                                (one-key-create-menus kmap)
+                                (cons name (intern-soft (concat "one-key-menu-" name "-alist")))))
+                            nil
+                            nil) t)
+;; Set the menu-alist, title string format and special keybindings for the menu-sets menu
+(one-key-add-to-alist 'one-key-types-of-menu
+                      (list "menu-sets"
+                            (lambda (name)
+                              (cons name (one-key-build-menu-sets-menu-alist)))
+                            (lambda nil
+                              (let* ((col1 (if one-key-auto-brighten-used-keys "#7FFF00000000" "red"))
+                                     (col2 (cdr (assq 'background-color (frame-parameters))))
+                                     (hsv2 (hexrgb-hex-to-hsv col2))
+                                     (col2a (hexrgb-hsv-to-hex (first hsv2) (second hsv2) 0.5))
+                                     (col2b (if one-key-auto-brighten-used-keys col2a col2))
+                                     (keystr1 (propertize "default menu set"
+                                                          'face (list :background col1
+                                                                      :foreground one-key-item-foreground-colour)))
+                                     (keystr2 (propertize "normal menu set"
+                                                          'face (list :background col2b
+                                                                      :foreground one-key-item-foreground-colour))))
+                                (concat keystr1 keystr2 "\n" 
+                                        (format "Sorted by %s (%s first). Press <f1> for help.\n"
+                                                one-key-current-sort-method
+                                                (if one-key-column-major-order "columns" "rows")))))
+                            'one-key-menu-sets-special-keybindings) t)
+
+;; add function for autosaving menus to kill-emacs-hook
+(add-hook 'kill-emacs-hook (lambda nil (if one-key-autosave-menus (one-key-save-altered-menus))))
+
+;; Load the saved one-key menus.
+(if one-key-menus-save-file
+    (if (file-exists-p one-key-menus-save-file)
+        (if (file-readable-p one-key-menus-save-file)
+            (load-file one-key-menus-save-file)
+          (message "Can't read file %s" one-key-menus-save-file))
+      (message "Can't find file %s" one-key-menus-save-file))
+  (message "`one-key-menus-save-file' is not set, no menus loaded"))
 
 (provide 'one-key)
 
 ;;; one-key.el ends here
 
-;;; LocalWords:  emms specpdl minish DarkRed msg FUNCITN num str decf elt args
-;;; LocalWords:  rubikitch's desc SPC bmenu sKeymap nsTitle fontify funcname
-;;; LocalWords:  bol eol destructuring cmd PageUp PageDown
+
