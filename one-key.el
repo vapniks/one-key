@@ -441,6 +441,13 @@ This list will be used for generating keys by the `one-key-generate-key' functio
   :group 'one-key
   :type '(repeat character))
 
+(defcustom one-key-excluded-keys '("<remap>" "mouse")
+  "List of strings matching keys that should be excluded from `one-key' menus that are automatically generated from keymaps.
+When `one-key' menus are automatically generated with the `one-key-create-menus' function, keys that match any of these
+strings will be excluded from the final menus."
+  :group 'one-key
+  :type '(repeat (regexp :tag "Regexp" :help-echo "A regular expression matching keys to be excluded.")))
+
 (defcustom one-key-popup-window t
   "Whether to popup window when `one-key-menu' is run for the first time."
   :type 'boolean
@@ -448,11 +455,6 @@ This list will be used for generating keys by the `one-key-generate-key' functio
 
 (defcustom one-key-buffer-name "*One-Key*"
   "The buffer name of the popup menu window."
-  :type 'string
-  :group 'one-key)
-
-(defcustom one-key-template-buffer-name "*One-Key-Template*"
-  "The name of the template buffer."
   :type 'string
   :group 'one-key)
 
@@ -496,11 +498,6 @@ then second, etc.). Otherwise menu items are displayed in row major order."
 (defcustom one-key-auto-brighten-used-keys t
   "If non-nil then set brightness of menu items colours according to how often the keys are pressed."
   :type 'boolean
-  :group 'one-key)
-
-(defcustom one-key-mode-alist '((one-key-template-mode . one-key-menu-one-key-template))
-  "List of modes and associated one-key menus."
-  :type '(alist :key-type symbol :value-type symbol)
   :group 'one-key)
 
 (defcustom one-key-major-mode-remap-alist '((Custom-mode . "custom-mode"))
@@ -725,9 +722,9 @@ You may wish to temporarily alter this list when creating your own types of `one
                                              (names (cdr menuset)))
                                         (message "%S" names) t)))
     ("C-s" "Customize menu sets" (lambda nil
-                                         (setq one-key-menu-window-configuration nil)
-                                         (with-selected-window (previous-window)
-                                          (customize-variable 'one-key-sets-of-menus-alist)) nil))
+                                   (setq one-key-menu-window-configuration nil)
+                                   (with-selected-window (previous-window)
+                                     (customize-variable 'one-key-sets-of-menus-alist)) nil))
     ("<f1>" "Toggle this help buffer" (lambda nil (if (get-buffer-window "*Help*")
                                                       (kill-buffer "*Help*")
                                                     (one-key-show-help special-keybindings)) t))
@@ -759,8 +756,8 @@ You may wish to temporarily alter this list when creating your own types of `one
               (item (one-key-get-menu-item key full-list))
               (name (cdar item))
               (pos (position "menu-sets" names :test 'equal)))
-         (if name (setq one-key-default-menu-set
-                        (substring-no-properties name)))
+         (if name (eval `(customize-save-variable 'one-key-default-menu-set
+                                                  ,(substring-no-properties name))))
          (if pos (setf (nth pos info-alists) (one-key-build-menu-sets-menu-alist))
            (setq info-alists (one-key-build-menu-sets-menu-alist))))
        (setq one-key-menu-call-first-time t)
@@ -882,219 +879,6 @@ If nil then the window is closed, if t then it is open at normal size, if 'full 
 
 (defvar one-key-altered-menus nil
   "List of menu alist variables that should be saved on exit if `one-key-autosave-menus' is true.")
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Major Mode ;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(define-derived-mode one-key-template-mode emacs-lisp-mode "one-key"
-  "Major mode for editing one-key menus produced by `one-key-show-template'.
-\\{one-key-template-mode-map}"
-  :syntax-table nil
-  :abbrev-table nil
-  )
-
-(defun one-key-template-move-line-region (start end n)
-  "Move the current region up or down by N lines.
-If region is not active then move the current line instead."
-  (interactive "r\np")
-  (let ((reg (region-active-p)))
-    (if (not reg)
-        (progn (beginning-of-line) (setq start (point))
-               (end-of-line) (forward-char) (setq end (point))))
-    (let ((line-text (delete-and-extract-region start end)))
-      (forward-line n)
-      (let ((start (point)))
-        (insert line-text)
-        (if reg (progn (setq deactivate-mark nil) (set-mark start))
-          (forward-line -1))))))
-
-(defun one-key-template-move-line-region-up nil
-  "Move the current line/region up by N lines where N is the prefix arg.
-If no prefix is given then N will be set to 1.
-If no region is active then just the current line will be moved."
-  (interactive)
-  (if (not (mark)) (push-mark (point)))
-  (let ((start (region-beginning)) (end (region-end)) (n current-prefix-arg))
-    (one-key-template-move-line-region start end (if (null n) -1 (- n)))))
-
-(defun one-key-template-move-line-region-down nil
-  "Move the current line/region down by N lines where N is the prefix arg.
-If no prefix is given then N will be set to 1.
-If no region is active then just the current line will be moved."  
-  (interactive)
-  (if (not (mark)) (push-mark (point)))
-  (let ((start (region-beginning)) (end (region-end)) (n current-prefix-arg))
-    (one-key-template-move-line-region start end (if (null n) 1 n))))
-
-(defun one-key-template-test-menu ()
-  "Test the one-key menu defined in this buffer."
-  (interactive)
-  (eval-buffer)
-  (save-excursion
-    (goto-char (point-min))
-    (if (re-search-forward "^(defun \\(one-key-menu-[a-zA-Z0-9_-]+\\) " nil t)
-        (funcall (intern-soft (match-string 1)))
-      (message "Can't find one-key menu function definition!"))))
-
-(defun one-key-template-mark-key-items ()
-  "Mark the one-key-menu alist items."
-  (interactive)
-  (goto-char (point-min))
-  (if (re-search-forward "^\\s-*[; ]*((\".*?\" \\. \".*?\") \\. .*?)\\s-*$" nil t)
-      (progn (move-beginning-of-line nil) (set-mark (point))
-             (if (re-search-forward "^\\s-*(defun one-key-menu" nil t)
-                 (progn (re-search-backward "^\\s-*[; ]*((\".*?\" \\. \".*?\") \\. .*?)\\s-*$")
-                        (move-beginning-of-line nil) (forward-line 1))
-               (message "Can't find one-key-menu function definition!")))
-    (message "Can't find one-key-menu alist!")))
-
-(defun one-key-template-sort-key-items-by-command-alphabetically ()
-  "Sort one-key key definitions in region by command name alphabetically."
-  (interactive)
-  (sort-regexp-fields nil "^\\(\\s-\\|;\\)+((\"\\(.+?\\)\" \\. \"\\(.+?\\)\") \\. \\(.+?\\))\\s-*$" "\\4" (region-beginning) (region-end)))
-
-(defun one-key-template-sort-key-items-by-description-alphabetically ()
-  "Sort one-key key definitions in region by description alphabetically."
-  (interactive)
-  (sort-regexp-fields nil "^\\(\\s-\\|;\\)+((\"\\(.+?\\)\" \\. \"\\(.+?\\)\") \\. \\(.+?\\))\\s-*$" "\\3" (region-beginning) (region-end)))
-
-(defun one-key-template-sort-key-items-by-key-alphabetically ()
-  "Sort one-key key definitions in region by key alphabetically."
-  (interactive)
-  (sort-regexp-fields nil "^\\(\\s-\\|;\\)+((\"\\(.+?\\)\" \\. \"\\(.+?\\)\") \\. \\(.+?\\))\\s-*$" "\\2" (region-beginning) (region-end)))
-
-(defun one-key-template-group-key-items-by-regexps (reverse beg end regexps)
-  "Group lines between positions BEG and END according to which regexp in REGEXPS they match.
-The groups are then placed in the same order as in REGEXPS; top first if REVERSE is nil, or bottom first if non-nil.
-When called interactively the regexp's are prompted for until a blank is entered, BEG and END are defined by the currently
-active region, and REVERSE is set to t if a prefix arg is passed but nil otherwise."
-  (interactive (list current-prefix-arg (region-beginning) (region-end) nil))
-  (let ((n 0) (regexp t) (intp (interactive-p)))
-    (while (and intp (not (equal regexp "")))
-      (setq regexps
-            (append regexps (list (read-string (concat "Enter regexps to match, in order (leave blank to end): ")))))
-      (setq regexp (nth n regexps))
-      (setq n (1+ n))))
-  (save-excursion
-    (save-restriction
-      (narrow-to-region beg end)
-      (goto-char (point-min))
-      (let ((inhibit-field-text-motion t))
-	(sort-subr reverse 'forward-line 'end-of-line nil nil
-		   (lambda (str1 str2) 
-                     (let ((cur 0) (match nil))
-                       (while (and (< cur (length regexps)) (not match))
-                         (let* ((regexp (nth cur regexps))
-                                (m1 (string-match regexp (buffer-substring (car str1) (cdr str1))))
-                                (m2 (string-match regexp (buffer-substring (car str2) (cdr str2)))))
-                           (setq cur (1+ cur))
-                           (setq match
-                                 (cond ((and (not m1) (not m2)) nil)
-                                       ((and m1 (not m2)) 1)
-                                       ((and (not m1) m2) -1)
-                                       ((< m1 m2) 1)
-                                       (t -1)))))
-                       (> match 0))))))))
-
-
-(defun one-key-template-describe-command ()
-  "Show description for command associated with `one-key' item on current line."
-  (interactive)
-  (save-excursion
-    (save-restriction
-      (if (re-search-forward "\\(\\(?:\\s_\\|\\sw\\)+\\))\\s-*$" nil t)
-          (describe-function (intern-soft (match-string 1)))
-        (message "No command found!")))))
-
-
-(define-key one-key-template-mode-map (kbd "M-<up>") 'one-key-template-move-line-region-up)
-(define-key one-key-template-mode-map (kbd "M-<down>") 'one-key-template-move-line-region-down)
-(define-key one-key-template-mode-map (kbd "M-p") 'one-key-template-move-line-region-up)
-(define-key one-key-template-mode-map (kbd "M-n") 'one-key-template-move-line-region-down)
-(define-key one-key-template-mode-map (kbd "C-c C-t") 'one-key-template-test-menu)
-(define-key one-key-template-mode-map (kbd "C-c SPC") 'one-key-template-mark-key-items)
-(define-key one-key-template-mode-map (kbd "C-c C-SPC") 'one-key-template-mark-key-items)
-(define-key one-key-template-mode-map (kbd "C-c c") 'comment-region)
-(define-key one-key-template-mode-map (kbd "C-c u") 'uncomment-region)
-(define-key one-key-template-mode-map (kbd "C-c C-w") 'one-key-template-write)
-(define-key one-key-template-mode-map (kbd "C-c C-h") 'one-key-template-describe-command)
-;; (define-prefix-command 'one-key-template-sort-map)
-;; (define-key one-key-template-mode-map (kbd "C-c C-s") 'one-key-template-sort-map)
-;; (define-key one-key-template-mode-map (kbd "C-c C-s c") 'one-key-template-sort-key-items-by-command-alphabetically)
-;; (define-key one-key-template-mode-map (kbd "C-c C-s d") 'one-key-template-sort-key-items-by-description-alphabetically)
-;; (define-key one-key-template-mode-map (kbd "C-c C-s k") 'one-key-template-sort-key-items-by-key-alphabetically)
-(define-key one-key-template-mode-map (kbd "C-c C-s") 'one-key-menu-one-key-template-sort)
-
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; one-key menus ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-;; menu of commands to help make one-key menus
-(defvar one-key-menu-one-key-alist nil
-  "The `one-key' menu alist for creating `one-key' templates.")
-
-(setq one-key-menu-one-key-alist
-      '(
-	(("t" . "show template") . one-key-show-template)
-	(("T" . "insert template") . one-key-insert-template)
-	(("C-b" . "Back to toplevel menu") . one-key-menu-toplevel)
-	))
-
-(defun one-key-menu-one-key ()
-  "The `one-key' menu for creating `one-key' templates."
-  (interactive)
-  (one-key-menu "one-key" 'one-key-menu-one-key-alist))
-
-(defvar one-key-menu-one-key-template-alist nil
-  "The `one-key' menu alist for `one-key-template-mode'")
-
-(setq one-key-menu-one-key-template-alist
-      '(
-	(("C-s" . "Sort commands (C-c C-s)") . one-key-menu-one-key-template-sort)
-	(("C-c c" . "Comment Region (C-c c)") . comment-region)
-	(("C-c u" . "Uncomment Region (C-c u)") . uncomment-region)
-	(("SPC" . "Mark key items (C-c C-SPC)") . one-key-template-mark-key-items)
-	(("M-<up>" . "Move key item(s) up (M-<up>)") . one-key-template-move-line-region-up)
-	(("M-<down>" . "Move key item(s) down (M-<down>)") . one-key-template-move-line-region-down)
-	(("C-M-q" . "Indent sexp (C-M-q)") . indent-sexp)
-        (("M-TAB" . "Completion At Point (M-TAB)") . completion-at-point)
-	(("C-t" . "Test menu (C-c C-t)") . one-key-template-test-menu)
-        (("C-h" . "Describe command of current item (C-c C-h)") . one-key-template-describe-command)
-        (("C-w" . "Write template to one-key menus folder (C-c C-w)") . one-key-template-write)
-        (("e" . "emacs-lisp-mode") . emacs-lisp-mode)
-	))
-
-(defun one-key-menu-one-key-template ()
-  "The `one-key' menu for `one-key-template'."
-  (interactive)
-  (one-key-menu "one-key-template" 'one-key-menu-one-key-template-alist))
-
-(defvar one-key-menu-one-key-template-sort-alist nil
-  "The `one-key' menu alist for sorting template items.")
-
-(setq one-key-menu-one-key-template-sort-alist
-      '(
-	(("c" . "Sort items by command alphabetically (C-c C-s c)") . one-key-template-sort-key-items-by-command-alphabetically)
-	(("d" . "Sort items by description alphabetically (C-c C-s d)") . one-key-template-sort-key-items-by-description-alphabetically)
-	(("k" . "Sort items by key alphabetically (C-c C-s k)") . one-key-template-sort-key-items-by-key-alphabetically)
-        (("g" . "Group items by regexp matches (C-c C-s g)") . one-key-template-group-key-items-by-regexps)
-        (("G" . "Group items by regexp matches, reverse order (C-c C-s G)") . (lambda nil (interactive) (setq current-prefix-arg 1) (call-interactively 'one-key-template-group-key-items-by-regexps)))
-	(("C-b" . "back to previous menu") . one-key-menu-one-key-template)))
-
-(defun one-key-menu-one-key-template-sort ()
-  "The `one-key' menu for sorting template items."
-  (interactive)
-  (one-key-menu "one-key-template-sort" 'one-key-menu-one-key-template-sort-alist))
-
-(defun one-key-menu-toplevel ()
-  "The `one-key' toplevel menu."
-  (interactive)
-  (one-key-menu "toplevel" 'one-key-toplevel-alist))
-
-(defun one-key-get-menu (mode)
-  "Show appropriate one-key menu for major mode with symbol MODE.
-If called interactively set MODE to the current major mode."
-  (interactive `(,major-mode))
-  (let ((menu (assoc mode one-key-mode-alist)))
-    (if menu
-	(funcall (cdr menu))
-      (one-key-menu-toplevel))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Interactive Functions ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -1127,64 +911,6 @@ If called interactively set MODE to the current major mode."
 
 The following special keys may also be used:\n\n"
                      keystr)))))
-
-(defun one-key-show-template (keystroke name)
-  "Show template code in buffer `one-key-template-buffer-name'.
-KEYSTROKE is keymap/keystroke that you want generate menu items for.
-NAME is name name of the menu. It can be any string you like."
-  (interactive (let* ((mmode (replace-regexp-in-string "-mode" "" (symbol-name major-mode)))
-                      (kmap (concat mmode "-mode-map")))
-                 (list (read-string (concat "Keystroke or keymap name (" kmap "): ") nil nil kmap)
-                       (read-string (concat "Name (" mmode "): ") nil nil mmode))))
-  (let ((keymap (one-key-read-keymap keystroke)))
-    (with-current-buffer (get-buffer-create one-key-template-buffer-name)
-      ;; Load `emacs-lisp' syntax highlight, and set one-key-template-mode.
-      (set-syntax-table emacs-lisp-mode-syntax-table)
-      (lisp-mode-variables)
-      (setq font-lock-mode t)
-      (font-lock-fontify-buffer)
-      (one-key-template-mode)
-      ;; Insert template.
-      (erase-buffer)
-      (insert (concat ";; one-key menu for " name "\n\n"))
-      (insert (one-key-make-template keymap name))
-      (insert "\n;; Use the `one-key-get-menu' command to show menu/keybindings for this buffer.\n")
-      (insert "\n;; Uncomment and edit following line to set this menu as default for mode.")
-      (insert (concat "\n;;(add-to-list 'one-key-mode-alist '("
-                      (replace-regexp-in-string "-map" "" keystroke) " . one-key-menu-"
-                      (replace-regexp-in-string " " "-" name) "))"))
-      (insert "\n;; Uncomment and edit following line to add this menu to toplevel menu.")
-      (insert (concat "\n;;(add-to-list 'one-key-toplevel-alist '((\"type key here\" . \""
-                      name "\") . one-key-menu-" (replace-regexp-in-string " " "-" name) "))"))
-      ;; Pop to buffer.
-      (switch-to-buffer (current-buffer))
-      (forward-line -3)
-      (beginning-of-line))))
-
-(defun one-key-insert-template (keystroke name)
-  "Insert template code.
-KEYSTROKE is keymap/keystroke that you want generate menu items for.
-NAME is name name of the menu. It can be any string you like."
-  (interactive (let* ((mmode (replace-regexp-in-string "-mode" "" (symbol-name major-mode)))
-                      (kmap (concat mmode "-mode-map")))
-                 (list (read-string (concat "Keystroke or keymap name (" kmap "): ") nil nil kmap)
-                       (read-string (concat "Name (" mmode "): ") nil nil mmode))))
-  (let ((keymap (one-key-read-keymap keystroke)))
-    ;; Insert.
-    (insert (concat ";; one-key menu for " name "\n\n"))
-    (forward-line 1)
-    (insert (one-key-make-template keymap name))
-    (insert "\n;; Use the `one-key-get-menu' command to show menu/keybindings for this buffer.\n")
-    (insert "\n;; Uncomment and edit following line to set this menu as default for mode.")
-    (insert (concat "\n;;(add-to-list 'one-key-mode-alist '("
-                    (replace-regexp-in-string "-map" "" keystroke) " . one-key-menu-"
-                    (replace-regexp-in-string " " "-" name) "))"))
-    (insert "\n;; Uncomment and edit following line to add this menu to toplevel menu.")
-    (insert (concat "\n;;(add-to-list 'one-key-toplevel-alist '((\"type key here\" . \""
-                    name "\") . one-key-menu-" (replace-regexp-in-string " " "-" name) "))"))
-    (forward-line -3)
-    (beginning-of-line)))
-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Utilities Functions ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -1435,7 +1161,8 @@ If no such menu or menu type exists, return nil."
                    (loop for sym being the symbols
                          for symname = (symbol-name sym)
                          when (equal listname symname)
-                         return (cons name sym)))))
+                         return (cons name sym))
+                   (error "Invalid menu name: \"%s\"" name))))
     (if (functionp func) (funcall func name) func)))
 
 (defun one-key-prompt-for-menu nil
@@ -1567,7 +1294,7 @@ KEYSTROKE is the alist of menu items."
                          one-key-default-title-format-string))
          (infoline (one-key-highlight (funcall title-func)
                                       "\\(<[^<>]*>\\|'[^']*'\\)" '(face one-key-name)))
-         (keystrokelist (one-key-highlight keystroke "\\[\\([^\\[\\]\\)*\\]" '(face one-key-keystroke))))
+         (keystrokelist (one-key-highlight keystroke "\\[\\([^\\[\\]\\)*?\\]" '(face one-key-keystroke))))
     (concat centredline infoline keystrokelist)))
 
 (defun* one-key-menu (names
@@ -1871,44 +1598,45 @@ The return value of RECURSION-FUNCTION will be returned by this function also."
 Argument INFO-ALIST is the alist of keys and associated decriptions and functions, or a symbol referencing the list."
   ;; first get min and max keypress values
   (if info-alist
-      (let* ((menu-alist (if (symbolp info-alist) (eval info-alist) info-alist))
-             (minmaxvals (loop for ((key . desc) . rest) in menu-alist
-                               for val = (if (one-key-list-longer-than-1-p rest)
-                                             (second rest) 0)
-                               maximize val into max
-                               minimize val into min
-                               finally return (list min max)))
-             (minval (first minmaxvals))
-             (maxval (second minmaxvals))
-             (range (- maxval minval)))
-        ;; update the colour value (from HSV) of each item in menu-alist
-        (loop for item in menu-alist
-              for ((key . desc) . rest) = item
-              ;; get current keypress value (indicating number of times key has been pressed)
-              for val = (if (one-key-list-longer-than-1-p rest)
-                            (second rest) 0)
-              ;; calculate colour value from keypress value
-              for vval = (if (= range 0)
-                             0.5
-                           (+ (/ (- val minval) (* 2.0 range)) 0.5))
-              ;; get current HSV values
-              for descface = (get-text-property 0 'face desc)
-              for oldbgcol = (or (and (facep descface)
-                                      (not (equal (face-attribute descface :background) 'unspecified))
-                                      (face-attribute descface :background))
-                                 (plist-get descface :background)
-                                 (cdr (assq 'background-color (frame-parameters))))
-              for fgcol = (or (and (facep descface)
-                                   (not (equal (face-attribute descface :foreground) 'unspecified))
-                                   (face-attribute descface :foreground))
-                              (plist-get descface :foreground)
-                              one-key-item-foreground-colour)
-              for (h s v) = (hexrgb-hex-to-hsv oldbgcol)
-              ;; set new HSV values to update colour value
-              for newbgcol = (hexrgb-hsv-to-hex h s vval) do
-              (setf (cdar item)
-                    (propertize desc 'face (list :background newbgcol
-                                                 :foreground fgcol)))))))
+      (let ((menu-alist (if (symbolp info-alist) (eval info-alist) info-alist)))
+        (if menu-alist
+            (let* ((minmaxvals (loop for ((key . desc) . rest) in menu-alist
+                                     for val = (if (one-key-list-longer-than-1-p rest)
+                                                   (second rest) 0)
+                                     maximize val into max
+                                     minimize val into min
+                                     finally return (list min max)))
+                   (minval (first minmaxvals))
+                   (maxval (second minmaxvals))
+                   (range (- maxval minval)))
+              ;; update the colour value (from HSV) of each item in menu-alist
+              (loop for item in menu-alist
+                    for ((key . desc) . rest) = item
+                    ;; get current keypress value (indicating number of times key has been pressed)
+                    for val = (if (one-key-list-longer-than-1-p rest)
+                                  (second rest) 0)
+                    ;; calculate colour value from keypress value
+                    for vval = (if (= range 0)
+                                   0.5
+                                 (+ (/ (- val minval) (* 2.0 range)) 0.5))
+                    ;; get current HSV values
+                    for descface = (get-text-property 0 'face desc)
+                    for oldbgcol = (or (and (facep descface)
+                                            (not (equal (face-attribute descface :background) 'unspecified))
+                                            (face-attribute descface :background))
+                                       (plist-get descface :background)
+                                       (cdr (assq 'background-color (frame-parameters))))
+                    for fgcol = (or (and (facep descface)
+                                         (not (equal (face-attribute descface :foreground) 'unspecified))
+                                         (face-attribute descface :foreground))
+                                    (plist-get descface :foreground)
+                                    one-key-item-foreground-colour)
+                    for (h s v) = (hexrgb-hex-to-hsv oldbgcol)
+                    ;; set new HSV values to update colour value
+                    for newbgcol = (hexrgb-hsv-to-hex h s vval) do
+                    (setf (cdar item)
+                          (propertize desc 'face (list :background newbgcol
+                                                       :foreground fgcol)))))))))
 
 (defun one-key-optimize-col-widths (lengths maxlength)
   "Given a list of the lengths of the menu items, work out the maximum possible number of columns and return their widths.
@@ -1995,23 +1723,41 @@ CONTENTS may be a command or a list whose first element is a command (it will be
   (let* ((case-fold-search nil)
          (keymap1 (if (symbolp keymap) (eval keymap) keymap))
          (nulllines '("digit-argument" "^\\s-.*" "^$" "^key\\s-+binding" "^[-\\s-]+"))
+         (nulllines2 (mapconcat 'identity nulllines "\\|"))
          (keystr (substitute-command-keys "\\<keymap1>\\{keymap1}"))
          (lines (string-split keystr "\n"))
-         (lines2 (remove-if (lambda (line)
-                              (string-match (mapconcat 'identity nulllines "\\|") line)) lines))
+         (lines2 (remove-if (lambda (line) (string-match nulllines2 line)) lines))
          (lines3 (mapcar (lambda (line) (string-split line "  +" 2)) lines2))
          (pred1 (lambda (line) (string-match "Prefix Command\\|-map$" (cadr line))))
          (submenulines (remove-if-not pred1 lines3))
          (submenulines2 (sort submenulines (lambda (a b) (> (length (car a)) (length (car b))))))
-         (lines4 (remove-if pred1 lines3))
+         (lines4a (remove-if pred1 lines3))
+         (nullkeys (regexp-opt one-key-excluded-keys))
+         (lines4 (remove-if (lambda (line) (string-match nullkeys (car line))) lines4a))
          ;; function to convert '(key cmd) pairs into menu items
+         (keymapname (replace-regexp-in-string "mode-map$\\|map$" "" (symbol-name keymap)))
+         (keymapnameregex (regexp-opt (list keymapname (capitalize keymapname))))
          (converter (lambda (line) (let* ((keystr (car line))
                                           (cmdname (cadr line))
                                           (cmd (intern-soft cmdname))
+                                          (cmdname2 (replace-regexp-in-string keymapnameregex "" cmdname))
                                           (desc (capitalize
-                                                 (replace-regexp-in-string "-" " " cmdname)))
+                                                 (replace-regexp-in-string "-" " " cmdname2)))
+                                          (desc2 (concat desc " (" keystr ")"))
                                           (lastkey (car (last (string-split keystr " ")))))
-                                     (cons (cons lastkey desc) cmd))))
+                                     (cons (cons lastkey desc2) cmd))))
+         ;; remove duplicate entries (keep one with shortest keystring)
+         (lines5 (loop for line in lines4 with lines4b
+                       for key = (car line)
+                       for cmd = (cadr line)
+                       for func = (lambda (x) (equal (car x) cmd))
+                       for elm = (rassoc-if func lines4b)
+                       for key2 = (car elm)
+                       if elm do (if (< (length key) (length key2))
+                                     (setf (car elm) key))
+                       else do (push line lines4b)
+                       finally return lines4b))
+         ;; split items into submenus corresponding with prefix keys in submenulines2
          (pair (loop for line in submenulines2
                      for key1 = (car line)
                      for key2 = (replace-regexp-in-string "ESC$" "M-" key1)
@@ -2019,17 +1765,18 @@ CONTENTS may be a command or a list whose first element is a command (it will be
                                             (regexp-opt (list (concat key1 " ") key2))
                                             "\\)")
                      for pred2 = (lambda (line) (string-match keyregex (car line)))
-                     for newlines = (remove-if-not pred2 lines4)
+                     for newlines = (remove-if-not pred2 lines5)
                      for items = (mapcar converter newlines)
                      if newlines collect items into menus
                      and collect line into submenulines3
-                     and do (setq lines4 (remove-if pred2 lines4))
+                     and do (setq lines5 (remove-if pred2 lines5))
                      end
                      finally return (cons menus submenulines3)))
-         (lines5 (mapcar converter lines4))
+         (lines6 (mapcar converter lines5))
          (menus2 (car pair))
          (submenulines4 (cdr pair))
          (mainvar (intern (concat "one-key-menu-" name "-alist")))
+         ;; place prefix key items in appropriate submenus
          (vars (loop for lines on submenulines4
                       for line = (car lines)
                       for key = (car line)
@@ -2054,7 +1801,7 @@ CONTENTS may be a command or a list whose first element is a command (it will be
                       for matchmenu = (if pos (nth pos2 menus2))
                       if pos do (let* ((matchmenu (nth pos2 menus2)))
                                   (setf (nth pos2 menus2) (add-to-list 'matchmenu item)))
-                      else do (setq lines5 (add-to-list 'lines5 item))
+                      else do (setq lines6 (add-to-list 'lines6 item))
                       collect var)))
     (add-to-list 'one-key-altered-menus mainvar)
     (loop for var in vars
@@ -2062,57 +1809,8 @@ CONTENTS may be a command or a list whose first element is a command (it will be
           do (set var menu)
           (add-to-list 'one-key-altered-menus var)
           collect var)
-    (set mainvar lines5)
+    (set mainvar lines6)
     mainvar))
-
-(defun one-key-make-template (keymap name)
-  "Generate template code. KEYMAP is keymap you want generate.
-NAME is the name for the menu (any string you like)."
-  (with-temp-buffer
-    (let ((indent-tabs-mode t)
-          (funcname (replace-regexp-in-string " " "-" name)))
-      (insert (substitute-command-keys "\\<keymap>\\{keymap}"))
-      ;; Remove header/footer
-      (goto-char (point-min))
-      (forward-line 3)
-      (delete-region 1 (point))
-      (goto-char (point-max))
-      (backward-delete-char 1)
-      ;; Insert.
-      (goto-char (point-min))
-      ;; Insert alist variable.
-      (insert (format "(defvar one-key-menu-%s-alist nil\n\"The `one-key' menu alist for %s.\")\n\n"
-                      funcname name)
-              (format "(setq one-key-menu-%s-alist\n'(\n" funcname))
-      ;; Insert (("key" . "desc") . command).
-      (while (not (eobp))
-        (let ((pair (split-string (buffer-substring (point-at-bol) (point-at-eol)) "\t+")))
-          (if (and (eq 2 (length pair)) (not (equal "" (car pair))))
-              (destructuring-bind (key cmd)
-                  (split-string (buffer-substring (point-at-bol) (point-at-eol)) "\t+")
-                (delete-region (point-at-bol) (point-at-eol))
-                (let ((keystr (replace-regexp-in-string
-                               "\\\"" "\\\\\""
-                               (replace-regexp-in-string "\\\\" "\\\\\\\\" key))))
-                  (insert (format "((\"%s\" . \"%s (%s)\") . %s)" 
-                                  keystr
-                                  (capitalize (replace-regexp-in-string "-" " " cmd))
-                                  keystr
-                                  cmd)))
-                (when (and cmd
-                           (string-match " " (concat key cmd)))
-                  (forward-sexp -1)
-                  (insert ";; ")))))
-        (forward-line 1))
-      (goto-char (point-max))
-      (insert "))\n\n")
-      ;; Insert function.
-      (insert (format "(defun one-key-menu-%s ()\n\"The `one-key' menu for %s\"\n(interactive)\n(one-key-menu \"%s\" 'one-key-menu-%s-alist))\n" funcname name name funcname))
-      ;; Indent.
-      (emacs-lisp-mode)
-      (indent-region (point-min) (point-max))
-      ;; Result.
-      (buffer-string))))
 
 (defun one-key-generate-key (desc usedkeys &optional elements)
   "Return a key for the menu item whose description string is DESC.
@@ -2176,10 +1874,29 @@ major mode) exists then it will be used, otherwise it will be created."
             (setq menusym nil))))
     (cons menuname menusym)))
 
-;; Set the menu-alist, title string format and special keybindings for `one-key' menus for this major mode
+;; Set the menu-alist, title string format and special keybindings for the top-level `one-key' menu
 (one-key-add-to-alist 'one-key-types-of-menu
                       (list "top-level"
                             (cons "top-level" 'one-key-toplevel-alist)
+                            nil
+                            nil) t)
+;; Set the menu-alist, title string format and special keybindings for blank `one-key' menus
+(one-key-add-to-alist 'one-key-types-of-menu
+                      (list "blank menu"
+                            (lambda (name)
+                              (let* ((name (read-string "Menu name: "))
+                                     (symname (concat "one-key-menu-" name "-alist"))
+                                     (menusym (intern-soft symname)))
+                                (while menusym
+                                  (if (not (y-or-n-p "Menu with that name already exists, overwrite?"))
+                                      (progn (setq name (read-string "Menu name: "))
+                                             (setq symname (concat "one-key-menu-" name "-alist"))
+                                             (setq menusym (intern-soft symname)))
+                                    (setq menusym nil)))
+                                (setq menusym (intern symname))
+                                (set menusym nil)
+                                (add-to-list 'one-key-altered-menus menusym)
+                                (cons name menusym)))
                             nil
                             nil) t)
 ;; Set the menu-alist, title string format and special keybindings for `one-key' menus for this major mode
@@ -2202,7 +1919,7 @@ major mode) exists then it will be used, otherwise it will be created."
                                 (cons name (intern-soft (concat "one-key-menu-" name "-alist")))))
                             nil
                             nil) t)
-;; Set the menu-alist, title string format and special keybindings for adding existing menus
+;; Set the menu-alist, title string format and special keybindings for adding menus for existing keymaps
 (one-key-add-to-alist 'one-key-types-of-menu
                       (list "existing keymap"
                             (lambda (name)
