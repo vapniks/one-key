@@ -1846,11 +1846,12 @@ This function can be used to help automatic creation of `one-key' menus."
 
 (defun one-key-key-description (key)
   "Return the key description for the key sequence or single key KEY.
-KEY may be a vector, integer or string representing a single key, or nil.
-If KEY is nil then nil is returned, if it is non-nil and not a string, vector or number then an error is flagged."
+KEY may be a vector, integer, symbol or string representing a key, or nil.
+If KEY is nil then nil is returned, if it is non-nil and not a string, vector, symbol or number then an error is flagged."
   (cond ((not key) nil)
         ((vectorp key) (key-description key))
         ((characterp key) (single-key-description key))
+        ((symbolp key) (single-key-description key))
         ((stringp key) key)
         (t (error "Invalid key: %S" key))))
 
