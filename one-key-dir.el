@@ -333,7 +333,8 @@ in the directory tree."
                                              :filename-map-func filename-map-func
                                              :exclude-regex exclude-regex))
                (nummenus (length dir-alists))
-               (menunames (one-key-dir-make-names dir nummenus)))
+               (dirname (file-name-as-directory (file-truename dir)))
+               (menunames (one-key-append-numbers-to-menu-name dirname nummenus)))
           (one-key-menu menunames dir-alists)))
     (setq max-lisp-eval-depth old-max-lisp-eval-depth)))
 
@@ -411,14 +412,6 @@ lists will be returned (as list of lists). These lists can be navigated from the
             (push (cons (cons (single-key-description one-key-dir-parentdir-key)
                               "..") updircmd) menu))
       menus)))
-
-(defun one-key-dir-make-names (dir nummenus)
-  "Return list of NUMMENUS menu names for directory DIR."
-  (loop for num from 1 to nummenus
-        collect (concat (file-name-as-directory (file-truename dir))
-                        " (" (number-to-string num) ")")))
-
-
 
 (defun one-key-dir/subdirs (directory &optional file?)
   "Return subdirs or files of DIRECTORY according to FILE?.
