@@ -443,7 +443,7 @@ This list will be used for generating keys by the `one-key-generate-key' functio
 
 (defcustom one-key-excluded-keys '("<remap>" "mouse")
   "List of strings matching keys that should be excluded from `one-key' menus that are automatically generated from keymaps.
-When `one-key' menus are automatically generated with the `one-key-create-menus' function, keys that match any of these
+When `one-key' menus are automatically generated with the `one-key-create-menus-from-keymap' function, keys that match any of these
 strings will be excluded from the final menus."
   :group 'one-key
   :type '(repeat (regexp :tag "Regexp" :help-echo "A regular expression matching keys to be excluded.")))
@@ -1737,7 +1737,7 @@ THIS-NAME being dynamically bound."
   (if one-key-submenus-replace-parents
       (one-key-delete-menu currname))))
 
-(defun* one-key-create-menus (keymap &optional (name (if (symbolp keymap)
+(defun* one-key-create-menus-from-keymap (keymap &optional (name (if (symbolp keymap)
                                                          (substring (symbol-name keymap) 0 -4)
                                                        "unknown")))
   "Create a menu alist for a keymap and all sub menu alists."
@@ -1937,7 +1937,7 @@ major mode) exists then it will be used, otherwise it will be created."
         (let* ((mapname (concat menuname "-map"))
                (mapsym (intern-soft mapname)))
           (if (and mapsym (boundp mapsym))
-              (progn (one-key-create-menus mapsym menuname)
+              (progn (one-key-create-menus-from-keymap mapsym menuname)
                      (setq menusym (intern-soft symname)))
             (message "Can't create menu for %S" major-mode)
             (setq menusym nil))))
@@ -2000,7 +2000,7 @@ major mode) exists then it will be used, otherwise it will be created."
                                                (ido-completing-read "Keymap: " names)
                                              (completing-read "Keymap: " names)))
                                      (kmap (intern-soft (concat name "-map"))))
-                                (one-key-create-menus kmap)
+                                (one-key-create-menus-from-keymap kmap)
                                 (cons name (intern-soft (concat "one-key-menu-" name "-alist")))))
                             nil
                             nil) t)
