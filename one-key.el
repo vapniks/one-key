@@ -1875,6 +1875,23 @@ This is useful for creating menu types that return multiple menus."
     (loop for num from 1 to nummenus
         collect (concat menuname " (" (number-to-string num) ")")))
 
+(defun one-key-merge-special-keybindings (keyset1 keyset2)
+  "Merge special keybindings list KEYSET1 with KEYSET2, and return the merged list.
+The lists KEYSET1 and KEYSET2 should be in the same form as `one-key-default-special-keybindings', i.e. each item
+should be a list in the form '(keybinding description function).
+Items in KEYSET1 take priority, i.e. if any item in KEYSET1 has the same keybinding as an item in KEYSET2
+then the item from KEYSET1 will be used. If KEYSET1 and KEYSET2 both contain items with the same keybinding,
+but the KEYSET1 item is missing a function, then the function from the KEYSET2 item will be used with the description
+from the KEYSET1 item. Any items in KEYSET1 whose description is nil will not be included."
+  (let ((newkeyset (copy-list keyset2)))
+    (loop for (key desc func) in keyset1
+          for (key1 desc2 func2) = (assoc key newkeyset) do
+          (if key1
+              (if desc (one-key-add-to-alist 'newkeyset (list key desc (or func func2)))
+                (setq newkeyset (remove-if (lambda (item) (equal (car item) key)) newkeyset)))
+            (add-to-list 'newkeyset (list key desc func))))
+    newkeyset))
+
 (defun* one-key-create-menu-lists (commands &optional descriptions keys
                                             (maxsize (length one-key-default-menu-keys))
                                             (keyfunc 'one-key-generate-key))
