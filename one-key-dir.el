@@ -167,7 +167,7 @@ in the menu.")
   "Filesystem navigation using `one-key'."
   :group 'one-key)
 
-(defcustom one-key-dir-back-to-topdir-key ?^
+(defcustom one-key-dir-parentdir-key ?^
   "Key that will be used to return to the parent directory.
 This should not be a letter or number key."
   :group 'one-key-dir
@@ -183,7 +183,7 @@ This should not be a letter or number key."
   :group 'one-key-dir
   :type '(character :validate (lambda (w) (let ((val (widget-value w)))
                                             (if (memq val (append one-key-default-menu-keys
-                                                                  (list one-key-dir-back-to-topdir-key)))
+                                                                  (list one-key-dir-parentdir-key)))
                                                 (progn (widget-put w :error "That key is already used! Try another")
                                                        w))))))
 
@@ -223,8 +223,8 @@ but can't go above this dir."
                                                                 (if (equal menu-number (1- (length info-alists)))
                                                                     0 (1+ menu-number)))
                                                           (setq one-key-menu-call-first-time t))) t))
-    ("<up>" "Scroll/move up one line" (lambda nil (one-key-scroll-or-move-up full-list) t))
-    ("<down>" "Scroll/move down one line" (lambda nil (one-key-scroll-or-move-down full-list) t))
+    ("<up>" "Scroll/move up one line" (lambda nil (one-key-scroll-or-move-up info-alist full-list) t))
+    ("<down>" "Scroll/move down one line" (lambda nil (one-key-scroll-or-move-down info-alist full-list) t))
     ("<prior>" "Scroll menu down one page" (lambda nil (one-key-menu-window-scroll-down) t))
     ("<next>" "Scroll menu up one page" (lambda nil (one-key-menu-window-scroll-up) t))
     ("<f1>" "Toggle this help buffer" (lambda nil (if (get-buffer-window "*Help*")
@@ -372,28 +372,45 @@ lists will be returned (as list of lists). These lists can be navigated from the
            (cmdfunc (lambda (item)
                       (if (file-directory-p item)
                           `(lambda nil  ; command for directories
-                            (interactive)
-                            (one-key-dir-visit
-                             ,item :filefunc ,filefunc
-                             :dirfunc ,dirfunc
-                             :filename-map-func ,filename-map-func
-                             :exclude-regex ,exclude-regex))
-                           `(lambda nil ; command for files
-                              (interactive)
-                              (setq one-key-dir-current-filename
-                                    ,(file-truename item))
-                              (funcall ,filefunc)))))
+                             (interactive)
+                             (one-key-dir-visit
+                              ,item :filefunc ,filefunc
+                              :dirfunc ,dirfunc
+                              :filename-map-func ,filename-map-func
+                              :exclude-regex ,exclude-regex))
+                        `(lambda nil    ; command for files
+                           (interactive)
+                           (setq one-key-dir-current-filename
+                                 ,(file-truename item))
+                           (funcall ,filefunc)))))
            (commands (mapcar cmdfunc items))
            (descfunc (lambda (item)
                        (let ((name (file-name-nondirectory item)))
-                       (if (file-directory-p item)
-                           (propertize (concat name "/") 'face 'one-key-dir-directory)
-                         (if (file-symlink-p item) (propertize name 'face 'one-key-dir-symlink)
-                           (propertize name 'face 'one-key-dir-file-name))))))
+                         (if (file-directory-p item)
+                             (propertize (concat name "/") 'face 'one-key-dir-directory)
+                           (if (file-symlink-p item) (propertize name 'face 'one-key-dir-symlink)
+                             (propertize name 'face 'one-key-dir-file-name))))))
            (descriptions (mapcar descfunc items))
-           (menu-alists (one-key-create-menu-lists commands descriptions nil
-                                                   one-key-dir/max-items-per-page)))
-      menu-alists)))
+           (menus (one-key-create-menu-lists commands descriptions nil
+                                             one-key-dir/max-items-per-page))
+           (thisdircmd `(lambda nil (interactive)
+                          (setq one-key-dir-current-filename ,dirname)
+                          (funcall ,dirfunc)))
+           (updircmd `(lambda nil (interactive)
+                        (one-key-dir-visit ,(file-name-directory (file-truename
+                                                                  (if (equal (substring dir -1) "/")
+                                                                      (substring dir 0 -1)
+                                                                    dir)))
+                                           :filefunc ,filefunc
+                                           :dirfunc ,dirfunc
+                                           :filename-map-func ,filename-map-func
+                                           :exclude-regex ,exclude-regex))))
+      (loop for menu in-ref menus do
+            (push (cons (cons (single-key-description one-key-dir-current-directory-key)
+                              ".") thisdircmd) menu)
+            (push (cons (cons (single-key-description one-key-dir-parentdir-key)
+                              "..") updircmd) menu))
+      menus)))
 
 (defun one-key-dir-make-names (dir nummenus)
   "Return list of NUMMENUS menu names for directory DIR."
