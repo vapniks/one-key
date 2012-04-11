@@ -666,7 +666,7 @@ the first item should come before the second in the menu."
     ("<C-S-f10>" "Remove this menu"
      (lambda nil (one-key-delete-menu) t))
     ("<f11>" "Reposition item (with arrow keys)"
-     (lambda nil (let ((key (single-key-description
+     (lambda nil (let ((key (one-key-key-description
                              (read-key "Enter key of item to be moved"))))
                    (setq one-key-current-item-being-moved key)
                    (setq one-key-menu-call-first-time t)) t)))
@@ -674,7 +674,7 @@ the first item should come before the second in the menu."
   "An list of special keys, their labels and associated functions that apply to all `one-key' menus.
 Each item in the list contains (in this order):
 
-  1) A string representation of the key (as returned by `single-key-description').
+  1) A string representation of the key (as returned by `one-key-key-description').
 
   2) A short description of the associated action.
      This description will be displayed in the *One-Key* buffer.
@@ -777,7 +777,7 @@ You may wish to temporarily alter this list when creating your own types of `one
   "An list of special keys, their labels and associated functions that apply to all `one-key' menus.
 Each item in the list contains (in this order):
 
-  1) A string representation of the key (as returned by `single-key-description').
+  1) A string representation of the key (as returned by `one-key-key-description').
 
   2) A short description of the associated action.
      This description will be displayed in the *One-Key* buffer.
@@ -1010,10 +1010,10 @@ INFO-ALIST and FULL-LIST are as in the `one-key-menu' function."
   "Prompt user for a pair of items in the `one-key' menu and swap the corresponding keys.
 INFO-ALIST and FULL-LIST are as in the `one-key-menu' function."
   (let* ((keya (read-event "Press key for first item"))
-         (keyastr (single-key-description keya))
+         (keyastr (one-key-key-description keya))
          (itema (one-key-get-menu-item keyastr full-list))
          (keyb (read-key "Press key for second item"))
-         (keybstr (single-key-description keyb))
+         (keybstr (one-key-key-description keyb))
          (itemb (one-key-get-menu-item keybstr full-list)))
     (if (not (and itema itemb)) (message "Invalid key!")
       (setf (caar itema) keybstr (caar itemb) keyastr))
@@ -1049,7 +1049,7 @@ INFO-ALIST and FULL-LIST are as in the `one-key-menu' function."
          (desc (read-string "Item description: " (cdar item) nil nil))
          (oldcontents (cdr item))
          (contents (read-from-minibuffer "Item contents: " (format "%S" oldcontents) nil t)))
-    (setf (caar item) (single-key-description newkey))
+    (setf (caar item) (one-key-key-description newkey))
     (setf (cdar item) desc)
     (setf (cdr item) contents))
   (if (symbolp info-alist)
@@ -1378,7 +1378,7 @@ If FILTER-REGEX is non-nil then only menu items whose descriptions match FILTER-
                                     (progn (setq one-key-menu-call-first-time nil)
                                            (if one-key-popup-window
                                                (one-key-menu-window-open))))))
-               (key (single-key-description event)))
+               (key (one-key-key-description event)))
           (cond (
                  ;; HANDLE KEYSTROKES MATCHING MENU ITEMS
                  ;; (unless the help window is open)
@@ -1712,7 +1712,7 @@ Each element of this list is in the form: ((key . describe) . command)."
   "Return the member of MENU-ALIST corresponding to key KEY, or nil if no such item exists.
 KEY may be a char or the string representation of a char.
 MENU-ALIST is a list of `one-key' menu items."
-  (let ((thekey (if (stringp key) key (single-key-description key))))
+  (let ((thekey (if (stringp key) key (one-key-key-description key))))
     (find-if (lambda (x) (equal (caar x) thekey)) menu-alist)))
 
 (defun one-key-add-menu-item (key desc contents menu-alist)
@@ -1721,7 +1721,7 @@ Return the new value of MENU-ALIST after adding the item.
 KEY may be a char or the string representation of a char.
 DESC must be a string (the description to display in the menu).
 CONTENTS may be a command or a list whose first element is a command (it will be executed when KEY is pressed in the menu)."
-  (let* ((thekey (if (stringp key) key (single-key-description key)))
+  (let* ((thekey (if (stringp key) key (one-key-key-description key)))
          (item (one-key-get-menu-item thekey menu-alist)))
     (if item (progn (setf (cdar item) desc (cdr item) contents) menu-alist)
       (add-to-list 'menu-alist (cons (cons thekey desc) contents)))))
@@ -1844,6 +1844,30 @@ This function can be used to help automatic creation of `one-key' menus."
             (return element)))
         (error "Can not generate a unique key for menu item : %s" desc))))
 
+(defun one-key-key-description (key)
+  "Return the key description for the key sequence or single key KEY.
+KEY may be a vector, integer or string representing a single key, or nil.
+If KEY is nil then nil is returned, if it is non-nil and not a string, vector or number then an error is flagged."
+  (cond ((not key) nil)
+        ((vectorp key) (key-description key))
+        ((characterp key) (single-key-description key))
+        ((stringp key) key)
+        (t (error "Invalid key: %S" key))))
+
+(defun one-key-append-keys-to-descriptions (descriptions keys)
+  "Append key descriptions for keys in KEYS to corresponding descriptions in DESCRIPTIONS, and return result.
+DESCRIPTIONS should be a list of menu item descriptions and KEYS should be a list of keys as numbers, vectors or strings.
+KEYS should be the same length as DESCRIPTIONS.
+If any elements of key are nil then the corresponding description will be left alone.
+If any element of descriptions is nil it will be left as nil."
+  (flet ((addkeys (desc key)
+                  (let ((keystr (one-key-key-description key)))
+                    (if desc
+                        (if keystr (concat desc " (" keystr ")")
+                          desc)
+                      nil))))
+    (mapcar* 'addkeys descriptions keys)))
+
 (defun* one-key-create-menu-lists (commands &optional descriptions keys
                                             (maxsize (length one-key-default-menu-keys))
                                             (keyfunc 'one-key-generate-key))
@@ -1877,7 +1901,7 @@ and KEYFUNC is set to `one-key-generate-key' (which selects keys from `one-key-d
                                                                  "-" " " (symbol-name cmd))))
                                                collect (if key
                                                            (concat desc2 " ("
-                                                                   (single-key-description key)
+                                                                   (one-key-key-description key)
                                                                    ")")
                                                          desc2))
                             for usedkeys = (loop for key in keys2 if key collect key)
@@ -1887,7 +1911,7 @@ and KEYFUNC is set to `one-key-generate-key' (which selects keys from `one-key-d
                                                           (let ((newkey (one-key-generate-key desc usedkeys)))
                                                             (push newkey usedkeys)
                                                             newkey)))
-                            for keystrs = (mapcar 'single-key-description keys3)
+                            for keystrs = (mapcar 'one-key-key-description keys3)
                             collect (loop for cmd in cmds
                                           for desc in descs2
                                           for key in keystrs
