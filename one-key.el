@@ -1868,6 +1868,13 @@ If any element of descriptions is nil it will be left as nil."
                       nil))))
     (mapcar* 'addkeys descriptions keys)))
 
+(defun one-key-append-numbers-to-menu-name (menuname nummenus)
+  "Return list of menu names formed by appending numbers to MENUNAME.
+The new names will be in the form \"MENUNAME (N)\" where N runs over the integers from 1 to NUMMENUS.
+This is useful for creating menu types that return multiple menus."
+    (loop for num from 1 to nummenus
+        collect (concat menuname " (" (number-to-string num) ")")))
+
 (defun* one-key-create-menu-lists (commands &optional descriptions keys
                                             (maxsize (length one-key-default-menu-keys))
                                             (keyfunc 'one-key-generate-key))
