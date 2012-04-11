@@ -500,7 +500,14 @@ then second, etc.). Otherwise menu items are displayed in row major order."
   :type 'boolean
   :group 'one-key)
 
-(defcustom one-key-major-mode-remap-alist '((Custom-mode . "custom-mode"))
+(defcustom one-key-submenus-replace-parents nil
+  "If non-nil then when a submenu of a `one-key' menu is opened it will replace the parent menu.
+Otherwise a new menu is created to hold the submenu and added to the current menu set."
+  :type 'boolean
+  :group 'one-key)
+
+(defcustom one-key-major-mode-remap-alist '((Custom-mode . "custom-mode")
+                                            (latex-mode ."LaTeX-mode"))
   "A list of cons cells mapping major modes to one-key-menus.
 The car of each cell is the symbol of a major mode function (e.g. 'emacs-lisp-mode), and the cdr is the name of
 a `one-key' menu associated with the major mode.
@@ -1208,22 +1215,25 @@ function, and is called within that function."
   (setq one-key-menu-call-first-time t)
   (one-key-handle-last nil self t))
 
-(defun one-key-delete-menu nil
-  "Remove the current menu from the list of menus."
+(defun* one-key-delete-menu (&optional (name this-name))
+  "Remove the menu with name NAME from the list of menus, or the current menu if NAME is not supplied.
+This function will only work if called within the context of the `one-key-menu' function since it depends on the dynamic
+binding of the info-alists, menu-number and names variables."
   (if menu-number
       (let* ((listlen (length info-alists))
              (namen (length names))
-             (titnum (min menu-number (1- namen))))
+             (pos (if name (position name names :test 'equal)
+                    (min menu-number (1- namen)))))
         (setq names
               (concatenate 'list
-                           (subseq names 0 titnum)
-                           (subseq names (1+ titnum) namen))
+                           (subseq names 0 pos)
+                           (subseq names (1+ pos) namen))
               info-alists
               (concatenate 'list
-                           (subseq info-alists 0 menu-number)
-                           (subseq info-alists (1+ menu-number) listlen))
-              menu-number (min menu-number (- listlen 2))
-              this-name (nth (max 0 (1- titnum)) names)
+                           (subseq info-alists 0 pos)
+                           (subseq info-alists (1+ pos) listlen))
+              menu-number (min pos (- listlen 2))
+              this-name name
               one-key-menu-call-first-time t))
     (one-key-menu-close)))
     
@@ -1716,6 +1726,17 @@ CONTENTS may be a command or a list whose first element is a command (it will be
     (if item (progn (setf (cdar item) desc (cdr item) contents) menu-alist)
       (add-to-list 'menu-alist (cons (cons thekey desc) contents)))))
 
+(defun one-key-open-submenu (name var)
+  "Open a menu named NAME with menu alist variable VAR as a submenu of the current menu, replacing it if necessary.
+If `one-key-submenus-replace-parents' is non-nil then the current menu will be replaced with the submenu, otherwise
+a new menu will be added to the current menu set.
+This function will only work if called within the context of the `one-key-menu' function since it depends on the variable
+THIS-NAME being dynamically bound."
+  (let ((currname this-name))
+  (one-key-add-menus name var)
+  (if one-key-submenus-replace-parents
+      (one-key-delete-menu currname))))
+
 (defun* one-key-create-menus (keymap &optional (name (if (symbolp keymap)
                                                          (substring (symbol-name keymap) 0 -4)
                                                        "unknown")))
@@ -1778,31 +1799,30 @@ CONTENTS may be a command or a list whose first element is a command (it will be
          (mainvar (intern (concat "one-key-menu-" name "-alist")))
          ;; place prefix key items in appropriate submenus
          (vars (loop for lines on submenulines4
-                      for line = (car lines)
-                      for key = (car line)
-                      for lastkey = (car (last (string-split key " ")))
-                      for desc = (capitalize (replace-regexp-in-string "-" " " (cadr line)))
-                      for desc2 = (propertize desc 'face (list :background "cyan"
-                                                               :foreground one-key-item-foreground-colour)) 
-                      for menuname = (concat name "-" (replace-regexp-in-string " " "_" key))
-                      for var = (intern (concat "one-key-menu-" menuname "-alist"))
-                      for cmd = `(lambda nil (interactive) (one-key-add-menus ,menuname ,var))
-                      for item = (cons (cons lastkey desc2) cmd)
-                      for others = (cdr lines)
-                      for i = (if i (1+ i) 1)
-                      for pos = (position-if (lambda (x)
-                                               (let* ((key1 (car x))
-                                                      (key2 (replace-regexp-in-string "ESC$" "M-" key1))
-                                                      (keyregex (concat "^\\("
-                                                                        (regexp-opt (list (concat key1 " ") key2))
-                                                                        "\\)")))
-                                                 (string-match keyregex key))) others)
-                      for pos2 = (if pos (+ i pos))
-                      for matchmenu = (if pos (nth pos2 menus2))
-                      if pos do (let* ((matchmenu (nth pos2 menus2)))
-                                  (setf (nth pos2 menus2) (add-to-list 'matchmenu item)))
-                      else do (setq lines6 (add-to-list 'lines6 item))
-                      collect var)))
+                     for line = (car lines)
+                     for key = (car line)
+                     for lastkey = (car (last (string-split key " ")))
+                     for desc = (capitalize (replace-regexp-in-string "-" " " (cadr line)))
+                     for desc2 = (propertize desc 'face (list :background "cyan"
+                                                              :foreground one-key-item-foreground-colour)) 
+                     for menuname = (concat name "-" (replace-regexp-in-string " " "_" key))
+                     for var = (intern (concat "one-key-menu-" menuname "-alist"))
+                     for cmd = `(lambda nil (interactive) (one-key-open-submenu ,menuname ,var))
+                     for item = (cons (cons lastkey desc2) cmd)
+                     for others = (cdr lines)
+                     for i = (if i (1+ i) 1)
+                     for pos = (position-if (lambda (x)
+                                              (let* ((key1 (car x))
+                                                     (key2 (replace-regexp-in-string "ESC$" "M-" key1))
+                                                     (keyregex (concat "^\\("
+                                                                       (regexp-opt (list (concat key1 " ") key2))
+                                                                       "\\)")))
+                                                (string-match keyregex key))) others)
+                     for pos2 = (if pos (+ i pos))
+                     for matchmenu = (if pos (nth pos2 menus2))
+                     if pos do (setf (nth pos2 menus2) (add-to-list 'matchmenu item))
+                     else do (setq lines6 (add-to-list 'lines6 item))
+                     collect var)))
     (add-to-list 'one-key-altered-menus mainvar)
     (loop for var in vars
           for menu in menus2
@@ -1822,22 +1842,71 @@ This function can be used to help automatic creation of `one-key' menus."
     (or (dolist (element elements)
           (when (not (memq element usedkeys))
             (return element)))
-        (error "Can not generate a unique key for menu item : %s" item))))
+        (error "Can not generate a unique key for menu item : %s" desc))))
 
+(defun* one-key-create-menu-lists (commands &optional descriptions keys
+                                            (maxsize (length one-key-default-menu-keys))
+                                            (keyfunc 'one-key-generate-key))
+  "Create list/lists of menu items for use in `one-key' menu.
+COMMANDS should be a list of commands for the menu items, and KEYS an optional corresponding list of keys.
+If any element in KEYS is nil, or if KEYS is nil, then KEYFUNC will be used to generate a key for the item.
+DESCRIPTIONS is an optional argument which should contain a list of descriptions for the menu items.
+If any of the items in DESCRIPTIONS is nil or if DESCRIPTIONS is not supplied then the item will have its description
+set from the corresponding command name. 
+If the number of menu items is larger than MAXSIZE then several menus will be created, each of
+which contains at most MAXSIZE items. By default MAXSIZE is equal to the length of `one-key-default-menu-keys',
+and KEYFUNC is set to `one-key-generate-key' (which selects keys from `one-key-default-menu-keys')."
+  (let* ((nitems (length commands))
+         (nitemslast (% nitems maxsize))
+         (nummenus (+ (/ nitems maxsize) (min nitemslast 1)))
+         (indices (loop with start = 0
+                        with end = 0
+                        while (< end nitems)
+                        do (setq start end end (min (+ end maxsize) nitems))
+                        collect (cons start end)))
+         (menu-alists (loop for (start . end) in indices
+                            for cmds = (subseq commands start end)
+                            for descs = (subseq descriptions start end)
+                            for keys2 = (subseq keys start end)
+                            for descs2 = (loop for desc in descs
+                                               for cmd in cmds
+                                               for key in keys2
+                                               for desc2 = (or desc
+                                                               (capitalize
+                                                                (replace-regexp-in-string
+                                                                 "-" " " (symbol-name cmd))))
+                                               collect (if key
+                                                           (concat desc2 " ("
+                                                                   (single-key-description key)
+                                                                   ")")
+                                                         desc2))
+                            for usedkeys = (loop for key in keys2 if key collect key)
+                            for keys3 = (loop for key in keys2
+                                              for desc in descs2
+                                              collect (or key
+                                                          (let ((newkey (one-key-generate-key desc usedkeys)))
+                                                            (push newkey usedkeys)
+                                                            newkey)))
+                            for keystrs = (mapcar 'single-key-description keys3)
+                            collect (loop for cmd in cmds
+                                          for desc in descs2
+                                          for key in keystrs
+                                          collect (cons (cons key desc) cmd)))))
+    menu-alists))
+                                                          
 (defun one-key-build-menu-sets-menu-alist nil
   "Build menu-alist for opening menu sets defined in `one-key-sets-of-menus-alist'."
-  (let (usedkeys)
-    (loop for (desc . names) in one-key-sets-of-menus-alist
-          for key = (one-key-generate-key desc usedkeys)
-          for keystr = (single-key-description key)
-          for desc2 = (if (equal desc one-key-default-menu-set)
-                          (propertize desc 'face (list :background "red"
-                                                       :foreground one-key-item-foreground-colour))
-                        desc)
-          collect (cons (cons keystr desc2)
-                        `(lambda nil (interactive)
-                          (one-key-open-menu-set ,`desc)))
-          do (push key usedkeys))))
+  (let* ((descriptions (mapcar (lambda (item)
+                                 (let ((str (car item)))
+                                   (if (equal str one-key-default-menu-set)
+                                       (propertize str 'face (list :background "red"
+                                                                   :foreground one-key-item-foreground-colour))
+                                     str))) one-key-sets-of-menus-alist))
+         (commands (mapcar (lambda (item)
+                 `(lambda nil (interactive)
+                    (one-key-open-menu-set ,(car item))))
+                           one-key-sets-of-menus-alist)))
+    (car (one-key-create-menu-lists commands descriptions))))
 
 (defun one-key-save-altered-menus nil
   "Save the menus listed in `one-key-altered-menus' into the file `one-key-menus-save-file'.
