@@ -754,12 +754,6 @@ If it is not then update it."
                          (one-key-regs-function key '(4))))))
   (add-to-list 'one-key-menu-one-key-registers-alist (cons (cons "SPC" "Register functions") 'one-key-regs-extra-menu)))
 
-(defun one-key-menu-regs nil
-  "The `one-key' menu for `one-key-regs'."
-  (interactive)
-  (one-key-regs-update-menu-alist)
-  (one-key-menu "one-key-registers" 'one-key-menu-one-key-registers-alist))
-
 (defun one-key-regs-extra-menu ()
   "The `one-key' menu for one-key-regs extra functions."
   (interactive)
