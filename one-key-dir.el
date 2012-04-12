@@ -199,87 +199,21 @@ but can't go above this dir."
   :type '(number :match (lambda (w val)
                           (> val 0))))
 
+(customize-set-variable 'one-key-special-keybindings
+                        (append one-key-special-keybindings
+                                '((sort-dir-next "<f3>" "Sort items by next method"
+                                     (lambda nil (one-key-dir-sort-by-next-method) t))
+                                  (sort-dir-prev "<C-f3>" "Sort items by previous method"
+                                                 (lambda nil (one-key-dir-sort-by-next-method t) t)))))
+
 (defcustom one-key-dir-special-keybindings
-  '(("ESC" "Quit and close menu window" (lambda nil (keyboard-quit) nil))
-    ("<C-escape>" "Quit, but keep menu window open"
-     (lambda nil (setq keep-window-p t) nil))
-    ("<C-menu>" "Toggle menu persistence"
-     (lambda nil (if match-recursion-p
-                     (setq match-recursion-p nil
-                           miss-match-recursion-p nil)
-                   (setq match-recursion-p t
-                         miss-match-recursion-p t))))
-    ("<menu>" "Toggle menu display" (lambda nil (one-key-menu-window-toggle) t))
-    ("<left>" "Change to next menu" (lambda nil (if menu-number
-                                                     (progn
-                                                       (setq menu-number
-                                                             (if (equal menu-number 0)
-                                                                 (1- (length info-alists))
-                                                               (1- menu-number)))
-                                                       (setq one-key-menu-call-first-time t))) t))
-    ("<right>" "Change to previous menu" (lambda nil (if menu-number
-                                                        (progn
-                                                          (setq menu-number
-                                                                (if (equal menu-number (1- (length info-alists)))
-                                                                    0 (1+ menu-number)))
-                                                          (setq one-key-menu-call-first-time t))) t))
-    ("<up>" "Scroll/move up one line" (lambda nil (one-key-scroll-or-move-up info-alist full-list) t))
-    ("<down>" "Scroll/move down one line" (lambda nil (one-key-scroll-or-move-down info-alist full-list) t))
-    ("<prior>" "Scroll menu down one page" (lambda nil (one-key-menu-window-scroll-down) t))
-    ("<next>" "Scroll menu up one page" (lambda nil (one-key-menu-window-scroll-up) t))
-    ("<f1>" "Toggle this help buffer" (lambda nil (if (get-buffer-window "*Help*")
-                                                      (kill-buffer "*Help*")
-                                                    (one-key-show-help special-keybindings)) t))
-    ("<f2>" "Toggle column/row ordering of items"
-     (lambda nil (if one-key-column-major-order
-                        (setq one-key-column-major-order nil)
-                      (setq one-key-column-major-order t))
-       (setq one-key-menu-call-first-time t) t))
-    ("<f3>" "Sort items by next method"
-     (lambda nil (one-key-dir-sort-by-next-method) t))
-    ("<C-f3>" "Sort items by previous method"
-     (lambda nil (one-key-dir-sort-by-next-method t) t))
-    ("<f4>" "Reverse order of items"
-     (lambda nil (one-key-reverse-item-order info-alists full-list menu-number) t))
-    ("<f5>" "Limit items to those matching regexp"
-     (lambda nil (setq filter-regex (read-regexp "Regular expression"))
-       (setq one-key-menu-call-first-time t) t))
-    ("<f6>" "Highlight items matching regexp"
-     (lambda nil (let ((regex (read-regexp "Regular expression"))
-                       (bgcolour (read-color "Colour: ")))
-                   (one-key-highlight-matching-items
-                    info-alist full-list bgcolour
-                    (lambda (item) (string-match regex (cdar item))))) t))
-    ("<C-f10>" "Add a menu"
-     (lambda nil (one-key-add-menus) nil))
-    ("<C-S-f10>" "Remove this menu"
-     (lambda nil (one-key-delete-menu) t))
-    ("<f11>" "Reposition item (with arrow keys)"
-     (lambda nil (let ((key (single-key-description
-                             (read-key "Enter key of item to be moved"))))
-                   (setq one-key-current-item-being-moved key)
-                   (setq one-key-menu-call-first-time t)) t)))
-
-  "An list of special keys, their labels and associated functions that apply to `one-key-dir' menus.
-Each item in the list contains (in this order):
-
-  1) A string representation of the key (as returned by `single-key-description').
-
-  2) A short description of the associated action.
-     This description will be displayed in the *One-Key* buffer.
-
-  3) A function for performing the action. The function takes no arguments but may use dynamic binding to
-     read and change some of the values in the initial `one-key-menu' function call.
-     The function should return t to display the `one-key' menu again after the function has finished,
-     or nil to close the menu.
-
-These keys and functions apply only to `one-key-dir' menus and are not displayed with the menu specific keys.
-They are for general tasks such as displaying command help, scrolling the window, sorting menu items, etc."
-  :group 'one-key-dir
-  :type '(repeat (list (string :tag "Keybinding" :help-echo "String representation of the keybinding for this action")
-                       (string :tag "Description" :help-echo "Description to display in help buffer")
-                       (function :tag "Function" :help-echo "Function for performing action. See description below for further details."))))
-
+  '(quit-close quit-open toggle-persistence toggle-display next-menu prev-menu up down scroll-down scroll-up
+               toggle-help toggle-row/column-order sort-dir-next sort-dir-prev reverse-order limit-items highlight-items
+               add-menu remove-menu move-item)
+  "List of special keys to be used for one-key-dir menus (see `one-key-default-special-keybindings' for more info)."  
+  :group 'one-key
+  :type '(repeat (symbol :tag "Name" :help-echo "The name/symbol corresponding to the keybinding.")))
+  
 (defun one-key-dir-sort-by-next-method (&optional prev)
   "Sort the `one-key-dir' menu by the method in `one-key-dir-sort-method-alist' after `one-key-dir-current-sort-method'.
 If PREV is non-nil then sort by the previous method instead."
@@ -459,7 +393,7 @@ Hidden and backup files and directories are not included."
                                              (if (file-directory-p dir) dir)))
                             (lambda (name)
                               (let* ((alists (one-key-dir/build-menu-alist name))
-                                     (names (one-key-dir-make-names name (length alists))))
+                                     (names (one-key-append-numbers-to-menu-name name (length alists))))
                                 (cons names alists)))
                             (lambda nil (format "Files sorted by %s (%s first). Press <f1> for help.\n"
                                            one-key-dir-current-sort-method
@@ -474,7 +408,7 @@ Hidden and backup files and directories are not included."
                                             (read-directory-name "Directory to use: " default-directory)))
                                      (menulists (one-key-dir/build-menu-alist dir))
                                      (nummenus (length menulists)))
-                                (cons (one-key-dir-make-names dir nummenus) menulists)))
+                                (cons (one-key-append-numbers-to-menu-name dir nummenus) menulists)))
                             (lambda nil (format "Files sorted by %s (%s first). Press <f1> for help.\n"
                                                 one-key-dir-current-sort-method
                                                 (if one-key-column-major-order "columns" "rows")))
