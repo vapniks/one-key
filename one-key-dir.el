@@ -200,9 +200,9 @@ but can't go above this dir."
                           (> val 0))))
 
 (customize-set-variable 'one-key-special-keybindings
-                        (append one-key-special-keybindings
+                        (one-key-add-elements-to-alist one-key-special-keybindings
                                 '((sort-dir-next "<f3>" "Sort items by next method"
-                                     (lambda nil (one-key-dir-sort-by-next-method) t))
+                                                 (lambda nil (one-key-dir-sort-by-next-method) t))
                                   (sort-dir-prev "<C-f3>" "Sort items by previous method"
                                                  (lambda nil (one-key-dir-sort-by-next-method t) t)))))
 
