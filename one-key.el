@@ -792,6 +792,11 @@ Each item in the list contains (in this order):
                                                        :help-echo "Function for performing action. See description below for further details."))))))
   :group 'one-key)
 
+(defcustom one-key-persistent-menu-number t
+  "If non-nil then when the default menu set is opened it will start with the same menu as when previously opened."
+  :group 'one-key
+  :type 'boolean)
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Faces ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defface one-key-name
   '((t (:foreground "Gold")))
@@ -832,6 +837,8 @@ If nil then the window is closed, if t then it is open at normal size, if 'full 
 (defvar one-key-altered-menus nil
   "List of menu alist variables that should be saved on exit if `one-key-autosave-menus' is true.")
 
+(defvar one-key-default-menu-number nil
+  "The default menu number to use when opening the default menu set if `one-key-persistent-menu-number' is non-nil.")
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Interactive Functions ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun one-key-show-help (special-keybindings)
@@ -1190,7 +1197,7 @@ binding of the info-alists, menu-number and names variables."
               one-key-menu-call-first-time t))
     (one-key-menu-close)))
     
-(defun one-key-open-menus (names)
+(defun one-key-open-menus (names &optional menu-number protect-function)
   "Invoke `one-key-menu' with names and corresponding menu-alists.
 NAMES should be the name of a single `one-key' menu or menu type, or a list of such names.
 If called interactively a single name will be prompted for."
@@ -1199,9 +1206,11 @@ If called interactively a single name will be prompted for."
          (names (mapcan (lambda (x) (let ((y (car x))) (if (stringp y) (list y) y))) pairs))
          (alists (mapcan (lambda (x) (let ((a (car x)) (b (cdr x)))
                                        (if (stringp a) (list b) b))) pairs)))
-    (one-key-menu names alists)))
+    (one-key-menu names alists
+                  :menu-number menu-number
+                  :protect-function protect-function)))
 
-(defun one-key-open-menu-set (menuset)
+(defun one-key-open-menu-set (menuset &optional menu-number protect-function)
   "Open `one-key' menus defined by `one-key' menu set MENUSET.
 MENUSET should be the car of an element of `one-key-sets-of-menus-alist'.
 If called interactively, MENUSET will be prompted for."
@@ -1210,12 +1219,14 @@ If called interactively, MENUSET will be prompted for."
                        (completing-read "Menu set: " (mapcar 'car one-key-sets-of-menus-alist)))))
   (let* ((item (assoc menuset one-key-sets-of-menus-alist))
          (names (cdr item)))
-    (one-key-open-menus names)))
+    (one-key-open-menus names menu-number protect-function)))
 
 (defun one-key-open-default-menu-set nil
   "Open the menu set defined by `one-key-default-menu-set'."
   (interactive)
-  (one-key-open-menu-set one-key-default-menu-set))
+  (one-key-open-menu-set one-key-default-menu-set
+                         (if one-key-persistent-menu-number
+                             one-key-default-menu-number nil)))
 
 (defun one-key-highlight (msg msg-regexp msg-face)
   "Highlight text in string `MSG' that matches regular expression `MSG-REGEXP' with face `MSG-FACE'."
@@ -1263,11 +1274,12 @@ KEYSTROKE is the alist of menu items."
 (defun* one-key-menu (names
                       info-alists
                       &key
-                      (menu-number (if ; hack to check if info-alists is a list of lists or just a single list
-                                       (and (listp info-alists) (not (and (listp (car info-alists))
-                                                                          (listp (caar info-alists))
-                                                                          (stringp (caaar info-alists)))))
-                                       0 nil))
+                      (menu-number
+                       (if ; hack to check if info-alists is a list of lists or just a single list
+                           (and (listp info-alists) (not (and (listp (car info-alists))
+                                                              (listp (caar info-alists))
+                                                              (stringp (caaar info-alists)))))
+                           0 nil))
                       keep-window-p
                       execute-when-miss-match-p
                       miss-match-recursion-p
@@ -1292,7 +1304,14 @@ PROTECT-FUNCTION, if non-nil, is a function that is called within an `unwind-pro
 of `one-key-menu'.
 ALTERNATE-FUNCTION if non-nil is a function that is called after each key press while the menu is active.
 If FILTER-REGEX is non-nil then only menu items whose descriptions match FILTER-REGEX will be displayed."
-  (let* ((info-alist (if menu-number
+  (let* ((menu-number (or (and menu-number ; make sure menu number is set properly
+                               (min menu-number (length info-alists)))
+                          (if (and (listp info-alists)
+                                   (not (and (listp (car info-alists))
+                                             (listp (caar info-alists))
+                                             (stringp (caaar info-alists)))))
+                              0 nil)))
+         (info-alist (if menu-number
                          (nth menu-number info-alists)
                        info-alists))
          (issymbol (symbolp info-alist))
@@ -1407,7 +1426,7 @@ If FILTER-REGEX is non-nil then only menu items whose descriptions match FILTER-
         (one-key-menu-window-close))
       ;; Finally, execute `protect-function' if it's a valid function.
       (if (and protect-function 
-               (functionp protect-function))
+               (commandp protect-function))
           (call-interactively protect-function)))
     ;; propagate the value of `keep-window-p' back down the stack
     keep-window-p))
@@ -1494,6 +1513,8 @@ The return value of RECURSION-FUNCTION will be returned by this function also."
       (fit-window-to-buffer nil (frame-height) one-key-menu-window-max-height)
     (fit-window-to-buffer nil one-key-menu-window-max-height)
     (setq one-key-current-window-state t))
+  ;; set the default menu number
+  (setq one-key-default-menu-number menu-number)
   nil)
 
 (defun one-key-menu-window-close nil
