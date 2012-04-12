@@ -723,8 +723,8 @@ types. See `one-key-default-special-keybindings' for example."
                        (function :tag "Function" :help-echo "Function for performing action. See description below for further details."))))
 
 (defcustom one-key-default-special-keybindings
-  '(quit-close quit-open toggle-persistence toggle-display next-menu prev-menu up down scroll-down scroll-up help save-menu
-               toggle-help toggle-row/column-order sort-next sort-prev reverse-order limit-items highlight-items
+  '(quit-close quit-open toggle-persistence toggle-display next-menu prev-menu up down scroll-down scroll-up help
+               save-menu toggle-help toggle-row/column-order sort-next sort-prev reverse-order limit-items highlight-items
                edit-item delete-item swap-keys add-item add-menu remove-menu move-item)
   "List of special keys to be used if no other set of special keys is defined for a given one-key menu type.
 These keys are for performing general tasks on the menu such as sorting items, deleting items, etc.
@@ -1835,23 +1835,6 @@ This is useful for creating menu types that return multiple menus."
 The matching is performed with assq so that only the first element of alist matching a symbol in SYMLIST is returned.
 The elements returned will be in the same order as the elements of SYMLIST."
   (mapcar 'cdr (loop for symbol in symlist collect (assq symbol alist))))
-
-(defun one-key-merge-special-keybindings (keyset1 keyset2)
-  "Merge special keybindings list KEYSET1 with KEYSET2, and return the merged list.
-The lists KEYSET1 and KEYSET2 should be in the same form as `one-key-default-special-keybindings', i.e. each item
-should be a list in the form '(keybinding description function).
-Items in KEYSET1 take priority, i.e. if any item in KEYSET1 has the same keybinding as an item in KEYSET2
-then the item from KEYSET1 will be used. If KEYSET1 and KEYSET2 both contain items with the same keybinding,
-but the KEYSET1 item is missing a function, then the function from the KEYSET2 item will be used with the description
-from the KEYSET1 item. Any items in KEYSET1 whose description is nil will not be included."
-  (let ((newkeyset (copy-list keyset2)))
-    (loop for (key desc func) in keyset1
-          for (key1 desc2 func2) = (assoc key newkeyset) do
-          (if key1
-              (if desc (one-key-add-to-alist 'newkeyset (list key desc (or func func2)))
-                (setq newkeyset (remove-if (lambda (item) (equal (car item) key)) newkeyset)))
-            (add-to-list 'newkeyset (list key desc func))))
-    newkeyset))
 
 (defun* one-key-create-menu-lists (commands &optional descriptions keys
                                             (maxsize (length one-key-default-menu-keys))
