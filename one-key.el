@@ -623,7 +623,7 @@ the first item should come before the second in the menu."
                                  (setq one-key-menu-call-first-time t))) t))
     (up "<up>" "Scroll/move up one line" (lambda nil (one-key-scroll-or-move-up info-alist full-list) t))
     (down "<down>" "Scroll/move down one line" (lambda nil (one-key-scroll-or-move-up info-alist full-list t) t))
-    (scroll-down "<prior>" "Scroll menu down one page" (lambda nil (one-key-menu-window-scroll-down) t))    
+    (scroll-down "<prior>" "Scroll menu down one page" (lambda nil (one-key-menu-window-scroll-up t) t))    
     (scroll-up "<next>" "Scroll menu up one page" (lambda nil (one-key-menu-window-scroll-up) t))
     (help "C-h" "Show help for next item chosen"
           (lambda nil
@@ -914,9 +914,8 @@ FULL-LIST is as in the `one-key-menu' function."
           (one-key-menu-window-close)
           (if (symbolp info-alist)
               (add-to-list 'one-key-altered-menus info-alist)))
-      (if down (one-key-menu-window-scroll-up-line)
-        (one-key-menu-window-scroll-down-line)))
-    (setq protect-function (lambda nil (interactive) (setq one-key-current-item-being-moved nil)))))
+      (one-key-menu-window-scroll-up-line down)))
+  (setq protect-function (lambda nil (interactive) (setq one-key-current-item-being-moved nil))))
 
 (defun one-key-show-item-help (key menu-alist)
   "Show help for item in MENU-ALIST that is associated with the key KEY.
@@ -1514,33 +1513,20 @@ The return value of RECURSION-FUNCTION will be returned by this function also."
     (set-window-configuration one-key-menu-window-configuration)
     (setq one-key-menu-window-configuration nil)))
 
-(defun one-key-menu-window-scroll-up ()
-  "Scroll up one screen of the `one-key' menu window."
+(defun one-key-menu-window-scroll-up (&optional down)
+  "Scroll up one screen of the `one-key' menu window.
+If DOWN is non-nil scroll down instead of up."
   (if (one-key-menu-window-exist-p)
       (ignore-errors
         (with-current-buffer one-key-buffer-name
-          (scroll-up)))))
+          (if down (scroll-down) (scroll-up))))))
 
-(defun one-key-menu-window-scroll-down ()
-  "Scroll down one screen of the `one-key' menu window."
-  (if (one-key-menu-window-exist-p)
-      (ignore-errors
-        (with-current-buffer one-key-buffer-name
-          (scroll-down)))))
-
-(defun one-key-menu-window-scroll-up-line ()
+(defun one-key-menu-window-scroll-up-line (&optional down)
   "Scroll up one line of the `one-key' menu window."
   (if (one-key-menu-window-exist-p)
       (ignore-errors
         (with-current-buffer one-key-buffer-name
-          (scroll-up 1)))))
-
-(defun one-key-menu-window-scroll-down-line ()
-  "Scroll down one line of the `one-key' menu window."
-  (if (one-key-menu-window-exist-p)
-      (ignore-errors
-        (with-current-buffer one-key-buffer-name
-          (scroll-down 1)))))
+          (if down (scroll-up 1) (scroll-down 1))))))
 
 (defun one-key-menu-increment-key-usage (item)
   "Increment the key usage statistic for ITEM."
