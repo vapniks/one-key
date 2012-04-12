@@ -973,26 +973,6 @@ Unless NOPROMPT is non-nil the user will be prompted to check if they want to co
       (progn (setq register-alist nil one-key-regs-currently-loaded-file nil)
              (one-key-regs-update-menu-alist))))
 
-(defun* one-key-regs-sort-items-by-next-method (info-alist full-list &optional prev)
-  "Sort the items in FULL-LIST according to the next method in `one-key-default-sort-method-alist'.
-The current method is stored in `one-key-current-sort-method'.
-If PREV is non-nil use method before `one-key-current-sort-method'.
-Return the next method (a symbol) after `one-key-current-sort-method'.
-The `one-key' menu will be updated after calling this function."
-  (let* ((isref (symbolp info-alist))
-         (nextmethod (one-key-get-next-alist-item
-                      one-key-current-sort-method
-                      one-key-default-sort-method-alist prev))
-         (sorted-list (sort (copy-list full-list)
-                            (cdr nextmethod)))
-         (major (if one-key-column-major-order "columns" "rows")))
-    (if isref (set info-alist sorted-list)
-      (setq info-alist sorted-list))
-    (setq one-key-menu-call-first-time t)
-    (one-key-menu-window-close)
-    (one-key-regs-update-menu-alist)
-    (car nextmethod)))
-
 (defun one-key-regs-prompt-to-add-menu-item (info-alist full-list)
   "Prompt the user for item details and add it to FULL-LIST, then update INFO-ALIST and redisplay the `one-key' menu."
   (let* ((isref (symbolp info-alist))
