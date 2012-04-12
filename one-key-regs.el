@@ -364,9 +364,7 @@ and COLOUR is the name of the associated colour to use in the `one-key' menu."
                            (swap-register-keys "<f9>" "Swap register keys"
                                                (lambda nil (one-key-regs-swap-menu-items full-list) t))
                            (add-register "<f10>" "Add a register"
-                                         (lambda nil (one-key-regs-prompt-to-add-menu-item info-alist full-list) t))
-
-                           )))
+                                         (lambda nil (one-key-regs-prompt-to-add-menu-item info-alist full-list) t))) t))
 
 (defcustom one-key-regs-special-keybindings
   '(quit-close quit-open toggle-persistence toggle-display next-menu prev-menu up down scroll-down scroll-up
