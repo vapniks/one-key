@@ -622,7 +622,7 @@ the first item should come before the second in the menu."
                                            0 (1+ menu-number)))
                                  (setq one-key-menu-call-first-time t))) t))
     (up "<up>" "Scroll/move up one line" (lambda nil (one-key-scroll-or-move-up info-alist full-list) t))
-    (down "<down>" "Scroll/move down one line" (lambda nil (one-key-scroll-or-move-down info-alist full-list) t))
+    (down "<down>" "Scroll/move down one line" (lambda nil (one-key-scroll-or-move-up info-alist full-list t) t))
     (scroll-down "<prior>" "Scroll menu down one page" (lambda nil (one-key-menu-window-scroll-down) t))    
     (scroll-up "<next>" "Scroll menu up one page" (lambda nil (one-key-menu-window-scroll-up) t))
     (help "C-h" "Show help for next item chosen"
@@ -893,16 +893,18 @@ NO-REPLACE has the same meaning as in `one-key-add-to-alist'."
         (one-key-add-to-alist alist-var elt no-replace))
   (symbol-value alist-var))
 
-(defun one-key-scroll-or-move-up (info-alist full-list)
-  "Either scroll the `one-key' menu window down by one line or move an item down.
+(defun one-key-scroll-or-move-up (info-alist full-list &optional down)
+  "Either scroll the `one-key' menu window up by one line or move an item up.
+If DOWN is non-nil move down instead of up.
 If `one-key-current-item-being-moved' contains a string representation of one of the keys in the menu move that item
-down one line, otherwise scroll the window down one line.
+up/down one line, otherwise scroll the window up/down one line.
 FULL-LIST is as in the `one-key-menu' function."
   (let* ((key one-key-current-item-being-moved)
          (pos (position-if (lambda (x) (equal (caar x) key)) full-list)))
     (if pos
         (let* ((len (length full-list))
-               (prevpos (if (eq pos 0) (1- len) (1- pos)))
+               (ppos (if down (1+ pos) (1- pos)))
+               (prevpos (if (eq pos 0) (1- len) ppos))
                (item (nth pos full-list))
                (previtem (nth prevpos full-list))
                (copy (copy-list item)))
@@ -912,29 +914,8 @@ FULL-LIST is as in the `one-key-menu' function."
           (one-key-menu-window-close)
           (if (symbolp info-alist)
               (add-to-list 'one-key-altered-menus info-alist)))
-      (one-key-menu-window-scroll-down-line))
-    (setq protect-function (lambda nil (interactive) (setq one-key-current-item-being-moved nil)))))
-
-(defun one-key-scroll-or-move-down (info-alist full-list)
-  "Either scroll the `one-key' menu window down by one line or move an item down.
-If `one-key-current-item-being-moved' contains a string representation of one of the keys in the menu move that item
-down one line, otherwise scroll the window down one line.
-FULL-LIST is as in the `one-key-menu' function."
-  (let* ((key one-key-current-item-being-moved)
-         (pos (position-if (lambda (x) (equal (caar x) key)) full-list)))
-    (if pos
-        (let* ((len (length full-list))
-               (nextpos (if (eq pos (1- len)) 0 (1+ pos)))
-               (item (nth pos full-list))
-               (nextitem (nth nextpos full-list))
-               (copy (copy-list item)))
-          (setf (car item) (car nextitem) (cdr item) (cdr nextitem)
-                (car nextitem) (car copy) (cdr nextitem) (cdr copy))
-          (setq one-key-menu-call-first-time t)
-          (one-key-menu-window-close)
-          (if (symbolp info-alist)
-              (add-to-list 'one-key-altered-menus info-alist)))
-      (one-key-menu-window-scroll-up-line))
+      (if down (one-key-menu-window-scroll-up-line)
+        (one-key-menu-window-scroll-down-line)))
     (setq protect-function (lambda nil (interactive) (setq one-key-current-item-being-moved nil)))))
 
 (defun one-key-show-item-help (key menu-alist)
