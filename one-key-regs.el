@@ -973,15 +973,6 @@ Unless NOPROMPT is non-nil the user will be prompted to check if they want to co
       (progn (setq register-alist nil one-key-regs-currently-loaded-file nil)
              (one-key-regs-update-menu-alist))))
 
-(defun one-key-regs-reverse-item-order nil
-  "Reverse the order of items in FULL-LIST.
-Then update INFO-ALIST or the list that it points to (if its value is a symbol), and call SELF (a call to `one-key-menu').
-The variables INFO-ALIST and FULL-LIST are arguments in the call to SELF."
-  (setq one-key-menu-one-key-registers-alist (reverse one-key-menu-one-key-registers-alist))
-  (setq one-key-menu-call-first-time t)
-  (one-key-menu-window-close)
-  (one-key-regs-update-menu-alist))
-
 (defun* one-key-regs-sort-items-by-next-method (info-alist full-list &optional prev)
   "Sort the items in FULL-LIST according to the next method in `one-key-default-sort-method-alist'.
 The current method is stored in `one-key-current-sort-method'.
