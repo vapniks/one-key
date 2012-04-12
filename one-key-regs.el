@@ -364,7 +364,9 @@ and COLOUR is the name of the associated colour to use in the `one-key' menu."
                            (swap-register-keys "<f9>" "Swap register keys"
                                                (lambda nil (one-key-regs-swap-menu-items full-list) t))
                            (add-register "<f10>" "Add a register"
-                                         (lambda nil (one-key-regs-prompt-to-add-menu-item info-alist full-list) t)))))
+                                         (lambda nil (one-key-regs-prompt-to-add-menu-item info-alist full-list) t))
+
+                           )))
 
 (defcustom one-key-regs-special-keybindings
   '(quit-close quit-open toggle-persistence toggle-display next-menu prev-menu up down scroll-down scroll-up
@@ -745,14 +747,7 @@ If it is not then update it."
                          (let ((keystr (read-kbd-macro (caar item))))
                            (and (stringp keystr)
                                 (assq (string-to-char keystr) register-alist))))
-                           one-key-menu-one-key-registers-alist))
-  ;; put the RET and SPC keys back at the front of the list
-  (add-to-list 'one-key-menu-one-key-registers-alist
-               (cons (cons "RET"  "Create a register")
-                     (lambda nil (interactive)
-                       (let* ((key (read-key "Press key in which to store register.")))
-                         (one-key-regs-function key '(4))))))
-  (add-to-list 'one-key-menu-one-key-registers-alist (cons (cons "SPC" "Register functions") 'one-key-regs-extra-menu)))
+                           one-key-menu-one-key-registers-alist)))
 
 (defun one-key-regs-extra-menu ()
   "The `one-key' menu for one-key-regs extra functions."
