@@ -867,7 +867,7 @@ The following special keys may also be used:\n\n"
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Utilities Functions ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun one-key-add-to-alist (alist-var elt-cons &optional no-replace)
-  "Add to the value of ALIST-VAR an element ELT-CONS if it isn't there yet.
+  "Add to the value of ALIST-VAR an element ELT-CONS if it isn't there yet, and return the new list.
 If an element with the same car as the car of ELT-CONS is already present,
 replace it with ELT-CONS unless NO-REPLACE is non-nil; if a matching
 element is not already present, add ELT-CONS to the front of the alist.
@@ -877,6 +877,13 @@ The test for presence of the car of ELT-CONS is done with `equal'."
         (or no-replace
             (rplacd existing-element (cdr elt-cons)))
       (set alist-var (cons elt-cons (symbol-value alist-var)))))
+  (symbol-value alist-var))
+
+(defun one-key-add-elements-to-alist (alist-var newelts &optional no-replace)
+  "Use `one-key-add-to-alist' to add each element of NEWELTS to ALIST-VAR.
+NO-REPLACE has the same meaning as in `one-key-add-to-alist'."
+  (loop for elt in newelts
+        (one-key-add-to-alist alist-var elt no-replace))
   (symbol-value alist-var))
 
 (defun one-key-scroll-or-move-up (info-alist full-list)
