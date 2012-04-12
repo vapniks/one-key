@@ -204,7 +204,7 @@ but can't go above this dir."
                                 '((sort-dir-next "<f3>" "Sort items by next method"
                                                  (lambda nil (one-key-dir-sort-by-next-method) t))
                                   (sort-dir-prev "<C-f3>" "Sort items by previous method"
-                                                 (lambda nil (one-key-dir-sort-by-next-method t) t)))))
+                                                 (lambda nil (one-key-dir-sort-by-next-method t) t))) t))
 
 (defcustom one-key-dir-special-keybindings
   '(quit-close quit-open toggle-persistence toggle-display next-menu prev-menu up down scroll-down scroll-up
