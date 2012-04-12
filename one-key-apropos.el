@@ -38,8 +38,10 @@
 
 ;;; Commentary: 
 ;; 
-;; Use apropos-command with one-key to quickly find commands and keybindings
-;; 
+;; This library will add a new one-key menu type called "apropos-command".
+;; When you add a new menu of this type to a set of one-key menus you will be prompted for a word list or regexp,
+;; and new one-key menus will be added containing commands matching those words/regexps.
+;;
 
 ;;; Installation:
 ;;
@@ -53,9 +55,7 @@
 ;;
 ;; (require 'one-key-apropos)
 
-;;; Customize:
-;;
-;; 
+;;; Customize: `one-key-apropos-special-keybindings' 
 ;;
 ;; All of the above can customized by:
 ;;      M-x customize-group RET one-key-apropos RET
@@ -73,21 +73,62 @@
 ;;
 
 ;;; TODO
-;;
-;; 
+;; New special keybinding for invoking `apropos-command' again.
+;; Alter menu type so that it can be added to a menu set without prompoting the user for a search term.
 ;;
 
 ;;; Require
-
+(require 'apropos)
 
 ;;; Code:
 
+(defcustom one-key-apropos-special-keybindings
+  '(quit-close quit-open toggle-persistence toggle-display next-menu prev-menu up down scroll-down scroll-up
+               toggle-help toggle-row/column-order sort-next sort-prev reverse-order limit-items
+               highlight-items add-menu remove-menu)
+  "List of special keys to be used for apropos-command menus (see `one-key-default-special-keybindings' for more info)."
+  :group 'one-key
+  :type '(repeat (symbol :tag "Name" :help-echo "The name/symbol corresponding to the keybinding.")))
 
 
-(provide 'one-key-apropos)
+(defun one-key-apropos-prompt-for-words nil
+  "Prompt the user for a string of words, and return regexp to use for searching commands."
+  (let ((string (apropos-read-pattern "command")))
+    (apropos-parse-pattern string)))
 
-;;; one-key-apropos.el ends here
+(defun one-key-apropos-build-menus (regexp)
+  "Build a `one-key' menu of commands that match REGEXP from the output of the apropos-command function."
+  (setq apropos-accumulator (apropos-internal apropos-regexp 'commandp))
+  (let* ((items apropos-accumulator)
+         (cmds (loop for symbol in apropos-accumulator
+                     if (not (or (get symbol 'apropos-inhibit)
+                                 (apropos-false-hit-symbol symbol)))
+                     collect symbol))
+         (descs (mapcar (lambda (cmd)
+                          (capitalize
+                           (replace-regexp-in-string "-" " " (symbol-name cmd)))) cmds))
+         (keys (loop for cmd in cmds
+                     for key = (where-is-internal cmd nil t)
+                     for nokey = (or (not key)
+                                     (loop for i to (1- (length key))
+                                           if (or (framep (aref key i))
+                                                  (bufferp (aref key i)))
+                                           return t))
+                     collect (if nokey nil key)))
+         (descs2 (one-key-append-keys-to-descriptions descs keys)))
+    (setq apropos-accumulator nil)
+    (one-key-create-menu-lists cmds descs2 keys)))
 
+(one-key-add-to-alist 'one-key-types-of-menu
+                      (list "apropos-command"
+                            (lambda (name)
+                              (let* ((regexp (one-key-apropos-prompt-for-words))
+                                     (menus (one-key-apropos-build-menus regexp))
+                                     (nummenus (length menus))
+                                     (names (one-key-append-numbers-to-menu-name name nummenus)))
+                                (cons names menus)))
+                            nil
+                            nil) t)
 
 
 (provide 'one-key-apropos)
