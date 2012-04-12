@@ -882,7 +882,7 @@ The test for presence of the car of ELT-CONS is done with `equal'."
 (defun one-key-add-elements-to-alist (alist-var newelts &optional no-replace)
   "Use `one-key-add-to-alist' to add each element of NEWELTS to ALIST-VAR.
 NO-REPLACE has the same meaning as in `one-key-add-to-alist'."
-  (loop for elt in newelts
+  (loop for elt in newelts do
         (one-key-add-to-alist alist-var elt no-replace))
   (symbol-value alist-var))
 
