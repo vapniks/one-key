@@ -595,206 +595,151 @@ the first item should come before the second in the menu."
                 :value-type (function :help-echo "Predicate that returns non-nil if 1st item comes before 2nd"))
   :group 'one-key)
 
-(defcustom one-key-default-special-keybindings
-  '(("ESC" "Quit and close menu window" (lambda nil (keyboard-quit) nil))
-    ("<C-escape>" "Quit, but keep menu window open"
-     (lambda nil (setq keep-window-p t) nil))
-    ("<C-menu>" "Toggle menu persistence"
-     (lambda nil (if match-recursion-p
-                     (setq match-recursion-p nil
-                           miss-match-recursion-p nil)
-                   (setq match-recursion-p t
-                         miss-match-recursion-p t))))
-    ("<menu>" "Toggle menu display" (lambda nil (one-key-menu-window-toggle) t))
-    ("<left>" "Change to next menu" (lambda nil (if menu-number
-                                                    (progn
-                                                      (setq menu-number
-                                                            (if (equal menu-number 0)
-                                                                (1- (length info-alists))
-                                                              (1- menu-number)))
-                                                      (setq one-key-menu-call-first-time t))) t))
-    ("<right>" "Change to previous menu" (lambda nil (if menu-number
-                                                         (progn
-                                                           (setq menu-number
-                                                                 (if (equal menu-number (1- (length info-alists)))
-                                                                     0 (1+ menu-number)))
-                                                           (setq one-key-menu-call-first-time t))) t))
-    ("<up>" "Scroll/move up one line" (lambda nil (one-key-scroll-or-move-up info-alist full-list) t))
-    ("<down>" "Scroll/move down one line" (lambda nil (one-key-scroll-or-move-down info-alist full-list) t))
-    ("<prior>" "Scroll menu down one page" (lambda nil (one-key-menu-window-scroll-down) t))
-    ("<next>" "Scroll menu up one page" (lambda nil (one-key-menu-window-scroll-up) t))
-    ("C-h" "Show help for next item chosen" (lambda nil
-                                              (let ((key (read-key "Enter the key for the item that you want help on")))
-                                                (one-key-show-item-help key full-list)
-                                                (setq match-recursion-p t)) t))
-    ("C-s" "Save current state of menu" (lambda nil (one-key-save-menu this-name info-alist full-list) t))
-    ("<f1>" "Toggle this help buffer" (lambda nil (if (get-buffer-window "*Help*")
-                                                      (kill-buffer "*Help*")
-                                                    (one-key-show-help special-keybindings)) t))
-    ("<f2>" "Toggle column/row ordering of items"
-     (lambda nil (if one-key-column-major-order
-                     (setq one-key-column-major-order nil)
-                   (setq one-key-column-major-order t))
-       (setq one-key-menu-call-first-time t) t))
-    ("<f3>" "Sort items by next method"
-     (lambda nil (setq one-key-current-sort-method
-                       (one-key-sort-items-by-next-method info-alists full-list menu-number)) t))
-    ("<C-f3>" "Sort items by previous method"
-     (lambda nil (setq one-key-current-sort-method
-                       (one-key-sort-items-by-next-method info-alists full-list menu-number t)) t))
-    ("<f4>" "Reverse order of items"
-     (lambda nil (one-key-reverse-item-order info-alists full-list menu-number) t))
-    ("<f5>" "Limit items to those matching regexp"
-     (lambda nil (setq filter-regex (read-regexp "Regular expression"))
-       (setq one-key-menu-call-first-time t) t))
-    ("<f6>" "Highlight items matching regexp"
-     (lambda nil (let ((regex (read-regexp "Regular expression"))
-                       (bgcolour (read-color "Colour: ")))
-                   (one-key-highlight-matching-items
-                    info-alist full-list bgcolour
-                    (lambda (item) (string-match regex (cdar item))))) t))
-    ("<f7>" "Edit a menu item"
-     (lambda nil (one-key-edit-menu-item info-alist full-list) t))
-    ("<f8>" "Delete a menu item"
-     (lambda nil (one-key-delete-menu-item info-alist full-list) t))
-    ("<f9>" "Swap menu item keys"
-     (lambda nil (one-key-swap-menu-items info-alist full-list) t))
-    ("<f10>" "Add a menu item"
-     (lambda nil (one-key-prompt-to-add-menu-item info-alist full-list) t))
-    ("<C-f10>" "Add a menu"
-     (lambda nil (one-key-add-menus) nil)) ; no need to return t since `one-key-add-menus' does recursion itself
-    ("<C-S-f10>" "Remove this menu"
-     (lambda nil (one-key-delete-menu) t))
-    ("<f11>" "Reposition item (with arrow keys)"
-     (lambda nil (let ((key (one-key-key-description
-                             (read-key "Enter key of item to be moved"))))
-                   (setq one-key-current-item-being-moved key)
-                   (setq one-key-menu-call-first-time t)) t)))
-
-  "An list of special keys, their labels and associated functions that apply to all `one-key' menus.
+(defcustom one-key-special-keybindings  
+  '((quit-close "ESC" "Quit and close menu window" (lambda nil (keyboard-quit) nil))
+    (quit-open"<C-escape>" "Quit, but keep menu window open"
+              (lambda nil (setq keep-window-p t) nil))
+    (toggle-persistence "<C-menu>" "Toggle menu persistence"
+                        (lambda nil (if match-recursion-p
+                                        (setq match-recursion-p nil
+                                              miss-match-recursion-p nil)
+                                      (setq match-recursion-p t
+                                            miss-match-recursion-p t))))
+    (toggle-display "<menu>" "Toggle menu display" (lambda nil (one-key-menu-window-toggle) t))
+    (next-menu "<left>" "Change to next menu"
+               (lambda nil (if menu-number
+                               (progn
+                                 (setq menu-number
+                                       (if (equal menu-number 0)
+                                           (1- (length info-alists))
+                                         (1- menu-number)))
+                                 (setq one-key-menu-call-first-time t))) t))
+    (prev-menu "<right>" "Change to previous menu"
+               (lambda nil (if menu-number
+                               (progn
+                                 (setq menu-number
+                                       (if (equal menu-number (1- (length info-alists)))
+                                           0 (1+ menu-number)))
+                                 (setq one-key-menu-call-first-time t))) t))
+    (up "<up>" "Scroll/move up one line" (lambda nil (one-key-scroll-or-move-up info-alist full-list) t))
+    (down "<down>" "Scroll/move down one line" (lambda nil (one-key-scroll-or-move-down info-alist full-list) t))
+    (scroll-down "<prior>" "Scroll menu down one page" (lambda nil (one-key-menu-window-scroll-down) t))    
+    (scroll-up "<next>" "Scroll menu up one page" (lambda nil (one-key-menu-window-scroll-up) t))
+    (help "C-h" "Show help for next item chosen"
+          (lambda nil
+            (let ((key (read-key "Enter the key for the item that you want help on")))
+              (one-key-show-item-help key full-list)
+              (setq match-recursion-p t)) t))
+    (save-menu "C-s" "Save current state of menu"
+               (lambda nil (one-key-save-menu this-name info-alist full-list) t))
+    (toggle-help "<f1>" "Toggle this help buffer"
+                 (lambda nil (if (get-buffer-window "*Help*")
+                                 (kill-buffer "*Help*")
+                               (one-key-show-help special-keybindings)) t))
+    (toggle-row/column-order "<f2>" "Toggle column/row ordering of items"
+                             (lambda nil (if one-key-column-major-order
+                                             (setq one-key-column-major-order nil)
+                                           (setq one-key-column-major-order t))
+                               (setq one-key-menu-call-first-time t) t))
+    (sort-next "<f3>" "Sort items by next method"
+               (lambda nil (setq one-key-current-sort-method
+                                 (one-key-sort-items-by-next-method info-alists full-list menu-number)) t))
+    (sort-prev "<C-f3>" "Sort items by previous method"
+               (lambda nil (setq one-key-current-sort-method
+                                 (one-key-sort-items-by-next-method info-alists full-list menu-number t)) t))
+    (reverse-order "<f4>" "Reverse order of items"
+                   (lambda nil (one-key-reverse-item-order info-alists full-list menu-number) t))
+    (limit-items "<f5>" "Limit items to those matching regexp"
+                 (lambda nil (setq filter-regex (read-regexp "Regular expression"))
+                   (setq one-key-menu-call-first-time t) t))
+    (highlight-items "<f6>" "Highlight items matching regexp"
+                     (lambda nil (let ((regex (read-regexp "Regular expression"))
+                                       (bgcolour (read-color "Colour: ")))
+                                   (one-key-highlight-matching-items
+                                    info-alist full-list bgcolour
+                                    (lambda (item) (string-match regex (cdar item))))) t))
+    (edit-item "<f7>" "Edit a menu item"
+               (lambda nil (one-key-edit-menu-item info-alist full-list) t))
+    (delete-item "<f8>" "Delete a menu item"
+                 (lambda nil (one-key-delete-menu-item info-alist full-list) t))
+    (swap-keys "<f9>" "Swap menu item keys"
+               (lambda nil (one-key-swap-menu-items info-alist full-list) t))
+    (add-item "<f10>" "Add a menu item"
+              (lambda nil (one-key-prompt-to-add-menu-item info-alist full-list) t))
+    (add-menu "<C-f10>" "Add a menu"
+              (lambda nil (one-key-add-menus) nil)) ; no need to return t since `one-key-add-menus' does recursion itself
+    (remove-menu "<C-S-f10>" "Remove this menu"
+                 (lambda nil (one-key-delete-menu) t))
+    (move-item "<f11>" "Reposition item (with arrow keys)"
+               (lambda nil (let ((key (one-key-key-description
+                                       (read-key "Enter key of item to be moved"))))
+                             (setq one-key-current-item-being-moved key)
+                             (setq one-key-menu-call-first-time t)) t))
+    (show-menusets "C-h" "Show menus in menu set"
+                   (lambda nil
+                     (let* ((key (read-key "Enter the key for the menu set"))
+                            (item (one-key-get-menu-item key full-list))
+                            (menuset (assoc (cdar item) one-key-sets-of-menus-alist))
+                            (desc (car menuset))
+                            (names (cdr menuset)))
+                       (message "%S" names) t)))
+    (customize-menusets "C-s" "Customize menu sets"
+                        (lambda nil
+                          (setq one-key-menu-window-configuration nil)
+                          (with-selected-window (previous-window)
+                            (customize-variable 'one-key-sets-of-menus-alist)) nil))
+    (change-default-menuset "<f7>" "Change default menu set"
+                            (lambda nil
+                              (let* ((key (read-event "Press the key of item to set as default"))
+                                     (item (one-key-get-menu-item key full-list))
+                                     (name (cdar item))
+                                     (pos (position "menu-sets" names :test 'equal)))
+                                (if name (eval `(customize-save-variable 'one-key-default-menu-set
+                                                                         ,(substring-no-properties name))))
+                                (if pos (setf (nth pos info-alists) (one-key-build-menu-sets-menu-alist))
+                                  (setq info-alists (one-key-build-menu-sets-menu-alist))))
+                              (setq one-key-menu-call-first-time t)
+                              (one-key-menu-window-close) t)))
+  "An list of special keys; labels, keybindings, descriptions and associated functions.
 Each item in the list contains (in this order):
 
-  1) A string representation of the key (as returned by `one-key-key-description').
+  1) A symbol to reference the keybinding in the special keybinding sets for different menu types.
 
-  2) A short description of the associated action.
-     This description will be displayed in the *One-Key* buffer.
+  2) A string representation of the key (as returned by `one-key-key-description').
 
-  3) A function for performing the action. The function takes no arguments but may use dynamic binding to
+  3) A short description of the associated action. This description will be displayed in the one-key help buffer.
+
+  4) A function for performing the action. The function takes no arguments but may use dynamic binding to
      read and change some of the values in the initial `one-key-menu' function call.
      The function should return t to display the `one-key' menu again after the function has finished,
      or nil to close the menu.
 
-These keys and functions apply to all `one-key' menus and are not displayed with the menu specific keys.
-They are for general tasks such as displaying command help, scrolling the window, sorting menu items, etc.
-
-You may wish to temporarily alter this list when creating your own types of `one-key' menus."
+These keybindings may be referred to by other variables that contain the special keybindings for different one-key menu
+types. See `one-key-default-special-keybindings' for example."
   :group 'one-key
-  :type '(repeat (list (string :tag "Keybinding" :help-echo "String representation of the keybinding for this action")
+  :type '(repeat (list (symbol :tag "Name" :help-echo "A reference name for this keybinding (no spaces).")
+                       (string :tag "Keybinding" :help-echo "String representation of the keybinding for this action")
                        (string :tag "Description" :help-echo "Description to display in help buffer")
                        (function :tag "Function" :help-echo "Function for performing action. See description below for further details."))))
+
+(defcustom one-key-default-special-keybindings
+  '(quit-close quit-open toggle-persistence toggle-display next-menu prev-menu up down scroll-down scroll-up help save-menu
+               toggle-help toggle-row/column-order sort-next sort-prev reverse-order limit-items highlight-items
+               edit-item delete-item swap-keys add-item add-menu remove-menu move-item)
+  "List of special keys to be used if no other set of special keys is defined for a given one-key menu type.
+These keys are for performing general tasks on the menu such as sorting items, deleting items, etc.
+Each element of this list is a reference to one of the keybindings defined in `one-key-special-keybindings'.
+The keys will be displayed in the one-key help buffer in the order shown when the `one-key-show-help' function is executed."
+  :group 'one-key
+  :type '(repeat (symbol :tag "Name" :help-echo "The name/symbol corresponding to the keybinding.")))
 
 (defcustom one-key-menu-sets-special-keybindings
-  '(("ESC" "Quit and close menu window" (lambda nil (keyboard-quit) nil))
-    ("<C-escape>" "Quit, but keep menu window open"
-     (lambda nil (setq keep-window-p t) nil))
-    ("<C-menu>" "Toggle menu persistence"
-     (lambda nil (if match-recursion-p
-                     (setq match-recursion-p nil
-                           miss-match-recursion-p nil)
-                   (setq match-recursion-p t
-                         miss-match-recursion-p t))))
-    ("<menu>" "Toggle menu display" (lambda nil (one-key-menu-window-toggle) t))
-    ("<left>" "Change to next menu" (lambda nil (if menu-number
-                                                    (progn
-                                                      (setq menu-number
-                                                            (if (equal menu-number 0)
-                                                                (1- (length info-alists))
-                                                              (1- menu-number)))
-                                                      (setq one-key-menu-call-first-time t))) t))
-    ("<right>" "Change to previous menu" (lambda nil (if menu-number
-                                                         (progn
-                                                           (setq menu-number
-                                                                 (if (equal menu-number (1- (length info-alists)))
-                                                                     0 (1+ menu-number)))
-                                                           (setq one-key-menu-call-first-time t))) t))
-    ("<up>" "Scroll/move up one line" (lambda nil (one-key-scroll-or-move-up info-alist full-list) t))
-    ("<down>" "Scroll/move down one line" (lambda nil (one-key-scroll-or-move-down info-alist full-list) t))
-    ("<prior>" "Scroll menu down one page" (lambda nil (one-key-menu-window-scroll-down) t))
-    ("<next>" "Scroll menu up one page" (lambda nil (one-key-menu-window-scroll-up) t))
-    ("C-h" "Show menus in menu set" (lambda nil
-                                      (let* ((key (read-key "Enter the key for the menu set"))
-                                             (item (one-key-get-menu-item key full-list))
-                                             (menuset (assoc (cdar item) one-key-sets-of-menus-alist))
-                                             (desc (car menuset))
-                                             (names (cdr menuset)))
-                                        (message "%S" names) t)))
-    ("C-s" "Customize menu sets" (lambda nil
-                                   (setq one-key-menu-window-configuration nil)
-                                   (with-selected-window (previous-window)
-                                     (customize-variable 'one-key-sets-of-menus-alist)) nil))
-    ("<f1>" "Toggle this help buffer" (lambda nil (if (get-buffer-window "*Help*")
-                                                      (kill-buffer "*Help*")
-                                                    (one-key-show-help special-keybindings)) t))
-    ("<f2>" "Toggle column/row ordering of items"
-     (lambda nil (if one-key-column-major-order
-                     (setq one-key-column-major-order nil)
-                   (setq one-key-column-major-order t))
-       (setq one-key-menu-call-first-time t) t))
-    ("<f3>" "Sort items by next method"
-     (lambda nil (setq one-key-current-sort-method
-                       (one-key-sort-items-by-next-method info-alists full-list menu-number)) t))
-    ("<C-f3>" "Sort items by previous method"
-     (lambda nil (setq one-key-current-sort-method
-                       (one-key-sort-items-by-next-method info-alists full-list menu-number t)) t))
-    ("<f4>" "Reverse order of items"
-     (lambda nil (one-key-reverse-item-order info-alists full-list menu-number) t))
-    ("<f5>" "Limit items to those matching regexp"
-     (lambda nil (setq filter-regex (read-regexp "Regular expression"))
-       (setq one-key-menu-call-first-time t) t))
-    ("<f6>" "Highlight items matching regexp"
-     (lambda nil (let ((regex (read-regexp "Regular expression"))
-                       (bgcolour (read-color "Colour: ")))
-                   (one-key-highlight-matching-items
-                    info-alist full-list bgcolour
-                    (lambda (item) (string-match regex (cdar item))))) t))
-    ("<f7>" "Change default menu set"
-     (lambda nil
-       (let* ((key (read-event "Press the key of item to set as default"))
-              (item (one-key-get-menu-item key full-list))
-              (name (cdar item))
-              (pos (position "menu-sets" names :test 'equal)))
-         (if name (eval `(customize-save-variable 'one-key-default-menu-set
-                                                  ,(substring-no-properties name))))
-         (if pos (setf (nth pos info-alists) (one-key-build-menu-sets-menu-alist))
-           (setq info-alists (one-key-build-menu-sets-menu-alist))))
-       (setq one-key-menu-call-first-time t)
-       (one-key-menu-window-close) t))
-    ("<C-f10>" "Add a menu"
-     (lambda nil (one-key-add-menus) nil)) ; no need to return t since `one-key-add-menus' does recursion itself
-    ("<C-S-f10>" "Remove this menu"
-     (lambda nil (one-key-delete-menu) t)))
-
-  "An list of special keys, their labels and associated functions that apply to all `one-key' menus.
-Each item in the list contains (in this order):
-
-  1) A string representation of the key (as returned by `one-key-key-description').
-
-  2) A short description of the associated action.
-     This description will be displayed in the *One-Key* buffer.
-
-  3) A function for performing the action. The function takes no arguments but may use dynamic binding to
-     read and change some of the values in the initial `one-key-menu' function call.
-     The function should return t to display the `one-key' menu again after the function has finished,
-     or nil to close the menu.
-
-These keys and functions apply to all `one-key' menus and are not displayed with the menu specific keys.
-They are for general tasks such as displaying command help, scrolling the window, sorting menu items, etc.
-
-You may wish to temporarily alter this list when creating your own types of `one-key' menus."
+  '(quit-close quit-open toggle-persistence toggle-display next-menu prev-menu up down scroll-down scroll-up show-menusets
+               customize-menusets toggle-help toggle-row/column-order sort-next sort-prev reverse-order limit-items
+               highlight-items change-default-menuset add-menu remove-menu)
+  "List of special keys to be used for menu-sets menus (see `one-key-default-special-keybindings' for more info)."
   :group 'one-key
-  :type '(repeat (list (string :tag "Keybinding" :help-echo "String representation of the keybinding for this action")
-                       (string :tag "Description" :help-echo "Description to display in help buffer")
-                       (function :tag "Function" :help-echo "Function for performing action. See description below for further details."))))
+  :type '(repeat (symbol :tag "Name" :help-echo "The name/symbol corresponding to the keybinding.")))
 
 (defcustom one-key-default-title-format-string
   (lambda nil (format "Sorted by %s (%s first). Press <f1> for help.\n" one-key-current-sort-method (if one-key-column-major-order "columns" "rows")))
@@ -982,7 +927,8 @@ FULL-LIST is as in the `one-key-menu' function."
   "Show help for item in MENU-ALIST that is associated with the key KEY.
 MENU-ALIST should be a menu of items as used by the `one-key-menu' function."
   (let* ((item (one-key-get-menu-item key menu-alist))
-         (cmd (cdr item)))
+         (cmd1 (cadr item))
+         (cmd (if (eq cmd1 'lambda) (cdr item) cmd1)))
     (if (and (symbolp cmd) (commandp cmd))
         (describe-function cmd)
       (with-help-window (help-buffer)
@@ -1357,9 +1303,10 @@ If FILTER-REGEX is non-nil then only menu items whose descriptions match FILTER-
          ;; the special keybindings for this menu
          (special-keybindings-var (or (fourth (one-key-get-menu-type this-name))
                                       one-key-default-special-keybindings))
-         (special-keybindings (if (symbolp special-keybindings-var)
-                                  (eval special-keybindings-var)
-                                special-keybindings-var))
+         (special-keybindings (one-key-assq-list (if (symbolp special-keybindings-var)
+                                                     (eval special-keybindings-var)
+                                                   special-keybindings-var)
+                                                 one-key-special-keybindings))
          ;; following function is used for recursively calling itself when needed
          (self (function (lambda () (one-key-menu names info-alists
                                                   :menu-number menu-number
@@ -1875,6 +1822,12 @@ The new names will be in the form \"MENUNAME (N)\" where N runs over the integer
 This is useful for creating menu types that return multiple menus."
     (loop for num from 1 to nummenus
         collect (concat menuname " (" (number-to-string num) ")")))
+
+(defun one-key-assq-list (symlist alist)
+  "Return a list of the cdr's of elements of ALIST whose car's match a symbol in SYMLIST.
+The matching is performed with assq so that only the first element of alist matching a symbol in SYMLIST is returned.
+The elements returned will be in the same order as the elements of SYMLIST."
+  (mapcar 'cdr (loop for symbol in symlist collect (assq symbol alist))))
 
 (defun one-key-merge-special-keybindings (keyset1 keyset2)
   "Merge special keybindings list KEYSET1 with KEYSET2, and return the merged list.
