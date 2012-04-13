@@ -356,7 +356,9 @@ and COLOUR is the name of the associated colour to use in the `one-key' menu."
                                                     (one-key-regs-open-registers-file))
                                                   (setq one-key-menu-window-configuration nil) nil))
                            (save-registers "C-s" "Save registers and menu"
-                                           (lambda nil (call-interactively 'one-key-regs-save-registers) t))
+                                           (lambda nil (one-key-regs-save-registers
+                                                        one-key-regs-currently-loaded-file
+                                                        t) t))
                            (edit-register "<f7>" "Edit a register"
                                           (lambda nil (one-key-regs-edit-menu-item info-alist full-list) t))
                            (delete-register "<f8>" "Delete a register"
@@ -364,13 +366,29 @@ and COLOUR is the name of the associated colour to use in the `one-key' menu."
                            (swap-register-keys "<f9>" "Swap register keys"
                                                (lambda nil (one-key-regs-swap-menu-items full-list) t))
                            (add-register "<f10>" "Add a register"
-                                         (lambda nil (one-key-regs-prompt-to-add-menu-item info-alist full-list) t))) t))
+                                         (lambda nil (one-key-regs-prompt-to-add-menu-item info-alist full-list) t))
+                           (show-register-prefix-keys "C-p" "Show prefix associations"
+                                                      one-key-regs-show-prefix-key-associations)
+                           (clear-registers "<C-f8>" "Delete all registers"
+                                            (lambda nil (one-key-regs-clear-registers)
+                                              (setq one-key-menu-call-first-time t) t))
+                           (replace-registers "C-l" "Load registers (replace)"
+                                              (lambda nil
+                                                (with-selected-window (previous-window)
+                                                  (call-interactively 'one-key-regs-replace-registers))
+                                                (setq one-key-menu-call-first-time t) t))
+                           (merge-registers "M-l" "Load registers (merge)"
+                                            (lambda nil
+                                              (with-selected-window (previous-window)
+                                                (call-interactively 'one-key-regs-merge-registers))
+                                              (setq one-key-menu-call-first-time t) t))
+                           ) t))
 
 (defcustom one-key-regs-special-keybindings
   '(quit-close quit-open toggle-persistence toggle-display next-menu prev-menu up down scroll-down scroll-up
-               show-register edit-registers-file save-registers toggle-help toggle-row/column-order sort-next
-               sort-prev reverse-order limit-items highlight-items edit-register delete-register swap-register-keys
-               add-register add-menu remove-menu move-item)
+               show-register show-register-prefix-keys save-registers merge-registers replace-registers toggle-help
+               toggle-row/column-order sort-next sort-prev reverse-order limit-items highlight-items edit-register
+               delete-register clear-registers swap-register-keys add-register add-menu remove-menu move-item)
   "List of special keys to be used for one-key-registers menus (see `one-key-default-special-keybindings' for more info)."  
   :group 'one-key
   :type '(repeat (symbol :tag "Name" :help-echo "The name/symbol corresponding to the keybinding.")))
@@ -476,14 +494,14 @@ Should end with a \"/\"."
 
 (defcustom one-key-regs-default-file (concat (file-name-as-directory one-key-regs-default-directory)
                                              "default_registers.el")
-  "The default file in which to save one-key-regs.
-This file will be loaded when this library is loaded."
+  "The default registers file to load on startup."
   :group 'one-key-regs
   :type '(file))
 
 (defcustom one-key-regs-file-associations nil
   "An alist of (CONDITION . FILE) pairs indicating which registers files to load in which buffers.
-CONDITION should be an elisp expression that returns non-nil in buffers for which the registers saved in FILE should be loaded. File FILE will be loaded when `one-key-regs-load-associated-file' is run and CONDITION is true."
+CONDITION should be an elisp expression that returns non-nil in buffers for which the registers saved in FILE should be loaded. FILE may be the full path to a file, or just the file name in which case it is assumed to be in `one-key-regs-default-directory'.
+The `one-key-regs-get-associated-file' function can be used to return the file associated with the current buffer."
   :group 'one-key-regs
   :type '(alist :key-type (sexp :tag "Condition"
                                 :help-echo "An elisp form which returns non-nil in buffers for which the corresponding registers file should be loaded.")
@@ -747,25 +765,6 @@ If it is not then update it."
                                 (assq (string-to-char keystr) register-alist))))
                            one-key-menu-one-key-registers-alist)))
 
-(defun one-key-regs-extra-menu ()
-  "The `one-key' menu for one-key-regs extra functions."
-  (interactive)
-  (one-key-menu "Register functions"
-                `((("p" . "Show prefix associations") . one-key-regs-show-prefix-key-associations)
-                  (("l" . "Load appropriate registers (no prompt)") . one-key-regs-load-associated-file)
-                  (("m" . "Load/merge registers (prompt for file)") . one-key-regs-merge-registers)
-                  (("r" . "Replace registers (prompt for file)") . one-key-regs-replace-registers)
-                  (("S" . ,(format "Save registers to %s"
-                                   (if one-key-regs-currently-loaded-file
-                                       (file-name-nondirectory one-key-regs-currently-loaded-file)
-                                     "file"))) . one-key-regs-save-registers)
-                  (("s" . "Save registers (prompt for file)") . (lambda nil (interactive)
-                                                                  (one-key-regs-save-registers nil t)))
-                  (("C" . "Clear registers") . one-key-regs-clear-registers)
-                  (("e" . "Edit registers file") . one-key-regs-open-registers-file)
-                  (("c" . "Customize settings") . (lambda nil (interactive) (customize-group "one-key-regs")))
-                  (("C-b" . "back to registers menu") . one-key-menu-regs))))
-
 (defun one-key-regs-show-prefix-key-associations nil
   "Show current default registers and prefix key associations.
 In other words show the values of variables `one-key-regs-default-register-type',
@@ -879,11 +878,7 @@ to `one-key-regs-merge-conflicts' if called interactively, unless a prefix arg i
 If a prefix arg is supplied and `one-key-regs-merge-conflicts' is set to 'prompt then MERGEMETHOD will be
 set to 'replace, otherwise it will be set to 'prompt."
   (interactive
-   (list (if (featurep 'ido)
-             (ido-read-file-name "one-key-regs file: "
-                                 (file-name-as-directory one-key-regs-default-directory) nil t)
-           (read-file-name "one-key-regs file: "
-                           (file-name-as-directory one-key-regs-default-directory) nil t))
+   (list (one-key-regs-prompt-for-file)
          (if (not current-prefix-arg) one-key-regs-merge-conflicts
            (if (eq one-key-regs-merge-conflicts 'prompt) 'replace 'prompt))))
   ;; Before merging we backup the old registers and menu items to `old-register-alist' and `old-one-key-menu-one-key-registers-alist'
@@ -944,22 +939,34 @@ set to 'replace, otherwise it will be set to 'prompt."
       ;; short hack to clear minibuffer
       (message nil))))
 
-(defun one-key-regs-load-associated-file nil
-  "Load the registers file associated with the current buffer."
-  (interactive)
-  (loop for (c . f) in one-key-regs-file-associations
-        if (eval c) do (let ((path (if (file-name-directory f) f
-                                     (concat (file-name-as-directory one-key-regs-default-directory) f))))
-                         (load path))))
+(defun one-key-regs-get-associated-file nil
+  "Return the path to the one-key registers file associated with the current buffer."
+  (let ((file (loop for (c . f) in one-key-regs-file-associations
+                    if (eval c) return f)))
+    (if file
+        (if (file-name-directory file) file
+          (concat (file-name-as-directory one-key-regs-default-directory) file)))))
+
+(defun one-key-regs-prompt-for-file nil
+  "Prompt the user for a file.
+The default file is set to the one associated with the current buffer (using `one-key-regs-get-associated-file'),
+or `one-key-regs-currently-loaded-file' if that is nil."
+  (let* ((assocfile (one-key-regs-get-associated-file))
+         (defaultfile (or assocfile one-key-regs-currently-loaded-file)))
+    (if (featurep 'ido)
+        (ido-read-file-name "one-key-regs file: "
+                            (file-name-directory defaultfile)
+                            defaultfile t
+                            (file-name-nondirectory defaultfile))
+      (read-file-name "one-key-regs file: "
+                      (file-name-directory defaultfile)
+                      defaultfile t
+                      (file-name-nondirectory defaultfile)))))
 
 (defun one-key-regs-replace-registers (file)
   "Replace the currently loaded register set with that saved in file FILE."
   (interactive
-   (list (if (featurep 'ido)
-             (ido-read-file-name "one-key-regs file: "
-                                 (file-name-as-directory one-key-regs-default-directory) nil t)
-           (read-file-name "one-key-regs file: "
-                           (file-name-as-directory one-key-regs-default-directory) nil t))))
+   (list (one-key-regs-prompt-for-file)))
   (one-key-regs-merge-registers file 'replace)
   (setq one-key-regs-currently-loaded-file file))
 
