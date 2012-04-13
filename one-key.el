@@ -1793,7 +1793,7 @@ KEY may be a vector, integer, symbol or string representing a key, or nil.
 If KEY is nil then nil is returned, if it is non-nil and not a string, vector, symbol or number then an error is flagged."
   (cond ((not key) nil)
         ((vectorp key) (key-description key))
-        ((characterp key) (single-key-description key))
+        ((integerp key) (single-key-description key))
         ((symbolp key) (single-key-description key))
         ((stringp key) key)
         (t (error "Invalid key: %S" key))))
