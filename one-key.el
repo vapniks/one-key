@@ -633,8 +633,8 @@ the first item should come before the second in the menu."
     (save-menu "C-s" "Save current state of menu"
                (lambda nil (one-key-save-menu this-name info-alist full-list) t))
     (toggle-help "<f1>" "Toggle this help buffer"
-                 (lambda nil (if (get-buffer-window "*Help*")
-                                 (kill-buffer "*Help*")
+                 (lambda nil (if (get-buffer-window (help-buffer))
+                                 (kill-buffer (help-buffer))
                                (one-key-show-help special-keybindings)) t))
     (toggle-row/column-order "<f2>" "Toggle column/row ordering of items"
                              (lambda nil (if one-key-column-major-order
@@ -831,8 +831,9 @@ Each item in the list contains (in this order):
   "The key corresponding to the item currently being moved in the `one-key' menu, or nil if none is being moved.")
 
 (defvar one-key-current-window-state nil
-  "The current state of the `one-key' window
-If nil then the window is closed, if t then it is open at normal size, if 'full then it is open at full size.")
+  "The current state of the `one-key' window.
+If nil then the window is closed, if t then it is open at normal size, otherwise is should be a string
+containing the name of the buffer that was displayed when the one-key menu window was opened.")
 
 (defvar one-key-altered-menus nil
   "List of menu alist variables that should be saved on exit if `one-key-autosave-menus' is true.")
@@ -867,8 +868,7 @@ If nil then the window is closed, if t then it is open at normal size, if 'full 
                          finally return (mapconcat 'identity (nreverse finalstr) "")))))
     (with-help-window (help-buffer)
       (princ (concat "Press the highlighted key in the menu to perform the corresponding action written next to it.
-
-The following special keys may also be used:\n\n"
+The following special keys may also be used:\n"
                      keystr)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Utilities Functions ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1335,7 +1335,7 @@ If FILTER-REGEX is non-nil then only menu items whose descriptions match FILTER-
           (cond (
                  ;; HANDLE KEYSTROKES MATCHING MENU ITEMS
                  ;; (unless the help window is open)
-                 (and (not (get-buffer-window "*Help*"))
+                 (and (not (get-buffer-window (help-buffer)))
                       (catch 'match
                         (loop for item in filtered-list
                               for match-key = (caar item)
@@ -1459,7 +1459,7 @@ The return value of RECURSION-FUNCTION will be returned by this function also."
   (if one-key-current-window-state
       (if (and (stringp one-key-current-window-state)
                (get-buffer one-key-current-window-state))
-          (one-key-menu-window-close)
+          (one-key-menu-window-close t)
         (setq one-key-current-window-state
               (with-selected-window (previous-window) (buffer-name)))
         (fit-window-to-buffer (get-buffer-window one-key-buffer-name)
@@ -1497,7 +1497,7 @@ The return value of RECURSION-FUNCTION will be returned by this function also."
   (setq one-key-default-menu-number menu-number)
   nil)
 
-(defun one-key-menu-window-close nil
+(defun one-key-menu-window-close (&optional norestore)
   "Close the menu window."
   ;; Kill menu buffer.
   (when (bufferp (get-buffer one-key-buffer-name))
@@ -1508,7 +1508,8 @@ The return value of RECURSION-FUNCTION will be returned by this function also."
     (kill-buffer one-key-buffer-name)
     (setq one-key-current-window-state nil))
   ;; Restore window layout if `one-key-menu-window-configuration' is valid value.
-  (when (and one-key-menu-window-configuration
+  (when (and (not norestore)
+             one-key-menu-window-configuration
              (boundp 'one-key-menu-window-configuration))
     (set-window-configuration one-key-menu-window-configuration)
     (setq one-key-menu-window-configuration nil)))
