@@ -441,7 +441,7 @@ This list will be used for generating keys by the `one-key-generate-key' functio
   :group 'one-key
   :type '(repeat character))
 
-(defcustom one-key-excluded-keys '("<remap>" "mouse")
+(defcustom one-key-excluded-keys '("<remap>" "mouse" "<follow-link>")
   "List of strings matching keys that should be excluded from `one-key' menus that are automatically generated from keymaps.
 When `one-key' menus are automatically generated with the `one-key-create-menus-from-keymap' function, keys that match any of these
 strings will be excluded from the final menus."
@@ -921,12 +921,21 @@ FULL-LIST is as in the `one-key-menu' function."
   "Show help for item in MENU-ALIST that is associated with the key KEY.
 MENU-ALIST should be a menu of items as used by the `one-key-menu' function."
   (let* ((item (one-key-get-menu-item key menu-alist))
-         (cmd1 (cadr item))
-         (cmd (if (eq cmd1 'lambda) (cdr item) cmd1)))
-    (if (and (symbolp cmd) (commandp cmd))
-        (describe-function cmd)
-      (with-help-window (help-buffer)
-        (princ cmd)))))
+         (tail (cdr item)))
+    (if (listp tail)
+        (if (commandp tail)
+            (with-help-window (help-buffer)
+              (princ tail))
+          (let ((cmd (car tail)))
+            (if (symbolp cmd)
+                (if (commandp cmd)
+                    (describe-function cmd)
+                  (message "Unknown item!"))
+              (with-help-window (help-buffer)
+                (princ cmd)))))
+      (if (commandp tail)
+          (describe-function tail)
+        (message "Unknown item!")))))
 
 (defun one-key-prompt-to-add-menu-item (info-alist full-list)
   "Prompt the user for item details and add it to the current `one-key' menu.
@@ -1685,94 +1694,133 @@ THIS-NAME being dynamically bound."
                                                        "unknown")))
   "Create a menu alist for a keymap and all sub menu alists."
   (let* ((case-fold-search nil)
+         ;; get the keymap (not just the symbol for the keymap)
          (keymap1 (if (symbolp keymap) (eval keymap) keymap))
+         ;; create regexp to match irrelevant lines
          (nulllines '("digit-argument" "^\\s-.*" "^$" "^key\\s-+binding" "^[-\\s-]+"))
          (nulllines2 (mapconcat 'identity nulllines "\\|"))
+         ;; get commands and corresponding keys, and split into seperate lines
          (keystr (substitute-command-keys "\\<keymap1>\\{keymap1}"))
          (lines (string-split keystr "\n"))
+         ;; remove irrelevant lines
          (lines2 (remove-if (lambda (line) (string-match nulllines2 line)) lines))
          (lines3 (mapcar (lambda (line) (string-split line "  +" 2)) lines2))
          (pred1 (lambda (line) (string-match "Prefix Command\\|-map$" (cadr line))))
+         ;; get items that should link to submenus
          (submenulines (remove-if-not pred1 lines3))
          (submenulines2 (sort submenulines (lambda (a b) (> (length (car a)) (length (car b))))))
-         (lines4a (remove-if pred1 lines3))
+         ;; remove submenu items from initial menu items
+         (lines3a (remove-if pred1 lines3))
+         ;; remove items with null keys
          (nullkeys (regexp-opt one-key-excluded-keys))
-         (lines4 (remove-if (lambda (line) (string-match nullkeys (car line))) lines4a))
-         ;; function to convert '(key cmd) pairs into menu items
+         (lines4 (remove-if (lambda (line) (string-match nullkeys (car line))) lines3a))
+         ;; need following vars to remove command name prefixes (so we can fit more menu items on screen)
          (keymapname (replace-regexp-in-string "mode-map$\\|map$" "" (symbol-name keymap)))
          (keymapnameregex (regexp-opt (list keymapname (capitalize keymapname))))
+         ;; function to convert '(key cmd) pairs into menu items (used later)
          (converter (lambda (line) (let* ((keystr (car line))
                                           (cmdname (cadr line))
                                           (cmd (intern-soft cmdname))
+                                          ;; remove keymap prefix & hyphens, and capitalise the command description
                                           (cmdname2 (replace-regexp-in-string keymapnameregex "" cmdname))
                                           (desc (capitalize
                                                  (replace-regexp-in-string "-" " " cmdname2)))
                                           (desc2 (concat desc " (" keystr ")"))
+                                          ;; only use the last key in the key sequence for the item
                                           (lastkey (car (last (string-split keystr " ")))))
                                      (cons (cons lastkey desc2) cmd))))
          ;; remove duplicate entries (keep one with shortest keystring)
-         (lines5 (loop for line in lines4 with lines4b
+         (lines5 (loop for line in lines4 with lines4b ; loop over the items
                        for key = (car line)
                        for cmd = (cadr line)
                        for func = (lambda (x) (equal (car x) cmd))
+                       ;; see if we've already save any items with the same command as this
                        for elm = (rassoc-if func lines4b)
                        for key2 = (car elm)
+                       ;; if we already have an item with this command, change it's key if the new key is shorter
                        if elm do (if (< (length key) (length key2))
                                      (setf (car elm) key))
+                       ;; otherwise add this item to the list
                        else do (push line lines4b)
+                       ;; return the saved items
                        finally return lines4b))
          ;; split items into submenus corresponding with prefix keys in submenulines2
-         (pair (loop for line in submenulines2
-                     for key1 = (car line)
+         ;; and convert these items into the correct form for final use in menus
+         (pair (loop for line in submenulines2 ; loop over keys that link to submenus
+                     for key1 = (car line) 
+                     ;; ESC (meta key) is usually replaced with M- when there are more keys in the sequence
+                     ;; so need to check for this when looking for matching keys
                      for key2 = (replace-regexp-in-string "ESC$" "M-" key1)
                      for keyregex = (concat "^\\("
                                             (regexp-opt (list (concat key1 " ") key2))
                                             "\\)")
                      for pred2 = (lambda (line) (string-match keyregex (car line)))
+                     ;; extract items whose key is prefixed by the submenu key
                      for newlines = (remove-if-not pred2 lines5)
+                     ;; convert them into an appropriate form for the menu 
                      for items = (mapcar converter newlines)
+                     ;; add them to the list of menu lists
                      if newlines collect items into menus
+                     ;; save the submenu link item (if it had matching submenu items)
                      and collect line into submenulines3
+                     ;; remove the submenu items from the main list of items
                      and do (setq lines5 (remove-if pred2 lines5))
                      end
+                     ;; return the submenus and submenu links as a cons cell
                      finally return (cons menus submenulines3)))
+         ;; convert items in main menu into correct form 
          (lines6 (mapcar converter lines5))
+         ;; extract submenus and items which link to them 
          (menus2 (car pair))
          (submenulines4 (cdr pair))
+         ;; create variable to hold the main menu
          (mainvar (intern (concat "one-key-menu-" name "-alist")))
-         ;; place prefix key items in appropriate submenus
-         (vars (loop for lines on submenulines4
+         ;; place prefix key items in appropriate submenus (it won't necessarily be the main menu)
+         (vars (loop for lines on submenulines4 ; loop over the submenu link items
                      for line = (car lines)
                      for key = (car line)
+                     ;; use last key of the key sequence for the menu item 
                      for lastkey = (car (last (string-split key " ")))
+                     ;; format the item description and give it a different colour to show it links to a submenu
                      for desc = (capitalize (replace-regexp-in-string "-" " " (cadr line)))
                      for desc2 = (propertize desc 'face (list :background "cyan"
-                                                              :foreground one-key-item-foreground-colour)) 
+                                                              :foreground one-key-item-foreground-colour))
+                     ;; create variable to hold the submenu
                      for menuname = (concat name "-" (replace-regexp-in-string " " "_" key))
                      for var = (intern (concat "one-key-menu-" menuname "-alist"))
+                     ;; create command and menu item to open submenu
                      for cmd = `(lambda nil (interactive) (one-key-open-submenu ,menuname ,var))
                      for item = (cons (cons lastkey desc2) cmd)
+                     ;; find the next submenu link item whose key sequence is a prefix of the key sequence for the current
+                     ;; submenu link item (if there is one)
                      for others = (cdr lines)
-                     for i = (if i (1+ i) 1)
-                     for pos = (position-if (lambda (x)
+                     for i = (if i (1+ i) 1) ; get the absolute position of the current submenu link item
+                     ;; find the position of the matching submenu, relative to the remaining submenus
+                     for pos = (position-if (lambda (x) 
                                               (let* ((key1 (car x))
                                                      (key2 (replace-regexp-in-string "ESC$" "M-" key1))
                                                      (keyregex (concat "^\\("
                                                                        (regexp-opt (list (concat key1 " ") key2))
                                                                        "\\)")))
                                                 (string-match keyregex key))) others)
-                     for pos2 = (if pos (+ i pos))
+                     for pos2 = (if pos (+ i pos)) ; set pos2 to the absolute position of the matching submenu
+                     ;; if a matching submenu was found, add the current submenu link to it
                      for matchmenu = (if pos (nth pos2 menus2))
                      if pos do (setf (nth pos2 menus2) (add-to-list 'matchmenu item))
+                     ;; otherwise add the submenu link to the main menu 
                      else do (setq lines6 (add-to-list 'lines6 item))
+                     ;; return the list of submenu variables
                      collect var)))
-    (add-to-list 'one-key-altered-menus mainvar)
+    ;; set the value of the newly created variables to their associated menus,
+    ;; and add them to `one-key-altered-menus' so that they will be saved on emacs exit
     (loop for var in vars
           for menu in menus2
           do (set var menu)
           (add-to-list 'one-key-altered-menus var)
           collect var)
+    (add-to-list 'one-key-altered-menus mainvar)
     (set mainvar lines6)
+    ;; return the main menu variable
     mainvar))
 
 (defun one-key-generate-key (desc usedkeys &optional elements)
