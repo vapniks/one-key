@@ -406,16 +406,11 @@
 
 ;;; TODO
 ;;
-;; Make sure only menu functions begin with `one-key-menu' (rename others)
-;;
-;; Autohighlighting of menu items using regexp associations (e.g. highlight items corresponding to further one-key menus).
-;; 
-;; Option to automatically split menu when creating templates based on prefix keys.
-;;
-;; Function to split items matching regexp into seperate menu in when editing menu in `one-key-template-mode'.
-;;
-;; Automatically generate one-key menus for common keybindings and store them in memory. This is already implemented
-;; to a certain extent but I think it could be improved. Needs further investigation.
+;; Prompt to save submenus when saving menu. Special keybinding to save all altered menus?
+;; Autohighlighting of menu items using regexp associations?
+;; New `one-key-create-menus-from-keymap' function that also adds items with no keybindings (menu-item items).
+;; Automatically generate one-key menus for common prefix keys (e.g. C-x r) and store them in memory.
+;; This is already implemented to a certain extent but I think it could be improved. Needs further investigation.
 ;;
 ;;; Require
 (eval-when-compile (require 'cl))
@@ -489,6 +484,12 @@ then second, etc.). Otherwise menu items are displayed in row major order."
   :type '(repeat (regexp :tag "Regexp" :help-echo "Regular expression matching menu names to exclude from autosave." ))
   :group 'one-key)
 
+(defcustom one-key-include-keymap-menu-items t
+  "Wheter or not to include menu items with no keybinding when creating one-key menus from keymaps."
+  :type '(choice (const :tag "Yes" t)
+                 (const :tag "No" nil)
+                 (const :tag "Prompt each time" 'prompt))
+  :group 'one-key)
 
 (defcustom one-key-item-foreground-colour "black"
   "Foreground colour of highlighted items in `one-key' menus."
@@ -545,48 +546,49 @@ menu set if the user has altered its value."
   :type 'string
   :group 'one-key)
 
-(defcustom one-key-default-sort-method-alist '((key . (lambda (a b) (string< (caar a) (caar b))))
-                                               (description . (lambda (a b) (string< (cdar a) (cdar b))))
-                                               (command . (lambda (a b) (string< (prin1-to-string (cdr a))
-                                                                                 (prin1-to-string (cdr b)))))
-                                               (colour_name . (lambda (a b) (string< (cadr (get-text-property 0 'face (cdar a)))
-                                                                                     (cadr (get-text-property 0 'face (cdar b))))))
-                                               (colour_hue . (lambda (a b)
-                                                               (let* ((bg (cdr (assq 'background-color (frame-parameters))))
-                                                                      (cola (or (cadr (get-text-property 0 'face (cdar a))) bg))
-                                                                      (colb (or (cadr (get-text-property 0 'face (cdar b))) bg))
-                                                                      (hsva (destructuring-bind (r g b) (color-values cola)
-                                                                              (color-rgb-to-hsv r g b)))
-                                                                      (hsvb (destructuring-bind (r g b) (color-values colb)
-                                                                              (color-rgb-to-hsv r g b))))
-                                                                 (> (first hsva) (first hsvb)))))
-                                               (colour_brightness . (lambda (a b)
-                                                                      (let* ((bg (cdr (assq 'background-color (frame-parameters))))
-                                                                             (cola
-                                                                              (or (cadr (get-text-property 0 'face (cdar a))) bg))
-                                                                             (colb
-                                                                              (or (cadr (get-text-property 0 'face (cdar b))) bg))
-                                                                             (hsva (destructuring-bind (r g b)
-                                                                                       (color-values cola)
-                                                                                     (color-rgb-to-hsv r g b)))
-                                                                             (hsvb (destructuring-bind (r g b)
-                                                                                       (color-values colb)
-                                                                                     (color-rgb-to-hsv r g b))))
-                                                                        (> (third hsva) (third hsvb)))))
-                                               (colour_saturation . (lambda (a b)
-                                                                      (let* ((bg (cdr (assq 'background-color (frame-parameters))))
-                                                                             (cola
-                                                                              (or (cadr (get-text-property 0 'face (cdar a))) bg))
-                                                                             (colb
-                                                                              (or (cadr (get-text-property 0 'face (cdar b))) bg))
-                                                                             (hsva (destructuring-bind (r g b)
-                                                                                       (color-values cola)
-                                                                                     (color-rgb-to-hsv r g b)))
-                                                                             (hsvb (destructuring-bind (r g b)
-                                                                                       (color-values colb)
-                                                                                     (color-rgb-to-hsv r g b))))
-                                                                        (> (second hsva) (second hsvb)))))
-                                               (length . (lambda (a b) (> (length (cdar a)) (length (cdar b))))))
+(defcustom one-key-default-sort-method-alist
+  '((key . (lambda (a b) (string< (caar a) (caar b))))
+    (description . (lambda (a b) (string< (cdar a) (cdar b))))
+    (command . (lambda (a b) (string< (prin1-to-string (cdr a))
+                                      (prin1-to-string (cdr b)))))
+    (colour_name . (lambda (a b) (string< (cadr (get-text-property 0 'face (cdar a)))
+                                          (cadr (get-text-property 0 'face (cdar b))))))
+    (colour_hue . (lambda (a b)
+                    (let* ((bg (cdr (assq 'background-color (frame-parameters))))
+                           (cola (or (cadr (get-text-property 0 'face (cdar a))) bg))
+                           (colb (or (cadr (get-text-property 0 'face (cdar b))) bg))
+                           (hsva (destructuring-bind (r g b) (color-values cola)
+                                   (color-rgb-to-hsv r g b)))
+                           (hsvb (destructuring-bind (r g b) (color-values colb)
+                                   (color-rgb-to-hsv r g b))))
+                      (> (first hsva) (first hsvb)))))
+    (colour_brightness . (lambda (a b)
+                           (let* ((bg (cdr (assq 'background-color (frame-parameters))))
+                                  (cola
+                                   (or (cadr (get-text-property 0 'face (cdar a))) bg))
+                                  (colb
+                                   (or (cadr (get-text-property 0 'face (cdar b))) bg))
+                                  (hsva (destructuring-bind (r g b)
+                                            (color-values cola)
+                                          (color-rgb-to-hsv r g b)))
+                                  (hsvb (destructuring-bind (r g b)
+                                            (color-values colb)
+                                          (color-rgb-to-hsv r g b))))
+                             (> (third hsva) (third hsvb)))))
+    (colour_saturation . (lambda (a b)
+                           (let* ((bg (cdr (assq 'background-color (frame-parameters))))
+                                  (cola
+                                   (or (cadr (get-text-property 0 'face (cdar a))) bg))
+                                  (colb
+                                   (or (cadr (get-text-property 0 'face (cdar b))) bg))
+                                  (hsva (destructuring-bind (r g b)
+                                            (color-values cola)
+                                          (color-rgb-to-hsv r g b)))
+                                  (hsvb (destructuring-bind (r g b)
+                                            (color-values colb)
+                                          (color-rgb-to-hsv r g b))))
+                             (> (second hsva) (second hsvb)))))
+    (length . (lambda (a b) (> (length (cdar a)) (length (cdar b))))))
   "An alist of sorting methods to use on the `one-key' menu items.
 Each element is a cons cell of the form (NAME . PREDICATE) where NAME is a symbol for the name of the sort method,
 and PREDICATE is a function which takes two items from the `one-key' menu alist as arguments and returns non-nil if
@@ -1436,14 +1438,6 @@ will be tried (in accordance with normal emacs behaviour)."
       (setq last-command-event last-input-event)
       (call-interactively func2))))
 
-(defun one-key-read-keymap (keystroke)
-  "Read keymap KEYSTROKE.
-If KEYSTROKE is the name of a keymap, use the keymap, otherwise it's interpreted as a key stroke."
-  (let ((v (intern-soft keystroke)))
-    (if (and (boundp v) (keymapp (symbol-value v)))
-        (symbol-value v)
-      (key-binding (read-kbd-macro keystroke)))))
-
 (defun one-key-handle-last (alternate-function recursion-function recursion-p)
   "Last function called after handling a key press in the `one-key' menu that's not listed in `one-key-special-keys-alist'.
 ALTERNATE-FUNCTION is the alternative function to be executed.
@@ -1689,9 +1683,31 @@ THIS-NAME being dynamically bound."
   (if one-key-submenus-replace-parents
       (one-key-delete-menu currname))))
 
+;; (defun* one-key-create-menus-from-keymap2 (keymap &optional (name (if (symbolp keymap)
+;;                                                          (substring (symbol-name keymap) 0 -4)
+;;                                                        "unknown")))
+;;   (let* (;; get the keymap (not just the symbol for the keymap)
+;;          (keymap1 (if (symbolp keymap) (eval keymap) keymap))
+;;          ;; create regexp to match irrelevant lines
+;;          (nulllines '("digit-argument" "^\\s-.*" "^$" "^key\\s-+binding" "^[-\\s-]+"))
+;;          (nulllines2 (mapconcat 'identity nulllines "\\|")))
+
+;; for VAR being the key-seqs of KEYMAP
+;; for VAR being the key-codes of KEYMAP
+    
+;;     (loop for item in keymap1
+;;           for type = (car item)
+;;           for issubmenu = (listp item)
+
+;; one-key-include-keymap-menu-items
+;; orgtbl-mode-menu
+
+;;           )
+
 (defun* one-key-create-menus-from-keymap (keymap &optional (name (if (symbolp keymap)
-                                                         (substring (symbol-name keymap) 0 -4)
-                                                       "unknown")))
+                                                                     (replace-regexp-in-string
+                                                                      "-map$" "" (symbol-name keymap))
+                                                                   "unknown")))
   "Create a menu alist for a keymap and all sub menu alists."
   (let* ((case-fold-search nil)
          ;; get the keymap (not just the symbol for the keymap)
@@ -1976,8 +1992,7 @@ major mode) exists then it will be used, otherwise it will be created."
 (one-key-add-to-alist 'one-key-types-of-menu
                       (list "top-level"
                             (cons "top-level" 'one-key-toplevel-alist)
-                            nil
-                            nil) t)
+                            nil nil) t)
 ;; Set the menu-alist, title string format and special keybindings for blank `one-key' menus
 (one-key-add-to-alist 'one-key-types-of-menu
                       (list "blank menu"
@@ -1995,14 +2010,12 @@ major mode) exists then it will be used, otherwise it will be created."
                                 (set menusym nil)
                                 (add-to-list 'one-key-altered-menus menusym)
                                 (cons name menusym)))
-                            nil
-                            nil) t)
+                            nil nil) t)
 ;; Set the menu-alist, title string format and special keybindings for `one-key' menus for this major mode
 (one-key-add-to-alist 'one-key-types-of-menu
                       (list "major-mode"
                             'one-key-get-major-mode-menu
-                            nil
-                            nil) t)
+                            nil nil) t)
 ;; Set the menu-alist, title string format and special keybindings for adding existing menus
 (one-key-add-to-alist 'one-key-types-of-menu
                       (list "existing menu"
@@ -2015,24 +2028,43 @@ major mode) exists then it will be used, otherwise it will be created."
                                                (ido-completing-read "Menu: " names)
                                              (completing-read "Menu: " names))))
                                 (cons name (intern-soft (concat "one-key-menu-" name "-alist")))))
-                            nil
-                            nil) t)
+                            nil nil) t)
 ;; Set the menu-alist, title string format and special keybindings for adding menus for existing keymaps
 (one-key-add-to-alist 'one-key-types-of-menu
                       (list "existing keymap"
                             (lambda (name)
                               (let* ((names (loop for sym being the symbols
-                                                  for name = (symbol-name sym)
-                                                  when (string-match "\\(.*\\)-map$" name)
-                                                  collect (match-string 1 name)))
+                                                  when (or (keymapp sym)
+                                                           (and (boundp sym)
+                                                                (keymapp (symbol-value sym))))
+                                                  collect (symbol-name sym)))
                                      (name (if (featurep 'ido)
                                                (ido-completing-read "Keymap: " names)
                                              (completing-read "Keymap: " names)))
-                                     (kmap (intern-soft (concat name "-map"))))
-                                (one-key-create-menus-from-keymap kmap)
-                                (cons name (intern-soft (concat "one-key-menu-" name "-alist")))))
-                            nil
-                            nil) t)
+                                     (partname (replace-regexp-in-string "-map$" "" name))
+                                     (kmap (intern-soft name)))
+                                (one-key-create-menus-from-keymap kmap partname)
+                                (cons name (intern-soft (concat "one-key-menu-" partname "-alist")))))
+                            nil nil) t)
+;; Set the menu-alist, title string format and special keybindings for adding menus for prefix key keymaps
+;; (one-key-add-to-alist 'one-key-types-of-menu
+;;                       (list "prefix key keymap"
+;;                             (lambda (name)
+;;                               (let* ((keystroke (read-key-sequence "Test"))
+;;                                      (key-binding (read-kbd-macro keystroke))
+
+
+;;                                      (names (loop for sym being the symbols
+;;                                                   for name = (symbol-name sym)
+;;                                                   when (string-match "\\(.*\\)-map$" name)
+;;                                                   collect (match-string 1 name)))
+;;                                      (name (if (featurep 'ido)
+;;                                                (ido-completing-read "Keymap: " names)
+;;                                              (completing-read "Keymap: " names)))
+;;                                      (kmap (intern-soft (concat name "-map"))))
+;;                                 (one-key-create-menus-from-keymap kmap)
+;;                                 (cons name (intern-soft (concat "one-key-menu-" name "-alist")))))
+;;                             nil nil) t)
 ;; Set the menu-alist, title string format and special keybindings for the menu-sets menu
 (one-key-add-to-alist 'one-key-types-of-menu
                       (list "menu-sets"
