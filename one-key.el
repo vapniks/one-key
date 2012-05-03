@@ -406,9 +406,9 @@
 
 ;;; TODO
 ;;
+;; Make functions autoloadable.
 ;; Prompt to save submenus when saving menu. Special keybinding to save all altered menus?
 ;; Autohighlighting of menu items using regexp associations?
-;; New `one-key-create-menus-from-keymap' function that also adds items with no keybindings (menu-item items).
 ;; Automatically generate one-key menus for common prefix keys (e.g. C-x r) and store them in memory.
 ;; This is already implemented to a certain extent but I think it could be improved. Needs further investigation.
 ;;
@@ -436,12 +436,14 @@ This list will be used for generating keys by the `one-key-generate-key' functio
   :group 'one-key
   :type '(repeat character))
 
-(defcustom one-key-excluded-keys '("<remap>" "mouse" "<follow-link>")
-  "List of strings matching keys that should be excluded from `one-key' menus that are automatically generated from keymaps.
-When `one-key' menus are automatically generated with the `one-key-create-menus-from-keymap' function, keys that match any of these
-strings will be excluded from the final menus."
-  :group 'one-key
-  :type '(repeat (regexp :tag "Regexp" :help-echo "A regular expression matching keys to be excluded.")))
+(defcustom one-key-min-keymap-submenu-size 4
+  "The minimum number of elements allowed in a submenu when creating menus from keymaps.
+When creating menus from keymaps with `one-key-create-menus-from-keymap', submenus will be created for any prefix keys in
+the keymap. These submenus contain the commands whose keybindings start with the corresponding prefix key.
+If the number of items in a submenu would be less than `one-key-min-keymap-submenu-size' then instead of creating a submenu,
+those items will be merged with the parent menu instead."
+  :type 'integer
+  :group 'one-key)
 
 (defcustom one-key-popup-window t
   "Whether to popup window when `one-key-menu' is run for the first time."
@@ -484,7 +486,7 @@ then second, etc.). Otherwise menu items are displayed in row major order."
   :type '(repeat (regexp :tag "Regexp" :help-echo "Regular expression matching menu names to exclude from autosave." ))
   :group 'one-key)
 
-(defcustom one-key-include-keymap-menu-items t
+(defcustom one-key-include-menubar-items t
   "Wheter or not to include menu items with no keybinding when creating one-key menus from keymaps."
   :type '(choice (const :tag "Yes" t)
                  (const :tag "No" nil)
@@ -743,6 +745,21 @@ The keys will be displayed in the one-key help buffer in the order shown when th
   :group 'one-key
   :type '(repeat (symbol :tag "Name" :help-echo "The name/symbol corresponding to the keybinding.")))
 
+(defun one-key-get-special-key-descriptions (specialkeys)
+  "Given a list of symbols from `one-key-special-keybindings', return a corresponding list of key descriptions.
+This can be used to find out which special keys are used for a particular one-key menu type."
+  (loop for symb in specialkeys
+        for item = (assoc symb one-key-special-keybindings)
+        collect (cadr item)))
+
+(defcustom one-key-disallowed-keymap-menu-keys (nconc '("M-TAB")
+                                                      (one-key-get-special-key-descriptions
+                                                       one-key-default-special-keybindings))
+  "List of keys that should be excluded from one-key menus created from keymaps.
+Each item in this list is a key description as returned by `one-key-key-description'."
+  :group 'one-key
+  :type '(repeat string))
+
 (defcustom one-key-default-title-format-string
   (lambda nil (format "Sorted by %s (%s first). Press <f1> for help.\n" one-key-current-sort-method (if one-key-column-major-order "columns" "rows")))
   "A function that takes no arguments and should return a string to display at the top of the menu window.
@@ -816,6 +833,9 @@ Each item in the list contains (in this order):
   :group 'one-key)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Global Variables ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defvar one-key-null-keys (regexp-opt '("<remap>" "mouse" "<follow-link>"))
+  "Regular expression matching key descriptions of keymap items that should be excluded from `one-key' menus.")
 
 (defvar one-key-menu-window-configuration nil
   "Variable that records the window configuration that was in place before the popup menu window was opened.")
@@ -1296,7 +1316,7 @@ of `one-key-menu'.
 ALTERNATE-FUNCTION if non-nil is a function that is called after each key press while the menu is active.
 If FILTER-REGEX is non-nil then only menu items whose descriptions match FILTER-REGEX will be displayed."
   (let* ((menu-number (or (and menu-number ; make sure menu number is set properly
-                               (min menu-number (length info-alists)))
+                               (min menu-number (1- (length info-alists))))
                           (if (and (listp info-alists)
                                    (not (and (listp (car info-alists))
                                              (listp (caar info-alists))
@@ -1679,188 +1699,241 @@ a new menu will be added to the current menu set.
 This function will only work if called within the context of the `one-key-menu' function since it depends on the variable
 THIS-NAME being dynamically bound."
   (let ((currname this-name))
-  (one-key-add-menus name var)
-  (if one-key-submenus-replace-parents
-      (one-key-delete-menu currname))))
+    (one-key-add-menus name var)
+    (if one-key-submenus-replace-parents
+        (one-key-delete-menu currname))))
 
-;; (defun* one-key-create-menus-from-keymap2 (keymap &optional (name (if (symbolp keymap)
-;;                                                          (substring (symbol-name keymap) 0 -4)
-;;                                                        "unknown")))
-;;   (let* (;; get the keymap (not just the symbol for the keymap)
-;;          (keymap1 (if (symbolp keymap) (eval keymap) keymap))
-;;          ;; create regexp to match irrelevant lines
-;;          (nulllines '("digit-argument" "^\\s-.*" "^$" "^key\\s-+binding" "^[-\\s-]+"))
-;;          (nulllines2 (mapconcat 'identity nulllines "\\|")))
+(defun one-key-merge-menu-lists (lista listb)
+  "Given two one-key menu lists, merge them and return the result.
+Any items in LISTB that have the same command as an item in LISTA will be disgarded, and any keys in LISTB that
+also occur in LISTA will be exchanged for a new key that doesn't occur in either list."
+  (loop for ((key . desc) . cmd) in (nconc lista listb) with usedkeys with usedcmds
+        unless (memq cmd usedcmds)
+        collect (cons (cons (let ((newkey (if (member key usedkeys)
+                                              (one-key-generate-key desc usedkeys)
+                                            key)))
+                              (push newkey usedkeys)
+                              newkey)
+                            desc)
+                      (progn (push cmd usedcmds) cmd))))
 
-;; for VAR being the key-seqs of KEYMAP
-;; for VAR being the key-codes of KEYMAP
-    
-;;     (loop for item in keymap1
-;;           for type = (car item)
-;;           for issubmenu = (listp item)
-
-;; one-key-include-keymap-menu-items
-;; orgtbl-mode-menu
-
-;;           )
-
-(defun* one-key-create-menus-from-keymap (keymap &optional (name (if (symbolp keymap)
-                                                                     (replace-regexp-in-string
-                                                                      "-map$" "" (symbol-name keymap))
-                                                                   "unknown")))
-  "Create a menu alist for a keymap and all sub menu alists."
-  (let* ((case-fold-search nil)
-         ;; get the keymap (not just the symbol for the keymap)
-         (keymap1 (if (symbolp keymap) (eval keymap) keymap))
-         ;; create regexp to match irrelevant lines
-         (nulllines '("digit-argument" "^\\s-.*" "^$" "^key\\s-+binding" "^[-\\s-]+"))
-         (nulllines2 (mapconcat 'identity nulllines "\\|"))
-         ;; get commands and corresponding keys, and split into seperate lines
-         (keystr (substitute-command-keys "\\<keymap1>\\{keymap1}"))
-         (lines (string-split keystr "\n"))
-         ;; remove irrelevant lines
-         (lines2 (remove-if (lambda (line) (string-match nulllines2 line)) lines))
-         (lines3 (mapcar (lambda (line) (string-split line "  +" 2)) lines2))
-         (pred1 (lambda (line) (string-match "Prefix Command\\|-map$" (cadr line))))
-         ;; get items that should link to submenus
-         (submenulines (remove-if-not pred1 lines3))
-         (submenulines2 (sort submenulines (lambda (a b) (> (length (car a)) (length (car b))))))
-         ;; remove submenu items from initial menu items
-         (lines3a (remove-if pred1 lines3))
-         ;; remove items with null keys
-         (nullkeys (regexp-opt one-key-excluded-keys))
-         (lines4 (remove-if (lambda (line) (string-match nullkeys (car line))) lines3a))
-         ;; need following vars to remove command name prefixes (so we can fit more menu items on screen)
-         (keymapname (replace-regexp-in-string "mode-map$\\|map$" "" (symbol-name keymap)))
-         (keymapnameregex (regexp-opt (list keymapname (capitalize keymapname))))
-         ;; function to convert '(key cmd) pairs into menu items (used later)
-         (converter (lambda (line) (let* ((keystr (car line))
-                                          (cmdname (cadr line))
-                                          (cmd (intern-soft cmdname))
-                                          ;; remove keymap prefix & hyphens, and capitalise the command description
-                                          (cmdname2 (replace-regexp-in-string keymapnameregex "" cmdname))
-                                          (desc (capitalize
-                                                 (replace-regexp-in-string "-" " " cmdname2)))
-                                          (desc2 (concat desc " (" keystr ")"))
-                                          ;; only use the last key in the key sequence for the item
-                                          (lastkey (car (last (string-split keystr " ")))))
-                                     (cons (cons lastkey desc2) cmd))))
-         ;; remove duplicate entries (keep one with shortest keystring)
-         (lines5 (loop for line in lines4 with lines4b ; loop over the items
-                       for key = (car line)
-                       for cmd = (cadr line)
-                       for func = (lambda (x) (equal (car x) cmd))
-                       ;; see if we've already save any items with the same command as this
-                       for elm = (rassoc-if func lines4b)
-                       for key2 = (car elm)
-                       ;; if we already have an item with this command, change it's key if the new key is shorter
-                       if elm do (if (< (length key) (length key2))
-                                     (setf (car elm) key))
-                       ;; otherwise add this item to the list
-                       else do (push line lines4b)
-                       ;; return the saved items
-                       finally return lines4b))
-         ;; split items into submenus corresponding with prefix keys in submenulines2
-         ;; and convert these items into the correct form for final use in menus
-         (pair (loop for line in submenulines2 ; loop over keys that link to submenus
-                     for key1 = (car line) 
-                     ;; ESC (meta key) is usually replaced with M- when there are more keys in the sequence
-                     ;; so need to check for this when looking for matching keys
-                     for key2 = (replace-regexp-in-string "ESC$" "M-" key1)
-                     for keyregex = (concat "^\\("
-                                            (regexp-opt (list (concat key1 " ") key2))
-                                            "\\)")
-                     for pred2 = (lambda (line) (string-match keyregex (car line)))
-                     ;; extract items whose key is prefixed by the submenu key
-                     for newlines = (remove-if-not pred2 lines5)
-                     ;; convert them into an appropriate form for the menu 
-                     for items = (mapcar converter newlines)
-                     ;; add them to the list of menu lists
-                     if newlines collect items into menus
-                     ;; save the submenu link item (if it had matching submenu items)
-                     and collect line into submenulines3
-                     ;; remove the submenu items from the main list of items
-                     and do (setq lines5 (remove-if pred2 lines5))
-                     end
-                     ;; return the submenus and submenu links as a cons cell
-                     finally return (cons menus submenulines3)))
-         ;; convert items in main menu into correct form 
-         (lines6 (mapcar converter lines5))
-         ;; extract submenus and items which link to them 
-         (menus2 (car pair))
-         (submenulines4 (cdr pair))
-         ;; create variable to hold the main menu
+(defun* one-key-create-menus-from-menubar-keymap (keymap &optional name invalidkeys)
+  "Create menu alists for a menu-bar keymap KEYMAP and all sub menus.
+Submenus will always be assigned to variables whose names are formed by concatenating NAME with the name of the menu-bar
+submenu.
+Keys will be assigned to the items using the `one-key-generate-key' function. To exclude certain keys from being used
+set INVALIDKEYS to a list of keys (as key-description strings or chars) to be excluded.
+These keys will only be excluded from the toplevel menu, not the submenus."
+  (let* (
+         ;; if the keymap has only one item which is itself a keymap then use that instead
+         (keymap2 (if (= (length keymap) 2)
+                      (let* ((item (cadr keymap))
+                             (pos (position 'keymap item)))
+                        (if pos (nthcdr pos item)
+                          (find-if 'keymapp item)
+                          keymap))
+                    keymap))
+         ;; keep a track of which keys have been used
+         (usedkeys invalidkeys)
+         ;; global variable for the main menu
          (mainvar (intern (concat "one-key-menu-" name "-alist")))
-         ;; place prefix key items in appropriate submenus (it won't necessarily be the main menu)
-         (vars (loop for lines on submenulines4 ; loop over the submenu link items
-                     for line = (car lines)
-                     for key = (car line)
-                     ;; use last key of the key sequence for the menu item 
-                     for lastkey = (car (last (string-split key " ")))
-                     ;; format the item description and give it a different colour to show it links to a submenu
-                     for desc = (capitalize (replace-regexp-in-string "-" " " (cadr line)))
-                     for desc2 = (propertize desc 'face (list :background "cyan"
-                                                              :foreground one-key-item-foreground-colour))
-                     ;; create variable to hold the submenu
-                     for menuname = (concat name "-" (replace-regexp-in-string " " "_" key))
-                     for var = (intern (concat "one-key-menu-" menuname "-alist"))
-                     ;; create command and menu item to open submenu
-                     for cmd = `(lambda nil (interactive) (one-key-open-submenu ,menuname ,var))
-                     for item = (cons (cons lastkey desc2) cmd)
-                     ;; find the next submenu link item whose key sequence is a prefix of the key sequence for the current
-                     ;; submenu link item (if there is one)
-                     for others = (cdr lines)
-                     for i = (if i (1+ i) 1) ; get the absolute position of the current submenu link item
-                     ;; find the position of the matching submenu, relative to the remaining submenus
-                     for pos = (position-if (lambda (x) 
-                                              (let* ((key1 (car x))
-                                                     (key2 (replace-regexp-in-string "ESC$" "M-" key1))
-                                                     (keyregex (concat "^\\("
-                                                                       (regexp-opt (list (concat key1 " ") key2))
-                                                                       "\\)")))
-                                                (string-match keyregex key))) others)
-                     for pos2 = (if pos (+ i pos)) ; set pos2 to the absolute position of the matching submenu
-                     ;; if a matching submenu was found, add the current submenu link to it
-                     for matchmenu = (if pos (nth pos2 menus2))
-                     if pos do (setf (nth pos2 menus2) (add-to-list 'matchmenu item))
-                     ;; otherwise add the submenu link to the main menu 
-                     else do (setq lines6 (add-to-list 'lines6 item))
-                     ;; return the list of submenu variables
-                     collect var)))
-    ;; set the value of the newly created variables to their associated menus,
-    ;; and add them to `one-key-altered-menus' so that they will be saved on emacs exit
-    (loop for var in vars
-          for menu in menus2
-          do (set var menu)
-          (add-to-list 'one-key-altered-menus var)
-          collect var)
+         ;; local variable for the one-key menu items
+         menu-alist)
+    ;; loop over the items in the keymap which have keybindings
+    (loop for key being the key-codes of keymap2 using (key-bindings bind)
+          for menuitempos = (position 'menu-item bind)
+          ;; if the item is a keymap (to be used as a submenu), extract it 
+          for itemkeymap = (let ((pos (position 'keymap bind)))
+                             (if pos (nthcdr pos bind)
+                               (find-if 'keymapp bind)))
+          ;; if the item is a command, extract it
+          for itemcmd = (find-if (lambda (x) (and (not (stringp x)) (commandp x))) bind)
+          ;; get a description for the command or submenu
+          for desc = (let* ((bind0 (car bind))
+                            ;; use either the first string in the item, or the keyname or the command name
+                            (str (or (find-if 'stringp bind)
+                                     (and bind0 (symbolp bind0) (symbol-name bind0))
+                                     (if itemcmd
+                                         (capitalize
+                                          (replace-regexp-in-string "-" " " (symbol-name itemcmd)))
+                                       "unknown"))))
+                       ;; if the item is a submenu highlight it, otherwise don't
+                       (cond (itemkeymap 
+                              (propertize str 'face
+                                          (list :background "cyan"
+                                                :foreground one-key-item-foreground-colour)))
+                             (t str)))
+          ;; get a unique key for the item
+          for keystr = (one-key-generate-key desc usedkeys)
+          ;; get the command for the one-key menu item
+          for cmd = (cond ((and menuitempos itemcmd) itemcmd) ;if the keymap item is a command then use that
+                          (itemkeymap ;if the item is a keymap then create a submenu item for the one-key menu
+                           (let* ((desc1 (substring-no-properties desc))
+                                  (desc2 (replace-regexp-in-string " " "_" desc1))
+                                  (submenuname (concat name "_" desc2))
+                                  ;; create an appropriate variable name to hold the submenu
+                                  (varname (concat "one-key-menu-" submenuname "-alist"))
+                                  ;; create the submenu
+                                  (submenuvar (one-key-create-menus-from-menubar-keymap
+                                               itemkeymap submenuname))
+                                  (submenuitems (eval submenuvar)))
+                             (if (> (length submenuitems) 1)
+                                 ;; if the submenu contains more than one item create the command to open the submenu
+                                 `(lambda nil (interactive)
+                                    (one-key-open-submenu ,submenuname ,submenuvar))
+                               ;; if the submenu only contains one item, add that item to the current menu,
+                               ;; delete the submenu variable, and set cmd to nil so it won't be added later
+                               (push (car submenuitems) menu-alist)
+                               (unintern varname)
+                               nil))))
+          for skip = (string-match "^--" desc) 
+          unless (or skip (not cmd)) do ; skip menu divider and null items
+          ;; add the item to the one-key menu list
+          (push (cons (cons keystr desc) cmd) menu-alist)
+          ;; mark this key as used
+          (push keystr usedkeys))
+    ;; set the global variable to hold the one-key menu items,
+    ;; mark it to be saved on exit, and return it
+    (set mainvar menu-alist)
     (add-to-list 'one-key-altered-menus mainvar)
-    (set mainvar lines6)
+    mainvar))
+
+(defun* one-key-create-menus-from-keymap (keymap &optional
+                                                 (name (if (symbolp keymap)
+                                                           (replace-regexp-in-string
+                                                            "-map$" "" (symbol-name keymap))
+                                                         "unknown"))
+                                                 prefix)
+  "Create menu alists for a keymap and all sub keymaps.
+KEYMAP is the keymap or keymap symbol to use, NAME is a name for the keymap (e.g. \"emacs-lisp-mode\") and will
+be used to remove common prefix words from the item descriptions.
+If a symbol is supplied for keymap then by default NAME will be set to the symbols name but with \"-map\" removed from
+the end (if present).
+Variables will be created for storing the menus, and the variable for the main menu will be returned.
+The main variable will be named one-key-menu-NAME-alist, and the submenus variables will be named
+ one-key-menu-NAME-???-alist (where ??? is the name of the submenu).
+
+Any submenus that have fewer than `one-key-min-keymap-submenu-size' items will be merged with their parent menu,
+unless this would create a menu of more than (length one-key-default-menu-keys) items.
+Also any items whose commands have keybindings that are in `one-key-disallowed-keymap-menu-keys' will have new keys
+created for them."
+  (let* ((name (or name  ; make sure the name variable is set properly
+                   (if (symbolp keymap)
+                       (replace-regexp-in-string
+                        "-map$" "" (symbol-name keymap))
+                     "unknown")))
+         (keymap1 (if (symbolp keymap) (eval keymap) keymap)) ;get the keymap value
+         (menubar (lookup-key keymap1 [menu-bar])) ;get any menu-bar items 
+         (mainvar (intern (concat "one-key-menu-" name "-alist"))) ;variable to hold the main menu
+         usedkeys menu-alist)
+    ;; loop over the keys in the keymap
+    (loop for key being the key-codes of keymap1 using (key-bindings cmd) with usedcmds
+          ;; get the key description
+          for keystr = (if (consp key) ; could be a cons cell representing a range of keys if we have a char-table
+                           (one-key-key-description (car key))
+                         (one-key-key-description key))
+          for keydesc = (if prefix
+                            (if (equal prefix "ESC")
+                                (concat "M-" keystr)
+                              (concat prefix " " keystr))
+                          keystr)
+          ;; skip null keys, menu-bar items (these will be added later), and duplicate commands
+          unless (or (string-match one-key-null-keys keystr)
+                     (eq key 'menu-bar)
+                     (memq cmd usedcmds))
+          ;; If the item is a command...
+          do (cond ((commandp cmd)
+                    (let* (
+                           ;; create the item description from the command name or sexp,
+                           ;; and add the key description to the end
+                           (keymapname (replace-regexp-in-string "mode$\\|mode-map$\\|map$" "" name))
+                           (keymapnameregex (regexp-opt (list keymapname (capitalize keymapname))))
+                           (desc1 (if (symbolp cmd) (symbol-name cmd) (format "%S" cmd)))
+                           (desc1a (replace-regexp-in-string keymapnameregex "" desc1))
+                           (desc1b (capitalize (replace-regexp-in-string "-" " " desc1a)))
+                           (desc2 (concat desc1b " (" keydesc ")"))
+                           ;; if the key is invalid, generate a new one 
+                           (keystr2 (if (member keystr one-key-disallowed-keymap-menu-keys)
+                                        (one-key-generate-key desc2 usedkeys)
+                                      keystr)))
+                      ;; mark this command as used
+                      (push cmd usedcmds)
+                      ;; mark the key as used and add the item to the menu list
+                      (push keystr2 usedkeys)
+                      (push (cons (cons keystr2 desc2) cmd) menu-alist)))
+                   ;; If the item is a keymap..
+                   ((keymapp cmd)
+                    (let* (
+                           ;; create an appropriate name and description for the submenu
+                           (submenuname (concat name "_" keystr))
+                           (desc2 (concat "Prefix key (" keydesc ")"))
+                           ;; if the key is invalid, generate a new one 
+                           (keystr2 (if (member keystr one-key-disallowed-keymap-menu-keys)
+                                        (one-key-generate-key desc2 usedkeys)
+                                      keystr)))
+                      ;; if a submenu for this prefix key has already been created then merge this one with it
+                      (if (member keystr usedkeys)
+                          (let ((existingvar (intern-soft 
+                                              (concat "one-key-menu-" submenuname "-alist")))
+                                (menuvar (one-key-create-menus-from-keymap
+                                          cmd (concat submenuname "temp") keydesc)))
+                            (set existingvar (one-key-merge-menu-lists (eval existingvar) (eval menuvar)))
+                            ;; delete the temporary variable
+                            (unintern (symbol-name menuvar)))
+                        ;; otherwise call this function recursively to create a new submenu 
+                        (let* ((menuvar (one-key-create-menus-from-keymap cmd submenuname keydesc))
+                               ;; number of items in the submenu
+                               (numnewitems (length (eval menuvar))))
+                          ;; if the number of items in the submenu is small then merge it with the parent menu
+                          (if (and (< numnewitems one-key-min-keymap-submenu-size)
+                                   (< (+ (length menu-alist) numnewitems) (length one-key-default-menu-keys)))
+                              (progn (setq menu-alist (one-key-merge-menu-lists menu-alist (eval menuvar)))
+                                     (unintern (symbol-name menuvar)))
+                            ;; otherwise create a link to it in the parent menu
+                            (let ((cmd2 `(lambda nil (interactive) (one-key-open-submenu ,submenuname ,menuvar))))
+                              (push keystr usedkeys)
+                              (push keystr2 usedkeys) ; mark key as used
+                              (push (cons (cons keystr2 desc2) cmd2) menu-alist)))))))))
+    ;; if there are menu-bar items, add them if user agrees
+    (if (and menubar
+             (or (eq one-key-include-menubar-items t)
+                 (and (eq one-key-include-menubar-items 'prompt)
+                      (y-or-n-p "Include menu-bar items?"))))
+        (let ((menuvar (one-key-create-menus-from-menubar-keymap menubar nil usedkeys)))
+          (setq menu-alist (one-key-merge-menu-lists menu-alist (eval menuvar)))
+          (unintern (symbol-name menuvar))))
+    ;; set the value of the variable to hold the main menu, and make sure it will be saved if necessary
+    (set mainvar menu-alist)
+    (add-to-list 'one-key-altered-menus (symbol-name mainvar))
     ;; return the main menu variable
     mainvar))
 
-(defun one-key-generate-key (desc usedkeys &optional elements)
+(defun one-key-generate-key (desc &optional usedkeys elements)
   "Return a key for the menu item whose description string is DESC.
 The generated key can be used in a `one-key' menu. 
 If provided, ELEMENTS should be a list of keys to choose from, otherwise `one-key-default-menu-keys' will be used.
 USEDKEYS should be a list of keys which cannot be used (since they have already be used).
 This function can be used to help automatic creation of `one-key' menus."
   (let ((elements (or elements one-key-default-menu-keys)))
-    (or (dolist (element elements)
-          (when (not (memq element usedkeys))
-            (return element)))
+    (or (loop for element in elements
+              for keystr = (one-key-key-description element)
+              if (not (or (memq element usedkeys)
+                          (member keystr usedkeys)))
+              return (one-key-key-description element))
         (error "Can not generate a unique key for menu item : %s" desc))))
 
-(defun one-key-key-description (key)
-  "Return the key description for the key sequence or single key KEY.
-KEY may be a vector, integer, symbol or string representing a key, or nil.
-If KEY is nil then nil is returned, if it is non-nil and not a string, vector, symbol or number then an error is flagged."
-  (cond ((not key) nil)
-        ((vectorp key) (key-description key))
-        ((integerp key) (single-key-description key))
-        ((symbolp key) (single-key-description key))
-        ((stringp key) key)
-        (t (error "Invalid key: %S" key))))
+(defun one-key-key-description (keyseq)
+  "Return the key description for the key sequence or single key KEYSEQ.
+KEYSEQ may be a vector, integer, symbol or string representing a key sequence, or nil.
+If KEYSEQ is nil then nil is returned, if it is non-nil and not a string, vector, symbol or number then an error is flagged."
+  (cond ((not keyseq) nil)
+        ((vectorp keyseq) (key-description keyseq))
+        ((numberp keyseq) (single-key-description keyseq))
+        ((symbolp keyseq) (single-key-description keyseq))
+        ((stringp keyseq) (if (string-match "^C-\\|^M-\\|^RET\\|^SPC\\|^TAB\\|^<[a-z0-9-]+>" keyseq)
+                              keyseq
+                            (key-description keyseq)))
+        (t (error "Invalid key sequence: %S" keyseq))))
 
 (defun one-key-append-keys-to-descriptions (descriptions keys)
   "Append key descriptions for keys in KEYS to corresponding descriptions in DESCRIPTIONS, and return result.
@@ -1926,13 +1999,12 @@ and KEYFUNC is set to `one-key-generate-key' (which selects keys from `one-key-d
                                                                    ")")
                                                          desc2))
                             for usedkeys = (loop for key in keys2 if key collect key)
-                            for keys3 = (loop for key in keys2
-                                              for desc in descs2
-                                              collect (or key
-                                                          (let ((newkey (one-key-generate-key desc usedkeys)))
-                                                            (push newkey usedkeys)
-                                                            newkey)))
-                            for keystrs = (mapcar 'one-key-key-description keys3)
+                            for keystrs = (loop for key in keys2
+                                                for desc in descs2
+                                                collect (or (one-key-key-description key)
+                                                            (let ((newkey (one-key-generate-key desc usedkeys)))
+                                                              (push newkey usedkeys)
+                                                              newkey)))
                             collect (loop for cmd in cmds
                                           for desc in descs2
                                           for key in keystrs
@@ -1988,104 +2060,115 @@ major mode) exists then it will be used, otherwise it will be created."
             (setq menusym nil))))
     (cons menuname menusym)))
 
-;; Set the menu-alist, title string format and special keybindings for the top-level `one-key' menu
+(defun one-key-create-blank-menu (name)
+  "Prompt user for a name, create a blank one-key menu and return a cons cell containing the name and the menu."
+  (let* ((name (read-string "Menu name: "))
+         (symname (concat "one-key-menu-" name "-alist"))
+         (menusym (intern-soft symname)))
+    (while menusym
+      (if (not (y-or-n-p "Menu with that name already exists, overwrite?"))
+          (progn (setq name (read-string "Menu name: "))
+                 (setq symname (concat "one-key-menu-" name "-alist"))
+                 (setq menusym (intern-soft symname)))
+        (setq menusym nil)))
+    (setq menusym (intern symname))
+    (set menusym nil)
+    (add-to-list 'one-key-altered-menus menusym)
+    (cons name menusym)))
+
+(defun one-key-retrieve-existing-menu (x)
+  "Prompt for an existing one-key menu and return it in a cons cell along with its name."
+  (let* ((names (loop for sym being the symbols
+                      for name = (symbol-name sym)
+                      when (string-match "one-key-menu-\\(.+\\)-alist" name)
+                      collect (match-string 1 name)))
+         (name (if (featurep 'ido)
+                   (ido-completing-read "Menu: " names)
+                 (completing-read "Menu: " names))))
+    (cons name (intern-soft (concat "one-key-menu-" name "-alist")))))
+
+(defun one-key-create-menu-from-existing-keymap (name)
+  "Prompt the user for a keymap and return a one-key menu for it along with it's name, in a cons cell."
+  (let* ((names (loop for sym being the symbols
+                      when (or (keymapp sym)
+                               (and (boundp sym)
+                                    (keymapp (symbol-value sym))))
+                      collect (symbol-name sym)))
+         (name (if (featurep 'ido)
+                   (ido-completing-read "Keymap: " names)
+                 (completing-read "Keymap: " names)))
+         (partname (replace-regexp-in-string "-map$" "" name))
+         (kmap (intern-soft name)))
+    (one-key-create-menus-from-keymap kmap partname)
+    (cons name (intern-soft (concat "one-key-menu-" partname "-alist")))))
+
+(defun one-key-create-menu-from-prefix-key-keymap (name)
+  "Prompt the user for a prefix key and return a one-key menu for it along with it's name, in a cons cell."
+  (let* ((prompt "Prefix keys (F10 to finish):")
+         (continue t)
+         (keysequence (vector (read-key prompt)))
+         kmap)
+    (while continue
+      (let* ((key (read-key prompt)))
+        (setq continue (not (eq key 'f10)))
+        (if continue
+            (setq keysequence (vconcat keysequence (vector key))))))
+    (setq kmap (key-binding keysequence))
+    (if (keymapp kmap)
+        (let ((desc1 (one-key-key-description keysequence))
+              (desc2 (replace-regexp-in-string " " "_" desc1))
+              (desc3 (replace-regexp-in-string "#" "\\\\#" desc2)))
+          (cons desc3 (one-key-create-menus-from-keymap kmap desc)))
+      (error "No keymap is currently associated with that prefix key!"))))
+
+(defun one-key-create-menu-sets-title-format-string nil
+  "Return a title format string for menu sets one-key menus."
+  (let* ((col1 (if one-key-auto-brighten-used-keys "#7FFF00000000" "red"))
+         (col2 (cdr (assq 'background-color (frame-parameters))))
+         (hsv2 (hexrgb-hex-to-hsv col2))
+         (col2a (hexrgb-hsv-to-hex (first hsv2) (second hsv2) 0.5))
+         (col2b (if one-key-auto-brighten-used-keys col2a col2))
+         (keystr1 (propertize "default menu set"
+                              'face (list :background col1
+                                          :foreground one-key-item-foreground-colour)))
+         (keystr2 (propertize "normal menu set"
+                              'face (list :background col2b
+                                          :foreground one-key-item-foreground-colour))))
+    (concat keystr1 keystr2 "\n" 
+            (format "Sorted by %s (%s first). Press <f1> for help.\n"
+                    one-key-current-sort-method
+                    (if one-key-column-major-order "columns" "rows")))))
+
+;; Set one-key menu types
 (one-key-add-to-alist 'one-key-types-of-menu
                       (list "top-level"
                             (cons "top-level" 'one-key-toplevel-alist)
                             nil nil) t)
-;; Set the menu-alist, title string format and special keybindings for blank `one-key' menus
 (one-key-add-to-alist 'one-key-types-of-menu
                       (list "blank menu"
-                            (lambda (name)
-                              (let* ((name (read-string "Menu name: "))
-                                     (symname (concat "one-key-menu-" name "-alist"))
-                                     (menusym (intern-soft symname)))
-                                (while menusym
-                                  (if (not (y-or-n-p "Menu with that name already exists, overwrite?"))
-                                      (progn (setq name (read-string "Menu name: "))
-                                             (setq symname (concat "one-key-menu-" name "-alist"))
-                                             (setq menusym (intern-soft symname)))
-                                    (setq menusym nil)))
-                                (setq menusym (intern symname))
-                                (set menusym nil)
-                                (add-to-list 'one-key-altered-menus menusym)
-                                (cons name menusym)))
+                            'one-key-create-blank-menu
                             nil nil) t)
-;; Set the menu-alist, title string format and special keybindings for `one-key' menus for this major mode
 (one-key-add-to-alist 'one-key-types-of-menu
                       (list "major-mode"
                             'one-key-get-major-mode-menu
                             nil nil) t)
-;; Set the menu-alist, title string format and special keybindings for adding existing menus
 (one-key-add-to-alist 'one-key-types-of-menu
                       (list "existing menu"
-                            (lambda (name)
-                              (let* ((names (loop for sym being the symbols
-                                                  for name = (symbol-name sym)
-                                                  when (string-match "one-key-menu-\\(.+\\)-alist" name)
-                                                  collect (match-string 1 name)))
-                                     (name (if (featurep 'ido)
-                                               (ido-completing-read "Menu: " names)
-                                             (completing-read "Menu: " names))))
-                                (cons name (intern-soft (concat "one-key-menu-" name "-alist")))))
+                            'one-key-retrieve-existing-menu
                             nil nil) t)
-;; Set the menu-alist, title string format and special keybindings for adding menus for existing keymaps
 (one-key-add-to-alist 'one-key-types-of-menu
                       (list "existing keymap"
-                            (lambda (name)
-                              (let* ((names (loop for sym being the symbols
-                                                  when (or (keymapp sym)
-                                                           (and (boundp sym)
-                                                                (keymapp (symbol-value sym))))
-                                                  collect (symbol-name sym)))
-                                     (name (if (featurep 'ido)
-                                               (ido-completing-read "Keymap: " names)
-                                             (completing-read "Keymap: " names)))
-                                     (partname (replace-regexp-in-string "-map$" "" name))
-                                     (kmap (intern-soft name)))
-                                (one-key-create-menus-from-keymap kmap partname)
-                                (cons name (intern-soft (concat "one-key-menu-" partname "-alist")))))
+                            'one-key-create-menu-from-existing-keymap
                             nil nil) t)
-;; Set the menu-alist, title string format and special keybindings for adding menus for prefix key keymaps
-;; (one-key-add-to-alist 'one-key-types-of-menu
-;;                       (list "prefix key keymap"
-;;                             (lambda (name)
-;;                               (let* ((keystroke (read-key-sequence "Test"))
-;;                                      (key-binding (read-kbd-macro keystroke))
-
-
-;;                                      (names (loop for sym being the symbols
-;;                                                   for name = (symbol-name sym)
-;;                                                   when (string-match "\\(.*\\)-map$" name)
-;;                                                   collect (match-string 1 name)))
-;;                                      (name (if (featurep 'ido)
-;;                                                (ido-completing-read "Keymap: " names)
-;;                                              (completing-read "Keymap: " names)))
-;;                                      (kmap (intern-soft (concat name "-map"))))
-;;                                 (one-key-create-menus-from-keymap kmap)
-;;                                 (cons name (intern-soft (concat "one-key-menu-" name "-alist")))))
-;;                             nil nil) t)
-;; Set the menu-alist, title string format and special keybindings for the menu-sets menu
+(one-key-add-to-alist 'one-key-types-of-menu
+                      (list "prefix key keymap"
+                            'one-key-create-menu-from-prefix-key-keymap
+                            nil nil) t)
 (one-key-add-to-alist 'one-key-types-of-menu
                       (list "menu-sets"
                             (lambda (name)
                               (cons name (one-key-build-menu-sets-menu-alist)))
-                            (lambda nil
-                              (let* ((col1 (if one-key-auto-brighten-used-keys "#7FFF00000000" "red"))
-                                     (col2 (cdr (assq 'background-color (frame-parameters))))
-                                     (hsv2 (hexrgb-hex-to-hsv col2))
-                                     (col2a (hexrgb-hsv-to-hex (first hsv2) (second hsv2) 0.5))
-                                     (col2b (if one-key-auto-brighten-used-keys col2a col2))
-                                     (keystr1 (propertize "default menu set"
-                                                          'face (list :background col1
-                                                                      :foreground one-key-item-foreground-colour)))
-                                     (keystr2 (propertize "normal menu set"
-                                                          'face (list :background col2b
-                                                                      :foreground one-key-item-foreground-colour))))
-                                (concat keystr1 keystr2 "\n" 
-                                        (format "Sorted by %s (%s first). Press <f1> for help.\n"
-                                                one-key-current-sort-method
-                                                (if one-key-column-major-order "columns" "rows")))))
+                            'one-key-create-menu-sets-title-format-string
                             'one-key-menu-sets-special-keybindings) t)
 
 ;; add function for autosaving menus to kill-emacs-hook
@@ -2103,5 +2186,6 @@ major mode) exists then it will be used, otherwise it will be created."
 (provide 'one-key)
 
 ;;; one-key.el ends here
+
 
 
