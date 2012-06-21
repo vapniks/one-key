@@ -359,13 +359,13 @@ and COLOUR is the name of the associated colour to use in the `one-key' menu."
                                            (lambda nil (one-key-regs-save-registers
                                                         one-key-regs-currently-loaded-file
                                                         t) t))
-                           (edit-register "<f7>" "Edit a register"
+                           (edit-register "<f5>" "Edit a register"
                                           (lambda nil (one-key-regs-edit-menu-item info-alist full-list) t))
-                           (delete-register "<f8>" "Delete a register"
+                           (delete-register "<f6>" "Delete a register"
                                             (lambda nil (one-key-regs-delete-menu-item info-alist full-list) t))
-                           (swap-register-keys "<f9>" "Swap register keys"
+                           (swap-register-keys "<f7>" "Swap register keys"
                                                (lambda nil (one-key-regs-swap-menu-items full-list) t))
-                           (add-register "<f10>" "Add a register"
+                           (add-register "<f8>" "Add a register"
                                          (lambda nil (one-key-regs-prompt-to-add-menu-item info-alist full-list) t))
                            (show-register-prefix-keys "C-p" "Show prefix associations"
                                                       one-key-regs-show-prefix-key-associations)
