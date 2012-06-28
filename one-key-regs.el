@@ -369,7 +369,7 @@ and COLOUR is the name of the associated colour to use in the `one-key' menu."
                                          (lambda nil (one-key-regs-prompt-to-add-menu-item info-alist full-list) t))
                            (show-register-prefix-keys "C-p" "Show prefix associations"
                                                       one-key-regs-show-prefix-key-associations)
-                           (clear-registers "<C-f8>" "Delete all registers"
+                           (clear-registers "<C-f6>" "Delete all registers"
                                             (lambda nil (one-key-regs-clear-registers)
                                               (setq one-key-menu-call-first-time t) t))
                            (replace-registers "C-l" "Load registers (replace)"
@@ -390,11 +390,16 @@ and COLOUR is the name of the associated colour to use in the `one-key' menu."
                toggle-row/column-order sort-next sort-prev reverse-order limit-items highlight-items edit-register
                delete-register clear-registers swap-register-keys add-register add-menu remove-menu move-item)
   "List of special keys to be used for one-key-registers menus (see `one-key-default-special-keybindings' for more info)."  
-  :group 'one-key
+  :group 'one-key-regs
   :type '(repeat (symbol :tag "Name" :help-echo "The name/symbol corresponding to the keybinding.")))
 
 (defvar one-key-regs-legend-string nil
   "A coloured string displayed in the menu indicating which colours correspond with which register types.")
+
+(defcustom one-key-regs-show-legend t
+  "Whether or not to show the `one-key-regs-legend-string' in the one-key menu."
+  :group 'one-key-regs
+  :type '(boolean))
 
 (defcustom one-key-regs-colourize-menu t
   "Whether to colourize the menu items (with colours in `one-key-regs-colours-alist' or not)."
@@ -1059,14 +1064,21 @@ Unless NOPROMPT is non-nil the user will be prompted to check if they want to co
                       (list "one-key-registers"
                             (cons "one-key-registers" 'one-key-menu-one-key-registers-alist)
                             (lambda nil
-                              (format "%s, sorted by %s (%s first). Press <f1> for help.\n%s\n"
-                                      (if one-key-regs-currently-loaded-file
-                                          (file-name-nondirectory one-key-regs-currently-loaded-file)
-                                        "Unsaved registers")
-                                      one-key-current-sort-method
-                                      (if one-key-column-major-order "columns" "rows")
-                                      one-key-regs-legend-string))
-                            'one-key-regs-special-keybindings) t)
+                              (if one-key-regs-show-legend
+                                  (format "%s, sorted by %s (%s first). Press <f1> for help.\n%s\n"
+                                          (if one-key-regs-currently-loaded-file
+                                              (file-name-nondirectory one-key-regs-currently-loaded-file)
+                                            "Unsaved registers")
+                                          one-key-current-sort-method
+                                          (if one-key-column-major-order "columns" "rows")
+                                          one-key-regs-legend-string)
+                                (format "%s, sorted by %s (%s first). Press <f1> for help.\n"
+                                          (if one-key-regs-currently-loaded-file
+                                              (file-name-nondirectory one-key-regs-currently-loaded-file)
+                                            "Unsaved registers")
+                                          one-key-current-sort-method
+                                          (if one-key-column-major-order "columns" "rows"))))
+                              'one-key-regs-special-keybindings) t)
 
 (add-to-list 'one-key-exclude-from-save "one-key-registers")
 ;; Load the default register set
