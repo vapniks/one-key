@@ -807,10 +807,10 @@ Each item in the list contains (in this order):
   :group 'one-key
   :type 'boolean)
 
-(defcustom one-key-mode-line-message (format "Press %s for help, %s to quit. Sorted by %s (%s first)."
-                                             (cadr (assoc 'toggle-help one-key-special-keybindings))
-                                             (cadr (assoc 'quit-close one-key-special-keybindings))
-                                             one-key-current-sort-method (if one-key-column-major-order "columns" "rows"))
+(defcustom one-key-mode-line-message '(format "Press %s for help, %s to quit. Sorted by %s (%s first)."
+                                              (cadr (assoc 'toggle-help one-key-special-keybindings))
+                                              (cadr (assoc 'quit-close one-key-special-keybindings))
+                                              one-key-current-sort-method (if one-key-column-major-order "columns" "rows"))
   "Form that when evaluated should produce a string for the mode-line in the *One-Key* buffer.
 This should probably be left alone unless you remove `toggle-help' or `quit-close' from `one-key-special-keybindings'"
   :type 'sexp
@@ -873,7 +873,7 @@ containing the name of the buffer that was displayed when the one-key menu windo
     mode-line-position
     #(" " 0 1
       (help-echo "mouse-1: Select (drag to resize)\nmouse-2: Make current window occupy the whole frame\nmouse-3: Remove current window from display"))
-    (:eval one-key-mode-line-message)
+    (:eval (eval one-key-mode-line-message))
     (global-mode-string
      ("" global-mode-string
       #(" " 0 1
