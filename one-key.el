@@ -760,15 +760,6 @@ Each item in this list is a key description as returned by `one-key-key-descript
   :group 'one-key
   :type '(repeat string))
 
-(defcustom one-key-default-title-format-string
-  (lambda nil (format "Sorted by %s (%s first). Press <f1> for help.\n" one-key-current-sort-method (if one-key-column-major-order "columns" "rows")))
-  "A function that takes no arguments and should return a string to display at the top of the menu window.
-The function will be evaluated in the context of the `one-key-highlight-menu' function, and will be processed by
-`one-key-highlight' before display.
-You should look at the `one-key-highlight-menu' function to see which variables may be used in this format string."
-  :type 'function
-  :group 'one-key)
-
 (defcustom one-key-types-of-menu nil
   "A list of names of different types of `one-key' menu, and associated functions.
 Each item in the list contains (in this order):
@@ -816,6 +807,15 @@ Each item in the list contains (in this order):
   :group 'one-key
   :type 'boolean)
 
+(defcustom one-key-mode-line-message (format "Press %s for help, %s to quit. Sorted by %s (%s first)."
+                                             (cadr (assoc 'toggle-help one-key-special-keybindings))
+                                             (cadr (assoc 'quit-close one-key-special-keybindings))
+                                             one-key-current-sort-method (if one-key-column-major-order "columns" "rows"))
+  "Form that when evaluated should produce a string for the mode-line in the *One-Key* buffer.
+This should probably be left alone unless you remove `toggle-help' or `quit-close' from `one-key-special-keybindings'"
+  :type 'sexp
+  :group 'one-key)
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Faces ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defface one-key-name
   '((t (:foreground "Gold")))
@@ -862,6 +862,29 @@ containing the name of the buffer that was displayed when the one-key menu windo
 
 (defvar one-key-default-menu-number nil
   "The default menu number to use when opening the default menu set if `one-key-persistent-menu-number' is non-nil.")
+
+(defvar one-key-mode-line-format
+  '("%e" "%e"
+    #("-" 0 1
+      (help-echo "mouse-1: Select (drag to resize)\nmouse-2: Make current window occupy the whole frame\nmouse-3: Remove current window from display"))
+    mode-line-mule-info mode-line-client mode-line-modified mode-line-remote mode-line-frame-identification mode-line-buffer-identification
+    #(" " 0 1
+      (help-echo "mouse-1: Select (drag to resize)\nmouse-2: Make current window occupy the whole frame\nmouse-3: Remove current window from display"))
+    mode-line-position
+    #(" " 0 1
+      (help-echo "mouse-1: Select (drag to resize)\nmouse-2: Make current window occupy the whole frame\nmouse-3: Remove current window from display"))
+    (:eval one-key-mode-line-message)
+    (global-mode-string
+     ("" global-mode-string
+      #(" " 0 1
+        (help-echo "mouse-1: Select (drag to resize)\nmouse-2: Make current window occupy the whole frame\nmouse-3: Remove current window from display"))))
+    (:eval
+     (unless
+         (display-graphic-p)
+       #("-%-" 0 3
+         (help-echo "mouse-1: Select (drag to resize)\nmouse-2: Make current window occupy the whole frame\nmouse-3: Remove current window from display")))))
+  "The `mode-line-format' for the *One-Key* buffer.")
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Interactive Functions ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun one-key-show-help (special-keybindings)
@@ -1250,37 +1273,41 @@ If called interactively, MENUSET will be prompted for."
                            msg-face))
     (buffer-string)))
 
-(defun one-key-highlight-menu (name keystroke &optional names)
-  "Highlight menu NAME and KEYSTROKE information, and return contents for insertion in *One-Key* buffer.
-NAME is the name of the currently selected menu, if multiple menus are in use then NAMES should be
-the list of corresponding menu names (which will include NAME).
-KEYSTROKE is the alist of menu items."
+;; This is messy and needs a little work.
+(defun one-key-header-line-format (name names)
+  "Return the preferred value of `header-line-format' for the *One-Key* buffer."
   (let* ((namefunc (lambda (x) (if (equal x name) (propertize x 'face 'one-key-name) x)))
          (names1 (if names
                      (if (listp names) names (list names))
                    (list name)))
          (names2 (mapcar namefunc names1))
-         (namesline (if names2 (concat "| " (mapconcat 'identity names2 " | ") " |")
-                         (propertize name 'face 'one-key-name)))
+         (namesline (if names2 (mapconcat 'identity names2 " ") (propertize name 'face 'one-key-name)))
          (namelen (length name))
          (winwidth (window-width))
          (namepos (/ (- winwidth namelen) 2))
          (namepos2 (if names2 (next-property-change 0 namesline)))
-         (namepos3 (if names2 (+ namepos2 namelen)))
-         (namediff (if names2 (- namepos2 namepos)))
-         (nameendpos (if names2 (+ winwidth namediff)))
-         (centredline (if names2 (concat (if (< namediff 0) (make-string (- namediff) ? ))
-                                          (substring namesline (max 0 namediff) namepos2)
-                                          (substring namesline namepos2 namepos3)
-                                          (substring namesline namepos3 (min nameendpos (length namesline)))
-                                          "\n")
-                        (concat (make-string namepos ? ) namesline "\n")))
-         (title-func (or (third (one-key-get-menu-type name))
-                         one-key-default-title-format-string))
-         (infoline (one-key-highlight (funcall title-func)
-                                      "\\(<[^<>]*>\\|'[^']*'\\)" '(face one-key-name)))
+         (namepos3 (if namepos2 (+ namepos2 namelen)))
+         (namediff (if namepos2 (- namepos2 namepos)))
+         (nameendpos (if namepos2 (+ winwidth namediff))))
+    (if namepos2 (concat (if (< namediff 0) (make-string (- namediff) ? ))
+                       (substring namesline (max 0 namediff) namepos2)
+                       (substring namesline namepos2 namepos3)
+                       (substring namesline namepos3 (min nameendpos (length namesline))))
+      (concat (make-string namepos ? ) namesline))))
+
+(defun one-key-highlight-menu (name keystroke &optional names)
+  "Highlight menu NAME and KEYSTROKE information, and return contents for insertion in *One-Key* buffer.
+NAME is the name of the currently selected menu, if multiple menus are in use then NAMES should be
+the list of corresponding menu names (which will include NAME).
+KEYSTROKE is the alist of menu items."
+  (let* ((title-func (third (one-key-get-menu-type name)))
+         (infoline (if title-func (one-key-highlight (funcall title-func)
+                                                     "\\(<[^<>]*>\\|'[^']*'\\)" '(face one-key-name))
+                     nil))
          (keystrokelist (one-key-highlight keystroke "\\[\\([^\\[\\]\\)*?\\]" '(face one-key-keystroke))))
-    (concat centredline infoline keystrokelist)))
+    (setq header-line-format (one-key-header-line-format name names)
+          mode-line-format one-key-mode-line-format)
+    (concat infoline keystrokelist)))
 
 (defun* one-key-menu (names
                       info-alists
@@ -1876,6 +1903,9 @@ created for them."
                            ;; create an appropriate name and description for the submenu
                            (submenuname (concat name "_" keystr))
                            (desc2 (concat "Prefix key (" keydesc ")"))
+                           (desc3 (propertize desc2 'face
+                                            (list :background "cyan"
+                                                  :foreground one-key-item-foreground-colour)))
                            ;; if the key is invalid, generate a new one 
                            (keystr2 (if (member keystr one-key-disallowed-keymap-menu-keys)
                                         (one-key-generate-key desc2 usedkeys)
@@ -1902,7 +1932,7 @@ created for them."
                             (let ((cmd2 `(lambda nil (interactive) (one-key-open-submenu ,submenuname ,menuvar))))
                               (push keystr usedkeys)
                               (push keystr2 usedkeys) ; mark key as used
-                              (push (cons (cons keystr2 desc2) cmd2) menu-alist)))))))))
+                              (push (cons (cons keystr2 desc3) cmd2) menu-alist)))))))))
     ;; if there are menu-bar items, add them if user agrees
     (if (and menubar
              (or (eq one-key-include-menubar-items t)
