@@ -1065,19 +1065,15 @@ Unless NOPROMPT is non-nil the user will be prompted to check if they want to co
                             (cons "one-key-registers" 'one-key-menu-one-key-registers-alist)
                             (lambda nil
                               (if one-key-regs-show-legend
-                                  (format "%s, sorted by %s (%s first). Press <f1> for help.\n%s\n"
+                                  (format "Currently loaded registers file: %s\n%s\n"
                                           (if one-key-regs-currently-loaded-file
                                               (file-name-nondirectory one-key-regs-currently-loaded-file)
                                             "Unsaved registers")
-                                          one-key-current-sort-method
-                                          (if one-key-column-major-order "columns" "rows")
                                           one-key-regs-legend-string)
-                                (format "%s, sorted by %s (%s first). Press <f1> for help.\n"
+                                (format "Currently loaded registers file: %s\n"
                                           (if one-key-regs-currently-loaded-file
                                               (file-name-nondirectory one-key-regs-currently-loaded-file)
-                                            "Unsaved registers")
-                                          one-key-current-sort-method
-                                          (if one-key-column-major-order "columns" "rows"))))
+                                            "Unsaved registers"))))
                               'one-key-regs-special-keybindings) t)
 
 (add-to-list 'one-key-exclude-from-save "one-key-registers")
