@@ -1273,39 +1273,40 @@ If called interactively, MENUSET will be prompted for."
                            msg-face))
     (buffer-string)))
 
-;; This is messy and needs a little work.
-(defun one-key-header-line-format (name names)
-  "Return the preferred value of `header-line-format' for the *One-Key* buffer."
-  (let* ((namefunc (lambda (x) (if (equal x name) (propertize x 'face 'one-key-name) x)))
-         (names1 (if names
-                     (if (listp names) names (list names))
-                   (list name)))
-         (names2 (mapcar namefunc names1))
-         (namesline (if names2 (mapconcat 'identity names2 " ") (propertize name 'face 'one-key-name)))
+(defun one-key-header-line-format (names menu-number)
+  "Return the preferred value of `header-line-format' for the *One-Key* buffer.
+NAMES should be the current list of menu names displayed, or just a single name if there is only one menu.
+MENU-NUMBER should be nil if NAMES is a single name, otherwise it should index the current menu in NAMES."
+  (let* ((prenames (if (and menu-number (> menu-number 0))
+                       (concat (mapconcat 'identity (subseq names 0 menu-number) " ") " ")))
+         (nameslen (length names))
+         (postnames (if (and menu-number (< menu-number (1- nameslen)))
+                        (concat " " (mapconcat 'identity (subseq names (1+ menu-number) nameslen) " "))))
+         (name (if menu-number (nth menu-number names) names))
+         (name1 (propertize name 'face 'one-key-name))
          (namelen (length name))
+         (prelen (length prenames))
+         (postlen (length postnames))
          (winwidth (window-width))
          (namepos (/ (- winwidth namelen) 2))
-         (namepos2 (if names2 (next-property-change 0 namesline)))
-         (namepos3 (if namepos2 (+ namepos2 namelen)))
-         (namediff (if namepos2 (- namepos2 namepos)))
-         (nameendpos (if namepos2 (+ winwidth namediff))))
-    (if namepos2 (concat (if (< namediff 0) (make-string (- namediff) ? ))
-                       (substring namesline (max 0 namediff) namepos2)
-                       (substring namesline namepos2 namepos3)
-                       (substring namesline namepos3 (min nameendpos (length namesline))))
-      (concat (make-string namepos ? ) namesline))))
+         (startpos (- namepos prelen))
+         (postnames2 (if postnames (substring postnames 0 (min namepos postlen)))))
+    (if (>= startpos 0)
+        (concat (make-string startpos ? ) prenames name1 postnames2)
+      (concat (substring prenames (- startpos) prelen) name1 postnames2))))
 
-(defun one-key-highlight-menu (name keystroke &optional names)
-  "Highlight menu NAME and KEYSTROKE information, and return contents for insertion in *One-Key* buffer.
-NAME is the name of the currently selected menu, if multiple menus are in use then NAMES should be
-the list of corresponding menu names (which will include NAME).
-KEYSTROKE is the alist of menu items."
-  (let* ((title-func (third (one-key-get-menu-type name)))
+(defun one-key-highlight-menu (keystroke names menu-number)
+  "Highlight items in KEYSTROKE (an alist of menu items), and return contents for insertion in *One-Key* buffer.
+Also create header-line from NAMES (a list of menu names), highlighting the MENU-NUMBER'th name in that list.
+MENU-NUMBER should be the number of the currently selected menu in the NAMES list, or nil if NAMES contains
+a single menu name."
+  (let* ((name (if menu-number (nth menu-number names) names))
+         (title-func (third (one-key-get-menu-type name)))
          (infoline (if title-func (one-key-highlight (funcall title-func)
                                                      "\\(<[^<>]*>\\|'[^']*'\\)" '(face one-key-name))
                      nil))
          (keystrokelist (one-key-highlight keystroke "\\[\\([^\\[\\]\\)*?\\]" '(face one-key-keystroke))))
-    (setq header-line-format (one-key-header-line-format name names)
+    (setq header-line-format (one-key-header-line-format names menu-number)
           mode-line-format one-key-mode-line-format)
     (concat infoline keystrokelist)))
 
@@ -1531,8 +1532,7 @@ The return value of RECURSION-FUNCTION will be returned by this function also."
     (erase-buffer)
     (goto-char (point-min))
     (save-excursion
-      (insert (one-key-highlight-menu
-               this-name (one-key-menu-format filtered-list) names))))
+      (insert (one-key-highlight-menu (one-key-menu-format filtered-list) names menu-number))))
   ;; Pop `one-key' buffer.
   (pop-to-buffer one-key-buffer-name)
   (set-buffer one-key-buffer-name)
