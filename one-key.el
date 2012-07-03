@@ -1073,7 +1073,9 @@ By default the colour will be returned in hex string format."
           (setq one-key-copied-items
                 (loop for item2 in filtered-list
                       for (h2 s2 v2) = (one-key-get-item-colour item2 nil 'hsv)
-                      if (and (equal h1 h2) (equal s1 s2)) do
+                      for huediff = (abs (- h1 h2))
+                      for satdiff = (abs (- s1 s2))
+                      if (and (< huediff 0.001) (< satdiff 0.001)) do
                       (if kill
                           (if isref (set info-alist (delete item2 full-list))
                             (setq info-alist (delete item2 full-list))))
@@ -1082,12 +1084,20 @@ By default the colour will be returned in hex string format."
 
 (defun one-key-yank-items (info-alist full-list filtered-list)
   "Yank menu items in `one-key-copied-items' into current menu."
-  (let ((isref (symbolp info-alist)))
-    (if isref (set info-alist (append full-list (copy-tree one-key-copied-items)))
-      (setq info-alist (append full-list (copy-tree one-key-copied-items))))
-    (if filter-regex (setq filter-regex
-                           (regexp-opt (nconc (mapcar 'cdar one-key-copied-items)
-                                              (list filter-regex)))))
+  (let* ((isref (symbolp info-alist))
+         (usedkeys (mapcar 'caar full-list))
+         (pair (loop for ((key . desc) . rest) in one-key-copied-items
+                     for newkey = (one-key-generate-key desc usedkeys nil key)
+                     for newitem = (cons (cons newkey desc) rest)
+                     do (add-to-list 'usedkeys newkey)
+                     collect newitem into newitems
+                     collect desc into descs
+                     finally return (cons newitems descs)))
+         (newitems (car pair))
+         (descs (cdr pair)))
+    (if isref (set info-alist (append full-list newitems))
+      (setq info-alist (append full-list newitems)))
+    (if filter-regex (setq filter-regex (concat (regexp-opt descs) "\\|" filter-regex)))
     (if isref (add-to-list 'one-key-altered-menus (symbol-name info-alist)))))
 
 (defun one-key-edit-menu-item (info-alist full-list)
@@ -1999,14 +2009,19 @@ created for them."
     ;; return the main menu variable
     mainvar))
 
-(defun one-key-generate-key (desc &optional usedkeys elements)
+(defun one-key-generate-key (desc &optional usedkeys elements trykey)
   "Return a key for the menu item whose description string is DESC.
 The generated key can be used in a `one-key' menu. 
-If provided, ELEMENTS should be a list of keys to choose from, otherwise `one-key-default-menu-keys' will be used.
-USEDKEYS should be a list of keys which cannot be used (since they have already be used).
+If provided, ELEMENTS should be a list of keys to choose from, (otherwise `one-key-default-menu-keys' will be used),
+USEDKEYS should be a list of keys which cannot be used (since they have already be used),
+and TRYKEY is a key which will be returned if it is not in USEDKEYS (otherwise another key will be found).
 This function can be used to help automatic creation of `one-key' menus."
   (let ((elements (or elements one-key-default-menu-keys)))
-    (or (loop for element in elements
+    (or (and trykey
+             (not (memq trykey usedkeys))
+             (not (member (one-key-key-description trykey) usedkeys))
+             trykey)
+        (loop for element in elements
               for keystr = (one-key-key-description element)
               if (not (or (memq element usedkeys)
                           (member keystr usedkeys)))
