@@ -362,10 +362,10 @@ and COLOUR is the name of the associated colour to use in the `one-key' menu."
                            (edit-register "<f5>" "Edit a register"
                                           (lambda nil (one-key-regs-edit-menu-item info-alist full-list) t))
                            (delete-register "<f6>" "Delete a register"
-                                            (lambda nil (one-key-regs-delete-menu-item info-alist full-list) t))
-                           (swap-register-keys "<f7>" "Swap register keys"
+                                            (lambda nil (one-key-regs-delete-menu-item info-alist) t))
+                           (swap-register-keys "<f8>" "Swap register keys"
                                                (lambda nil (one-key-regs-swap-menu-items full-list) t))
-                           (add-register "<f8>" "Add a register"
+                           (add-register "<f9>" "Add a register"
                                          (lambda nil (one-key-regs-prompt-to-add-menu-item info-alist full-list) t))
                            (show-register-prefix-keys "C-p" "Show prefix associations"
                                                       one-key-regs-show-prefix-key-associations)
@@ -832,7 +832,8 @@ the intended effect when loaded and executed in a new emacs session (bear this i
             for custype = (assq type one-key-regs-custom-register-types)
             for colour = (cdr (assq type one-key-regs-colours-alist))
             for key = (single-key-description char)
-            for desc = (cdar (one-key-get-menu-item char one-key-menu-one-key-registers-alist))
+            for desc = (or (cdar (one-key-get-menu-item char one-key-menu-one-key-registers-alist))
+                           "No description!")
             for desc2 = (if colour (propertize (substring-no-properties desc)
                                                'face (list :background colour
                                                            :foreground one-key-item-foreground-colour))
