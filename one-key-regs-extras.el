@@ -39,7 +39,8 @@
 
 ;;; Commentary: 
 ;; 
-;; Extra register types for `one-key-regs'.
+;; Extra register types for `one-key-regs', including starting various different types of processes (shell, database
+;; clients, repl's, debuggers, etc.), bookmarks, desktops, and window configs (using policy switch).
 ;; If you want to use auth-source for obtaining login credentials for the database registers then you should set
 ;; `auth-source-do-cache' to nil.
 ;; 
@@ -58,8 +59,8 @@
 ;; (require 'one-key-regs-extras)
 
 ;;; Customize:
-;;
-;; 
+;;  
+;;  one-key-regs-processes : A list of processes and associated functions for the custom register type 'start-process.
 ;;
 ;; All of the above can customized by:
 ;;      M-x customize-group RET one-key-regs-extras RET
@@ -78,12 +79,14 @@
 
 ;;; TODO
 ;;
+;; 
+;;
 ;;; Require
 (require 'one-key-regs)
 ;;; Code:
 
 (defcustom one-key-regs-processes nil
-  "An list of processes and associated functions for the custom register type 'start-process.
+  "A list of processes and associated functions for the custom register type 'start-process.
 Each item in the list is a list of three items (NAME FUNC OPTIONS-FUNC).
 NAME is a name for the process (a string) which the user can select when prompted for a process type.
 FUNC is a function for starting the process which takes one argument which may contain extra options for starting the
@@ -522,6 +525,6 @@ bookmark should be added to the `one-key' menu."
 (provide 'one-key-regs-extras)
 ;;; one-key-regs-extras.el ends here
 
-;(one-key-dir-visit one-key-regs-default-directory (lambda () (interactive) (one-key-regs-merge-registers one-key-dir-current-filename 'prompt)))
+
 
 
