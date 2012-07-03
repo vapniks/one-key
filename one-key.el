@@ -406,12 +406,16 @@
 
 ;;; TODO
 ;;
+;; Change `one-key-special-keybindings' data structure so that a keybinding may also be specified by a symbol for another
+;; special keybinding, indicating that the keybinding corresponding with that symbol should be used.
+;; Finish `one-key-kill-items' function and kill-items special keybinding, and create new function (and corresponding
+;; special keybinding) `one-key-yank-items'.
 ;; Make functions autoloadable.
 ;; Prompt to save submenus when saving menu. Special keybinding to save all altered menus?
 ;; Autohighlighting of menu items using regexp associations?
 ;; Automatically generate one-key menus for common prefix keys (e.g. C-x r) and store them in memory.
 ;; This is already implemented to a certain extent but I think it could be improved. Needs further investigation.
-;;
+;; 
 ;;; Require
 (eval-when-compile (require 'cl))
 (require 'hexrgb)
@@ -666,15 +670,21 @@ the first item should come before the second in the menu."
                (lambda nil (one-key-edit-menu-item info-alist full-list) t))
     (delete-item "<f6>" "Delete a menu item"
                  (lambda nil (one-key-delete-menu-item info-alist full-list) t))
-    (swap-keys "<f7>" "Swap menu item keys"
+    (kill-items "<f7>" "Kill coloured items"
+               (lambda nil (one-key-kill-items info-alist full-list filtered-list)
+                 (setq one-key-menu-call-first-time t) t))
+    (yank-items "<C-f7>" "Yank killed items"
+                (lambda nil (one-key-yank-items info-alist full-list filtered-list)
+                 (setq one-key-menu-call-first-time t) t))
+    (swap-keys "<f8>" "Swap menu item keys"
                (lambda nil (one-key-swap-menu-items info-alist full-list) t))
-    (add-item "<f8>" "Add a menu item"
+    (add-item "<f9>" "Add a menu item"
               (lambda nil (one-key-prompt-to-add-menu-item info-alist full-list) t))
-    (add-menu "<C-f8>" "Add a menu"
+    (add-menu "<C-f9>" "Add a menu"
               (lambda nil (one-key-add-menus) nil)) ; no need to return t since `one-key-add-menus' does recursion itself
-    (remove-menu "<C-S-f8>" "Remove this menu"
+    (remove-menu "<C-S-f9>" "Remove this menu"
                  (lambda nil (one-key-delete-menu) t))
-    (move-item "<f9>" "Reposition item (with arrow keys)"
+    (move-item "<f10>" "Reposition item (with arrow keys)"
                (lambda nil (let ((key (one-key-key-description
                                        (read-key "Enter key of item to be moved"))))
                              (setq one-key-current-item-being-moved key)
@@ -729,7 +739,7 @@ types. See `one-key-default-special-keybindings' for example."
 (defcustom one-key-default-special-keybindings
   '(quit-close quit-open toggle-persistence toggle-display next-menu prev-menu up down scroll-down scroll-up help
                save-menu toggle-help toggle-row/column-order sort-next sort-prev reverse-order limit-items highlight-items
-               edit-item delete-item swap-keys add-item add-menu remove-menu move-item)
+               edit-item delete-item kill-items yank-items swap-keys add-item add-menu remove-menu move-item)
   "List of special keys to be used if no other set of special keys is defined for a given one-key menu type.
 These keys are for performing general tasks on the menu such as sorting items, deleting items, etc.
 Each element of this list is a reference to one of the keybindings defined in `one-key-special-keybindings'.
@@ -834,6 +844,9 @@ This should probably be left alone unless you remove `toggle-help' or `quit-clos
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Global Variables ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(defvar one-key-killed-items nil
+  "List of menu items that have been killed using the `one-key-kill-items' function.")
+
 (defvar one-key-null-keys (regexp-opt '("<remap>" "mouse" "<follow-link>"))
   "Regular expression matching key descriptions of keymap items that should be excluded from `one-key' menus.")
 
@@ -841,7 +854,8 @@ This should probably be left alone unless you remove `toggle-help' or `quit-clos
   "Variable that records the window configuration that was in place before the popup menu window was opened.")
 
 (defvar one-key-menu-call-first-time t
-  "t if `one-key-menu' has been called non-recursively.")
+  "t if `one-key-menu' has been called non-recursively.
+Set this to t if you want the menu to be redisplayed after pressing a special keybinding.")
 
 (defvar one-key-menu-show-key-help nil
   "If true show help for function associated with next keystroke, when it is pressed in the one-key-menu.")
@@ -1029,6 +1043,52 @@ INFO-ALIST and FULL-LIST are as in the `one-key-menu' function."
     (setq one-key-menu-call-first-time t)
     (one-key-menu-window-close)))
 
+(defun one-key-get-item-colour (item &optional fg rettype)
+  "Return the background colour of menu item ITEM. If FG is non-nil return the foreground colour instead.
+If RETTYPE is one of the following symbols: 'hex, 'hsv or 'rgb, then the colour will be returned in the associated format
+ (a hex string, list of hsv values or list of rgb values).
+By default the colour will be returned in hex string format."
+  (let* ((descface (get-text-property 0 'face (cdar item)))
+         (type (if fg :foreground :background))
+         (colour (or (and (facep descface)
+                          (not (equal (face-attribute descface type) 'unspecified))
+                          (face-attribute descface type))
+                     (plist-get descface type)))
+         (colour2 (or colour (if fg one-key-item-foreground-colour
+                               (cdr (assq 'background-color (frame-parameters)))))))
+    (case rettype
+      (hex (hexrgb-color-name-to-hex colour2))
+      (hsv (hexrgb-hex-to-hsv colour2))
+      (rgb (hexrgb-hex-to-rgb colour2))
+      (t (hexrgb-color-name-to-hex colour2)))))
+
+(defun one-key-kill-items (info-alist full-list filtered-list)
+  "Prompt for a colour, remove all items with that colour from the current menu, and put them in `one-key-killed-items'."
+  (let* ((isref (symbolp info-alist))
+         (key (read-event "Press the key of an item in the colour group to be killed: "))
+         (item (one-key-get-menu-item key filtered-list)))
+    (if item
+        (destructuring-bind (h1 s1 v1) (one-key-get-item-colour item nil 'hsv)
+          (setq one-key-killed-items
+                (loop for item2 in filtered-list
+                      for (h2 s2 v2) = (one-key-get-item-colour item2 nil 'hsv)
+                      if (and (equal h1 h2) (equal s1 s2)) do
+                      (if isref (set info-alist (delete item2 full-list))
+                        (setq info-alist (delete item2 full-list)))
+                      and collect item2))
+          (if isref (add-to-list 'one-key-altered-menus (symbol-name info-alist)))))))
+
+(defun one-key-yank-items (info-alist full-list filtered-list)
+  "Yank menu items in `one-key-killed-items' into current menu."
+  (let ((isref (symbolp info-alist)))
+    (if isref (set info-alist (append full-list (copy-tree one-key-killed-items)))
+      (setq info-alist (append full-list (copy-tree one-key-killed-items))))
+    
+    (if filter-regex (setq filter-regex
+                           (regexp-opt (nconc (mapcar 'cdar one-key-killed-items)
+                                              (list filter-regex)))))
+    (if isref (add-to-list 'one-key-altered-menus (symbol-name info-alist)))))
+  
 (defun one-key-edit-menu-item (info-alist full-list)
   "Prompt user for the key of a menu item to edit, make changes and then reopen `one-key' menu.
 INFO-ALIST and FULL-LIST are as in the `one-key-menu' function."
@@ -1478,7 +1538,7 @@ will be tried (in accordance with normal emacs behaviour)."
          (mods (event-modifiers rawkey))
          (basic (event-basic-type rawkey))
          (func (key-binding (vector rawkey)))
-         (keynoshift (nconc (remove 'shift mods) (list basic) nil))
+         (keynoshift (append (remove 'shift mods) (list basic)))
          (func2 (or func
                     (key-binding (vector (event-convert-list keynoshift))))))
     (when (and (not (eq func2 'keyboard-quit))
@@ -1622,20 +1682,10 @@ Argument INFO-ALIST is the alist of keys and associated decriptions and function
                     for vval = (if (= range 0)
                                    0.5
                                  (+ (/ (- val minval) (* 2.0 range)) 0.5))
-                    ;; get current HSV values
-                    for descface = (get-text-property 0 'face desc)
-                    for oldbgcol = (or (and (facep descface)
-                                            (not (equal (face-attribute descface :background) 'unspecified))
-                                            (face-attribute descface :background))
-                                       (plist-get descface :background)
-                                       (cdr (assq 'background-color (frame-parameters))))
-                    for fgcol = (or (and (facep descface)
-                                         (not (equal (face-attribute descface :foreground) 'unspecified))
-                                         (face-attribute descface :foreground))
-                                    (plist-get descface :foreground)
-                                    one-key-item-foreground-colour)
-                    for (h s v) = (hexrgb-hex-to-hsv oldbgcol)
-                    ;; set new HSV values to update colour value
+                    ;; get current background and foreground colour
+                    for (h s v) = (one-key-get-item-colour item nil 'hsv)
+                    for fgcol = (one-key-get-item-colour item t)
+                    ;; update value of background colour 
                     for newbgcol = (hexrgb-hsv-to-hex h s vval) do
                     (setf (cdar item)
                           (propertize desc 'face (list :background newbgcol
