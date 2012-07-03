@@ -408,7 +408,7 @@
 ;;
 ;; Change `one-key-special-keybindings' data structure so that a keybinding may also be specified by a symbol for another
 ;; special keybinding, indicating that the keybinding corresponding with that symbol should be used.
-;; Finish `one-key-kill-items' function and kill-items special keybinding, and create new function (and corresponding
+;; Finish `one-key-copy/kill-items' function and kill-items special keybinding, and create new function (and corresponding
 ;; special keybinding) `one-key-yank-items'.
 ;; Make functions autoloadable.
 ;; Prompt to save submenus when saving menu. Special keybinding to save all altered menus?
@@ -670,10 +670,10 @@ the first item should come before the second in the menu."
                (lambda nil (one-key-edit-menu-item info-alist full-list) t))
     (delete-item "<f6>" "Delete a menu item"
                  (lambda nil (one-key-delete-menu-item info-alist full-list) t))
-    (kill-items "<f7>" "Kill coloured items"
-               (lambda nil (one-key-kill-items info-alist full-list filtered-list)
+    (kill-items "<f7>" "Copy/kill coloured items"
+               (lambda nil (one-key-copy/kill-items info-alist full-list filtered-list)
                  (setq one-key-menu-call-first-time t) t))
-    (yank-items "<C-f7>" "Yank killed items"
+    (yank-items "<C-f7>" "Yank copied items"
                 (lambda nil (one-key-yank-items info-alist full-list filtered-list)
                  (setq one-key-menu-call-first-time t) t))
     (swap-keys "<f8>" "Swap menu item keys"
@@ -844,8 +844,8 @@ This should probably be left alone unless you remove `toggle-help' or `quit-clos
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Global Variables ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defvar one-key-killed-items nil
-  "List of menu items that have been killed using the `one-key-kill-items' function.")
+(defvar one-key-copied-items nil
+  "List of menu items that have been killed using the `one-key-copy/kill-items' function.")
 
 (defvar one-key-null-keys (regexp-opt '("<remap>" "mouse" "<follow-link>"))
   "Regular expression matching key descriptions of keymap items that should be excluded from `one-key' menus.")
@@ -1062,33 +1062,34 @@ By default the colour will be returned in hex string format."
       (rgb (hexrgb-hex-to-rgb colour2))
       (t (hexrgb-color-name-to-hex colour2)))))
 
-(defun one-key-kill-items (info-alist full-list filtered-list)
-  "Prompt for a colour, remove all items with that colour from the current menu, and put them in `one-key-killed-items'."
+(defun one-key-copy/kill-items (info-alist full-list filtered-list)
+  "Prompt for a colour, copy all items with that colour from the current menu, and put them in `one-key-copied-items'."
   (let* ((isref (symbolp info-alist))
-         (key (read-event "Press the key of an item in the colour group to be killed: "))
-         (item (one-key-get-menu-item key filtered-list)))
+         (key (read-event "Press the key of an item in the colour group to copy: "))
+         (item (one-key-get-menu-item key filtered-list))
+         (kill (y-or-n-p "Delete items from current menu?")))
     (if item
         (destructuring-bind (h1 s1 v1) (one-key-get-item-colour item nil 'hsv)
-          (setq one-key-killed-items
+          (setq one-key-copied-items
                 (loop for item2 in filtered-list
                       for (h2 s2 v2) = (one-key-get-item-colour item2 nil 'hsv)
                       if (and (equal h1 h2) (equal s1 s2)) do
-                      (if isref (set info-alist (delete item2 full-list))
-                        (setq info-alist (delete item2 full-list)))
+                      (if kill
+                          (if isref (set info-alist (delete item2 full-list))
+                            (setq info-alist (delete item2 full-list))))
                       and collect item2))
           (if isref (add-to-list 'one-key-altered-menus (symbol-name info-alist)))))))
 
 (defun one-key-yank-items (info-alist full-list filtered-list)
-  "Yank menu items in `one-key-killed-items' into current menu."
+  "Yank menu items in `one-key-copied-items' into current menu."
   (let ((isref (symbolp info-alist)))
-    (if isref (set info-alist (append full-list (copy-tree one-key-killed-items)))
-      (setq info-alist (append full-list (copy-tree one-key-killed-items))))
-    
+    (if isref (set info-alist (append full-list (copy-tree one-key-copied-items)))
+      (setq info-alist (append full-list (copy-tree one-key-copied-items))))
     (if filter-regex (setq filter-regex
-                           (regexp-opt (nconc (mapcar 'cdar one-key-killed-items)
+                           (regexp-opt (nconc (mapcar 'cdar one-key-copied-items)
                                               (list filter-regex)))))
     (if isref (add-to-list 'one-key-altered-menus (symbol-name info-alist)))))
-  
+
 (defun one-key-edit-menu-item (info-alist full-list)
   "Prompt user for the key of a menu item to edit, make changes and then reopen `one-key' menu.
 INFO-ALIST and FULL-LIST are as in the `one-key-menu' function."
