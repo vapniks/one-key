@@ -1,7 +1,7 @@
-;;; one-key-regs.el --- Code for fast, simple and flexible handling of registers, macros and bookmarks
+;;; one-key-regs.el --- Code for handling registers, macros and bookmarks using one-key menus.
 
 ;; Filename: one-key-regs.el
-;; Description: Code for fast, simple and flexible handling of registers, macros and bookmarks
+;; Description: Code for handling registers, macros and bookmarks using one-key menus.
 ;; Author: Joe Bloggs <vapniks@yahoo.com>
 ;; Maintainer: Joe Bloggs <vapniks@yahoo.com>
 ;; Copyleft (Ↄ) 2012, Joe Bloggs, all rites reversed.
@@ -39,20 +39,81 @@
 
 ;;; Commentary:
 ;; 
-;; Code for fast, simple and flexible handling of registers.
-;; This library provides code for easy access and storage of different kinds of registers
-;; (including keyboard macros and bookmarks). Register sets can be defined, labelled, loaded,
-;; saved, and assigned to keystrokes. New types of registers can be defined by the user
-;; and some new ones are defined by default: keyboard macros, bookmarks, browse url, emacs command,
-;; and more (see below).
-;; A one-key menu is created for the currently loaded register set which allows
-;; fast access and labelling of the registers so you can remember what they do.
+;; This library adds a new menu type to `one-key' called `one-key-registers' which creates a menu
+;; for the currently loaded registers in `register-alist'. For more information on one-key see `one-key.el'.
+;; Registers may be edited, created and deleted from within the `one-key-registers' menu, and many
+;; new types of registers are available (listed below). When new registers are added they are automatically
+;; coloured according to type, and default menu item descriptions are created.
+;; You may specify a set of key modifiers and normal keys for executing the registers when the menu is not
+;; displayed (see the "Installation" section below).
+;; You can also load/save different sets of registers.
+;; Finally, you may also define register "key queues" (see `one-key-regs-key-queues' and `one-key-regs-enable-key-queues').
+;; These are sequences of keys such that when a new register is stored in one of the keys, the registers currently
+;; stored in that key and all subsequent keys are shifted down the queue. This is useful when storing buffer
+;; positions in registers, and works a bit like the `mark-ring' in normal emacs usage.
 ;;
-;; TIP: its a good idea to reserve different sets of keys for major-mode specific registers,
-;; project specific registers and general registers (as saved in `one-key-regs-default-file'),
+;; To see the various commands available press the f1 key in the `one-key-registers' menu.
+;; This will display the help window for `one-key-registers'.
+
+;; For further information on how to use one-key see `one-key.el'.
+
+
+;; Executing registers:
+
+;; To executed a stored register either use the `one-key-registers' menu or, if defined (see "Installation" section),
+;; press the associated quick key (in combination with the modifier keys).
+
+;; Creating registers:
+;;
+;; To create a new register you can either press the keybinding for "Add a register" in the `one-key-registers'
+;; menu, or press C-u followed by a quick keybinding (with modifier keys) for a register (see "Installation" below).
+;; In both these cases you will be prompted for the register type.
+;; Alternatively you may use one of the prefix keys defined in `one-key-regs-prefix-key-associations' to create 
+;; registers of different types. If no prefix key is used, and there is no register stored in the quick key then
+;; a register of type `one-key-regs-default-register-type' will be created if no region is defined or
+;; `one-key-regs-default-region-register-type' if region is defined.
+
+;; The following register types (and associated creation actions) are available:
+
+;; buffer-marker : current cursor position and buffer (can only be executed if the buffer is available)
+;; file-marker : current cursor position and file (file will be opened if not already open)
+;; text-region : current text region 
+;; cut-text-region : current text region (cuts and stores current region when created)
+;; rectangle : rectangle defined by current region
+;; cut-rectangle : rectangle defined by current region (cuts rectangle when created)
+;; number : number under point 
+;; window-config : current window configuration
+;; frame-config : current frame configuration 
+;; delete-register : deletes the specified register
+;; macro : last stored keyboard macro.
+;; bookmark : prompts for a bookmark to store.
+;; new-bookmark : creates a new bookmark at point.
+;; buffer : current buffer. Position of cursor is not stored.
+;; file-or-dir : current file or directory (for dired buffers). Position of cursor is not stored.
+;; browse-url : prompts for a URL, and opens it with `browse-url' when executed.
+;; emacs-command : prompts for an emacs command.
+;; eval-sexp : prompts for an sexp.
+;; info-file : prompts for an info file.
+
+;; You may also create your own register types. See `one-key-regs-custom-register-types' for details.
+
+;;
+;; TIP: when creating registers its a good idea to reserve different sets of keys for major-mode
+;; specific registers, project specific registers and general registers (as saved in `one-key-regs-default-file'),
 ;; e.g. numbers for major-mode specific, small letters for project-specific and capital letters
 ;; for general registers. Then you can merge in a new register set when you change buffer
 ;; without affecting the project or general registers, and similarly when you change project.
+
+;; Saving/loading/merging register sets:
+
+;; When one-key-regs starts it will load the registers and menu stored in `one-key-regs-default-file'
+;; (along with other options defined in `one-key-regs-save-items').
+;; You may decide to alter these registers and store them in a different file by pressing C-s in the
+;; `one-key-registers' menu. You may then load them at a later time by pressing C-l or M-l in the `one-key-registers'
+;; menu. C-l will completely remove all current registers before loading the new ones, and M-l will merge the
+;; new registers with the old ones according to the value of `one-key-regs-merge-conflicts'.
+;; You can use `one-key-regs-file-associations' to set how the default file is chosen when loading register sets.
+;; The default directory for storing register sets is `one-key-regs-default-directory'.
 
 ;;; Installation:
 ;;
@@ -62,26 +123,60 @@
 ;; where ~/elisp is the directory you want to add
 ;; (you don't need to do this for ~/.emacs.d - it's added by default).
 ;;
-;; Choose a keystroke to bind the `one-key' menu to (e.g. the <menu> button), and add the following code to
-;; your ~/.emacs startup file:
+;; Add the following code to your ~/.emacs startup file:
 ;;
 ;; (require 'one-key-regs)
 ;; (global-set-key (kbd "<menu>") 'one-key-menu-regs)
-
-;; Tip: you can find the string representation of a keystroke by pressing "C-h k" followed by the keystroke.
+;;
+;; You can then add a menu of type `one-key-registers' to the *One-Key* window by pressing the appropriate
+;; key for adding a menu (press f1 to see the current special keybindings).
+;; You may also want to configure a menu set in `one-key-sets-of-menus-alist' to hold the `one-key-registers' menu.
+;; See the documentation for `one-key' for further information.
 
 ;; If you also want to bind the individual registers to keys, choose a set of key modifiers that are not in use
 ;; (e.g. control+super) and add the following to your ~/.emacs file after the previous code:
 ;;
 ;; (one-key-regs-define-keybindings '(control super))
+;;
+;; This will bind all keystrokes formed by combining the modifier keys with the keys defined in `one-key-regs-quick-keys'
+;; to the associated registers.
 
-;; The following elisp packages are also required: better-registers.el, one-key.el
+
+;; The following elisp packages are also required: one-key.el
 ;; These are available from the emacswiki: http://www.emacswiki.org
 
 ;;; Customize:
 ;;
+;;  `one-key-regs-custom-register-types' : A list of different types of registers for use with one-key-regs.
+;;  `one-key-regs-colours-alist' : Association list of colours for the different register types.
+;;  `one-key-regs-special-keybindings' : List of special keys to be used for one-key-registers menus
+;;                                       (see `one-key-default-special-keybindings' in one-key.el for more info).
+;;  `one-key-regs-show-legend' : Whether or not to show the `one-key-regs-legend-string' in the one-key menu.
+;;  `one-key-regs-colourize-menu' : Whether to colourize the menu items (with colours in `one-key-regs-colours-alist')
+;;                                  or not.
+;;  `one-key-regs-winconfig-restore-point' : If non-nil then point (cursor position) will be restored when a window
+;;                                           or frame config register is executed.
+;;  `one-key-regs-prompt-for-description' : If set to t then you will be prompted for a description when creating a
+;;                                          new one-key register.
+;;  `one-key-regs-prefix-key-associations' : An alist associating prefix keys with register types.
+;;  `one-key-regs-default-register-type' : The default register type to create when filling an empty register.
+;;  `one-key-regs-default-region-register-type' : The default register type to create when the region is active.
+;;  `one-key-regs-save-items' : A list of items to save along with register sets.
+;;  `one-key-regs-save-on-exit' : A regular expression to match register filenames that will be saved on exit if
+;;                                currently loaded.
+;;  `one-key-regs-max-description-length' : The maximum number of chars allowed in the register description shown
+;;                                          in the `one-key' menu.
+;;  `one-key-regs-default-directory' : The default directory in which to store one-key-regs sets.
+;;  `one-key-regs-default-file' : The default registers file to load on startup.
+;;  `one-key-regs-file-associations' : An alist of (CONDITION . FILE) pairs indicating which registers files to load
+;;                                     in which buffers.
+;;  `one-key-regs-merge-conflicts' : What method to use to handle conflicts when loading new registers.
+;;  `one-key-regs-quick-keys' : List of keys to use with `one-key-regs-define-keybindings'.
+;;  `one-key-regs-key-queues' : List of register key queues. 
+;;  `one-key-regs-enable-key-queues' : Whether register key queues should be enabled or not.
+
 ;; 
-;;
+;; 
 ;; All of the above can customized by:
 ;;      M-x customize-group RET one-key-regs RET
 ;;
@@ -98,14 +193,9 @@
 ;;
 
 ;;; TODO
-;; Show name of currently loaded registers file (or several if merged) in title
 ;; 
-;; Make registers for: register menus (see next item), copy another register, run external program, merge register set, show/edit org notes, bookmark sequence
 ;; 
 ;; Code for viewing saved registers set as one-key menu without setting registers to keys?
-;; Allow viewing of register menu without it being active (useful to see what registers do), and allow menu to be
-;; restricted by regexp when doing this.
-;; Fix window config problem noticed on Lana's machine.
 
 ;;; Require
 (require 'one-key)
@@ -402,7 +492,7 @@ and COLOUR is the name of the associated colour to use in the `one-key' menu."
   :type '(boolean))
 
 (defcustom one-key-regs-colourize-menu t
-  "Whether to colourize the menu items (with colours in `one-key-regs-colours-alist' or not)."
+  "Whether to colourize the menu items (with colours in `one-key-regs-colours-alist') or not."
   :group 'one-key-regs
   :type '(boolean))
 
@@ -505,7 +595,8 @@ Should end with a \"/\"."
 
 (defcustom one-key-regs-file-associations nil
   "An alist of (CONDITION . FILE) pairs indicating which registers files to load in which buffers.
-CONDITION should be an elisp expression that returns non-nil in buffers for which the registers saved in FILE should be loaded. FILE may be the full path to a file, or just the file name in which case it is assumed to be in `one-key-regs-default-directory'.
+CONDITION should be an elisp expression that returns non-nil in buffers for which the registers saved in FILE should be loaded.
+FILE may be the full path to a file, or just the file name in which case it is assumed to be in `one-key-regs-default-directory'.
 The `one-key-regs-get-associated-file' function can be used to return the file associated with the current buffer."
   :group 'one-key-regs
   :type '(alist :key-type (sexp :tag "Condition"
