@@ -1,4 +1,4 @@
-;;; one-key.el --- One key
+;;; one-key.el --- Easy access configurable popup menus to display keybindings and other things.
 
 ;; Filename: one-key.el
 ;; Description: One key
@@ -45,8 +45,8 @@
 ;;
 ;; This package fixes that problem.
 ;;
-;; One Key provides a single keystroke that when pressed presents you with
-;; a menu of choices in a popup window for commands to execute with a further keystrokes.
+;; One Key provides a single keystroke that when pressed presents you with a menu of choices in a popup window
+;; for commands to execute with a further keystroke.
 ;;
 ;; Just type one of the listed keystrokes to execute the corresponding command.
 ;;
@@ -55,182 +55,145 @@
 ;; Such a collection of menus is called a menu set and you can define several different menu sets containing different
 ;; types of menus.
 ;; Several different types of menus are defined (and more may be added) for holding different types of menu items.
-;; The "major-mode" type opens the menu corresponding to the current major-mode, the "menu-sets" type opens a menu
-;; for accessing the currently defined menu sets, and the "top-level" type opens the top-level menu of user defined
-;; items/menus. More different types are defined by one-key extension libraries (e.g. `one-key-dir').
+;; For example the "major-mode" type opens the menu corresponding to the current major-mode.
+;; More different types are defined by one-key extension libraries (e.g. `one-key-dir' for fast directory
+;; tree navigation), or you can create your own types. See "Creating menus" below.
 
-;; You can also associate different menus with different major modes so that the menu presented depends on the
-;; current major mode.
+;;; The *One-Key* buffer:
 ;;
-;; * Quick use example:
+;; Running the command `one-key-open-default-menu-set' or `one-key-open-menu-set' opens the *One-Key* buffer.
+;; (these commands may be bound to keys - see "Installation" below).
 ;;
-;; Add the variables and functions below to your ~/.emacs
+;; Within the *One-Key* buffer you will see a list of command descriptions each with a corresponding key in square
+;; brackets to its left. Pressing the key executes the command.
+;; Along the top of the buffer in the header line you will see a list of menu names. One of these names will be
+;; highlighted and indicates the current menu. You can navigate between the different menus by pressing the left/right
+;; arrow keys (unless these have been redefined to other keys in `one-key-special-keybindings', see below).
 ;;
-;; (defvar one-key-menu-emms-alist nil
-;;   "`One-Key' menu list for EMMS.")
+;; You can toggle the size of the window holding the *One-Key* buffer by pressing the appropriate special key (see below).
+;; The window size is toggled between default size, large size (so that all items fit in the window), and hidden (window
+;; is closed, but one-key is still active). This is useful if there are a large number of items in the menu, or when you
+;; need to see part of the buffer that is obscured by the *One-Key* window.
 ;;
-;; (setq one-key-menu-emms-alist
-;;       '(
-;;         (("g" . "Playlist Go") . emms-playlist-mode-go)
-;;         (("d" . "Play Directory Tree") . emms-play-directory-tree)
-;;         (("f" . "Play File") . emms-play-file)
-;;         (("i" . "Play Playlist") . emms-play-playlist)
-;;         (("t" . "Add Directory Tree") . emms-add-directory-tree)
-;;         (("c" . "Toggle Repeat Track") . emms-toggle-repeat-track)
-;;         (("w" . "Toggle Repeat Playlist") . emms-toggle-repeat-playlist)
-;;         (("u" . "Play Now") . emms-play-now)
-;;         (("z" . "Show") . emms-show)
-;;         (("s" . "Emms Streams") . emms-streams)
-;;         (("b" . "Emms Browser") . emms-browser)))
+;; By default one-key will quit and the *One-Key* window will close after pressing a key corresponding to one of the
+;; menu items. If you want one-key to stay active after pressing an item key you should toggle the menu persistence
+;; by pressing the appropriate special key (C-menu by default, see "Special keybindings" below).
+;; To quit one-key and close the *One-Key* window press ESC. If you want to quit but keep the window open (e.g. to see
+;; the keybindings for a major mode), press C-ESC.
+
+;;; Special keybindings:
 ;;
-;; (defun one-key-menu-emms ()
-;;   "`One-Key' menu for EMMS."
-;;   (interactive)
-;;   (one-key-menu "emms" 'one-key-menu-emms-alist t))
+;; For each different type of menu certain "special" keybindings are defined which activate menu specific commands,
+;; such as sorting or editing the menu items, adding new menus, etc.
+;; These special keybindings are specific to each menu type, though many of them will be the same for all menu types.
+;; For example the arrow keys are defined as special keybindings for navigating around menus.
 ;;
-;; Add an item to `one-key-toplevel-alist' in the customization buffer for one-key
-;; (M-x customize-group RET one-key RET). The first item should be the key (e.g. m), the second item
-;; should be a description (e.g. "Emacs multimedia system"), and the third item should be the command:
-;; `one-key-menu-emms'. Then bind `one-key-menu-toplevel' to any key you want E.g:
+;; Pressing the f1 key displays a help message listing all the special keybindings for the current menu.
 ;;
-;;  (global-set-key (kbd "C-M-s-SPC") 'one-key-menu-toplevel)
+;; By default, when a menu is created one-key will ensure that the keys corresponding to menu items do not clash with
+;; the special keybindings for that menu type. However, if for some reason there is a clash then the menu item gets
+;; priority over the special keybinding unless the help window is displayed (by pressing f1), in which case the special
+;; keybinding gets priority.
 ;;
-;; Alternatively you can ignore the toplevel menu and just bind `one-key-menu-emms' to a key,
-;; E.g:
+;; You can alter or add new special keybindings by customizing `one-key-special-keybindings',
+;; and `one-key-default-special-keybindings'.
+;; Extension libraries (such as `one-key-dir' or `one-key-regs') may also define customizable special keys specific
+;; to the menu type defined in the library.
 ;;
-;;      (global-set-key (kbd "C-c p") 'one-key-menu-emms)
+
+;;; Creating menus:
+;; 
+;; All of the menus are stored in the file `one-key-menus-save-file' (customizable), but you should never need to
+;; edit this file. Instead you can create and edit menus from within the *One-Key* buffer.
+;; If you press the special key corresponding to "Add a menu" you will be prompted for the type of menu to add.
+;; By default the following menu types are defined, but more may be added with extension libraries, or by creating
+;; them yourself (see `one-key-types-of-menu'):
+
+;;; Default menu types:
 ;;
-;; Now when you type the key, a one-key menu will popup at the bottom of the window.
-;; Then you just type a keystroke listed in the menu to execute the corresponding command.
+;; top-level         : contains items defined in `one-key-toplevel-alist'
+;; blank menu        : creates a blank menu with no items
+;; major-mode        : contains items corresponding to the current major mode (keybindings and menu-bar items)
+;; existing menu     : prompts for an existing menu to use
+;; existing keymap   : contains items in a given keymap (prompted for)
+;; prefix key keymap : contains items whose usual keybindings begin with a given prefix key (prompted for)
+;; menu-sets         : contains items for opening menu sets (see below)
+
+;;; Saving menus:
+
+;; If `one-key-autosave-menus' is non-nil then any new menus or menus that have been changed will be saved
+;; on Emacs exit, unless they are listed in `one-key-exclude-from-save'
+;; Alternatively you may save individual menus by pressing the special key for "Save the current state of menu"
+;; (C-s by default).
+
+;;; Menu sets:
+
+;; A menu set is a collection of menu names. When you open the *One-Key* buffer with `one-key-open-default-menu-set'
+;; it opens the default set of menus `one-key-default-menu-set'. You can define other sets of menus by customizing
+;; `one-key-sets-of-menus-alist'. Each menu set consists of a name for the menu set, and a list of menu names.
+;; one-key reconstructs a menu from its name by searching `one-key-types-of-menu' for a matching entry, and applying
+;; the associated function to create the menu.
+;; You can see what menu sets are currently defined, and switch menu sets, using the "menu-sets" menu.
+;; See "Creating menus" above for info on how to add the "menu-sets" menu to the *One-Key* buffer.
+
+;;; Other features:
 ;;
-;; You can also associate menus with major-modes using the customizable `one-key-mode-alist' variable, 
-;; and the `one-key-get-menu' command. When this command is run it will open the menu associated with the 
-;; current major-mode, or the toplevel menu if there is no associated menu.
-;; You can bind this to a global key, e.g:
+;; Item help: to get help on a particular menu item press C-h followed by the key for the item. The help page
+;; for the associated command will be displayed. If part of the *Help* buffer is obscured by the *One-Key* buffer,
+;; you can hide the *One-Key* buffer by pressing the special key to toggle the display (<menu> by default).
 ;;
-;;     (global-set-key (kbd "C-s-SPC") 'one-key-get-menu)
+;; Item brightening: By default the background colour of a menu item is increased relative to the brightness
+;; of other items each time the item is executed. This means you can quickly find the most frequently used items
+;; in a large menu. To turn this feature off set `one-key-auto-brighten-used-keys' to nil.
 ;;
-;; Now you don't need to remember so many keystrokes, just remembering one keystroke is enough!
+;; Sorting/ordering: you can sort the items in a menu by pressing the appropriate special key, and add new sort
+;; methods by customizing `one-key-default-sort-method-alist'. The current sort method is displayed in the mode-line,
+;; however this information is not guaranteed to be correct when the *One-Key* menu is initially opened.
+;; You can also toggle between row/column ordering of items, and reverse the order of items.
+;; By trying out different sort and ordering combinations you can find a configuration which is most readable,
+;; or fits most items on screen. The order of menu items is persistent between sessions if the menus are saved
+;; (see "Saving menus").
 ;;
-;; ** The format of the menu list:
+;; Filtering and colouring items: you can filter the items displayed to match a regular expression, or specify
+;; the background colour of items that match a given regular expression (press f1 to see which key to press).
+;; This can make the menus more readable. The background colours will be saved with the menu.
 ;;
-;; (("KEYSTROKE" . "DESCRIBE") . COMMAND)
-;;
-;; Example:
-;;
-;; (defvar example-menu-alist
-;;      '(
-;;        (("Keystroke-A" . "Describe-A") . Command-A)
-;;        (("Keystroke-B" . "Describe-B") . Command-B)
-;;        (("Keystroke-C" . "Describe-C") . Command-C)
-;;        ))
-;;
-;; Make sure COMMAND is `interactive', otherwise it will throw an error.
-;;
-;; ** The format of menu function:
-;;
-;; (one-key-menu "MENU-NAME" 'MENU-ALIST)
-;;
-;; Example:
-;;
-;; (defun example-menu ()
-;;   (interactive)
-;;   (one-key-menu "example" 'example-menu-alist)
-;;
-;; ** The arguments of the function `one-key-menu':
-;;
-;; `name' is the name of menu, any string you like.
-;; `info-alist' is a special list that contains KEY, DESCRIPTION
-;;      and COMMAND.  see above description about `example-menu-alist'.
-;; `miss-match-exit-p' set to t means the popup window will exit when you
-;;      type a KEY that can't match in menu.
-;; `recursion-p' is whether or not recursion will execute `one-key-menu' on self
-;;      when no KEY matchs in the menu.
-;; `protect-function' is a protect function that is called last in `one-key-menu',
-;;      make sure this function is an `interactive' function.
-;; `alternate-function' is an alternate function to execute last.
-;; `execute-last-command-when-miss-match' whether to execute the last input command
-;; when keystroke is not matched.
-;;
-;; Creating menus for keymaps:
-;;
-;; You can use `one-key-insert-template' to insert template code for a special keymap,
-;; or `one-key-show-template' to create a special buffer called "One-Key-Template" containing the template code.
-;; For example, after you run `one-key-insert-template', you will get a Keymap prompt:
-;; "Keymap to One-Key: ", in which you enter the name of a keymap or a prefix key with an associated keymap.
-;; After entering the keymap/prefix key you are prompted for a name for the menu, and then code for the menu
-;; will be automatically generated.
-;; E.g. if you type "C-x r", and then enter the name "bookmark" then it will generate template code
-;; like the code shown below:
-;;
-;; (defvar one-key-menu-bookmark-alist nil
-;;   "The `one-key' menu list for BOOKMARK.")
-;;
-;; (setq one-key-menu-bookmark-alist
-;;    '(
-;;      (("C-@" . "point-to-register") . point-to-register)
-;;      (("SPC" . "point-to-register") . point-to-register)
-;;      (("+" . "increment-register") . increment-register)
-;;      (("b" . "bookmark-jump") . bookmark-jump)
-;;      (("c" . "clear-rectangle") . clear-rectangle)
-;;      (("d" . "delete-rectangle") . delete-rectangle)
-;;      (("f" . "frame-configuration-to-register") . frame-configuration-to-register)
-;;      (("g" . "insert-register") . insert-register)
-;;      (("i" . "insert-register") . insert-register)
-;;      (("j" . "jump-to-register") . jump-to-register)
-;;      (("k" . "kill-rectangle") . kill-rectangle)
-;;      (("l" . "bookmark-bmenu-list") . bookmark-bmenu-list)
-;;      (("m" . "bookmark-set") . bookmark-set)
-;;      (("n" . "number-to-register") . number-to-register)
-;;      (("o" . "open-rectangle") . open-rectangle)
-;;      (("r" . "copy-rectangle-to-register") . copy-rectangle-to-register)
-;;      (("s" . "copy-to-register") . copy-to-register)
-;;      (("t" . "string-rectangle") . string-rectangle)
-;;      (("w" . "window-configuration-to-register") . window-configuration-to-register)
-;;      (("x" . "copy-to-register") . copy-to-register)
-;;      (("y" . "yank-rectangle") . yank-rectangle)
-;;      (("C-SPC" . "point-to-register") . point-to-register)
-;;      ))
-;;
-;; (defun one-key-menu-bookmark ()
-;;   (interactive)
-;;   (one-key-menu "BOOKMARK" 'one-key-menu-bookmark-alist))
-;;
-;; If you used `one-key-show-template' the code is placed in the special buffer "One-Key-Template"
-;; which has it's own one-key menu and keybindings bound to special helper functions to help you edit the
-;; menu. Type M-x one-key-get-menu to see a menu of commands/keybindings for this buffer
-;; (or use one-key-menu-one-key-template if it is not listed in one-key-mode-alist).
-;; For example you can move items in the menu up/down using "M-<up>" or "M-<down>".
-;; You can sort the items in the currently active region alphabetically by description/key binding/command
-;; by pressing "C-c C-s" followed by d/k/c.
-;; You can quickly test your menu by pressing "C-c C-t".
-;;
-;; Fixed menu keys:
-;;
-;; Some keys are available for all menus for performing tasks such as showing help or sorting the menu items,
-;; they can be configured with the `one-key-default-special-keybindings' variable.
-;;
-;; Auto-load one-key menus:
-;;
-;; If you set `one-key-auto-load-menus' to t (in the customization group for one-key), then any files
-;; in the directory specified by `one-key-menus-location' that match the regexp `one-key-menus-regexp'
-;; will automatically be loaded on startup.
+;; Editing menus: you can add, delete and edit menu items, and also copy or kill (i.e. cut) and yank (i.e. paste)
+;; menu items from one menu to another. To copy or kill a bunch of items first make sure they are all highlighted
+;; with the same background colour (doesn't matter if they have different brightness levels), and then press the
+;; appropriate special key (press f1 for help). You will be prompted for an item in the group, and whether or not
+;; you want to also kill (cut) the items from the current menu. The items will be saved in `one-key-copied-items' and
+;; can be then be yanked (pasted) into another menu.
+;; Any further copy/kills will overwrite the value of `one-key-copied-items', and you cannot retrieve previous kills
+;; so take care.
+;; You can also reposition items in a menu:
+;;    1) press the appropriate specialkey
+;;    2) press the key of the item to be moved
+;;    3) use the up/down arrow keys to move the item
+;;    4) exit one-key to fix the item
+
 
 ;;; Installation:
 ;;
 ;; Put one-key.el in a directory in your load-path, e.g. ~/.emacs.d/
 ;; You can add a directory to your load-path with the following line in ~/.emacs
 ;; (add-to-list 'load-path (expand-file-name "~/elisp"))
-;; where ~/elisp is the directory you want to add 
+;; where ~/elisp is the directory you want to add
 ;; (you don't need to do this for ~/.emacs.d - it's added by default).
 ;;
-;; Add the following to your ~/.emacs startup file.
+;; Add the following to your ~/.emacs startup file, replacing <menu> with whatever key you
+;; want to use to open the *One-Key* buffer.
 ;;
 ;; (require 'one-key)
+;; (global-set-key (kbd "<menu>") 'one-key-open-default-menu-set)
+;;
+;; You can define new menu sets by customizing `one-key-sets-of-menus-alist', and change the default
+;; menu set by customizing `one-key-default-menu-set'.
+;; You can try out new menus by pressing the special key for "Add a menu" from the *One-Key* buffer
+;; (press f1 in the *One-Key* buffer to see a list of all special keybindings).
 ;;
 ;; Because this library uses a special implementation,
 ;; sometimes a `max-lisp-eval-depth' or `max-specpdl-size' error can occur.
-;;
 ;; So making the above two variables larger will reduce the probability that an error occurs.
 ;; E.g:
 ;;
@@ -240,30 +203,55 @@
 
 ;;; Customize:
 ;;
-;; `one-key-buffer-name' : the buffer name of the popup menu.
-;; `one-key-menu-window-max-height' : the maximal height use in popup window.
-;; `one-key-keystroke-face' : face for highlighting keystroke
-;; `one-key-auto-load-menus' : if t then automatically load one-key menus from `one-key-menus-location'
-;; `one-key-menus-location' : location in which one-key menus will be stored
-;; `one-key-menus-regexp' : regexp to match filenames of one-key menus
-;; `one-key-mode-alist' : An alist of major-mode, one-key menu pairs to set the default menu for each major-mode.
-;; `one-key-toplevel-alist' : A list of key items for the toplevel menu.
-;; `one-key-popup-window' : whether to popup window when first time run, default is `t'.
-;; `one-key-prompt-face' : face for highlighting prompt
-;; `one-key-template-buffer-name' : the buffer name of the template code.
-;; `one-key-name-face' : face for highlighting name
-;; `one-key-default-special-keybindings' : special keybindings and associated descriptions and functions that apply to
-;;                                 all `one-key' menus
+;; `one-key-default-menu-keys' : A list of chars which may be used as the default keys in automatically generated 
+;;                               `one-key' menus.
+;; `one-key-min-keymap-submenu-size' : The minimum number of elements allowed in a submenu when creating menus from 
+;;                                     keymaps.
+;; `one-key-popup-window' : Whether to popup window when `one-key-menu' is run for the first time.
+;; `one-key-buffer-name' : The buffer name of the popup menu window.
+;; `one-key-column-major-order' : If true then menu items are displayed in column major order, otherwise row major order.
+;; `one-key-menu-window-max-height' : The max height of popup menu window.
+;; `one-key-menus-save-file' : The file where `one-key' menus are saved.
+;; `one-key-autosave-menus' : If non-nil then one-key menus will automatically be saved when created or changed.
+;; `one-key-exclude-from-save' : List of regular expressions matching names of menus which should not be autosaved.
+;; `one-key-include-menubar-items' : Whether or not to include menu items with no keybinding when creating one-key menus 
+;;                                   from keymaps.
+;; `one-key-item-foreground-colour' : Foreground colour of highlighted items in `one-key' menus.
+;; `one-key-auto-brighten-used-keys' : If non-nil then set brightness of menu items colours according to how often the 
+;;                                     keys are pressed.
+;; `one-key-submenus-replace-parents' : If non-nil then when a submenu of a `one-key' menu is opened it will replace the 
+;;                                      parent menu.
+;; `one-key-major-mode-remap-alist' : A list of cons cells mapping major modes to one-key-menus.
+;; `one-key-toplevel-alist' : The `one-key' top-level alist.
+;; `one-key-sets-of-menus-alist' : Saved menu sets (sets of menus).
+;; `one-key-default-menu-set' : The default menu set. It's value should be the car of one of the items in 
+;;                              `one-key-sets-of-menus-alist'.
+;; `one-key-default-sort-method-alist' : An alist of sorting methods to use on the `one-key' menu items.
+;; `one-key-special-keybindings' : An list of special keys; labels, keybindings, descriptions and associated functions.
+;; `one-key-default-special-keybindings' : List of special keys to be used if no other set of special keys is defined for 
+;;                                         a given one-key menu type.
+;; `one-key-menu-sets-special-keybindings' : List of special keys to be used for menu-sets menus (see 
+;;                                           `one-key-default-special-keybindings' for more info).
+;; `one-key-disallowed-keymap-menu-keys' : List of keys that should be excluded from one-key menus created from keymaps.
+;; `one-key-types-of-menu' : A list of names of different types of `one-key' menu, and associated functions.
+;; `one-key-persistent-menu-number' : If non-nil then when the default menu set is opened it will start with the same 
+;;                                    menu as when previously opened.
+;; `one-key-mode-line-message' : Form that when evaluated should produce a string for the mode-line in the *One-Key* 
+;;                               buffer.
 
 ;; All above options can be customized through:
 ;;      M-x customize-group RET one-key RET
 ;;
 
 ;;; Change log:
+;;
+;; 2012/07/04
+;;    * Joe Bloggs
+;;       * This Change log is not being maintained anymore. Refer to the git log instead.
 ;; 2012/04/05
 ;;    * Joe Bloggs
-;;    * Lots of changes! I have not been keeping track of them all.
-;;    * Removed `one-key-items-per-line'
+;;       * Lots of changes! I have not been keeping track of them all.
+;;       * Removed `one-key-items-per-line'
 ;;
 ;; 2012/3/01
 ;;    * Joe Bloggs
@@ -408,8 +396,6 @@
 ;;
 ;; Change `one-key-special-keybindings' data structure so that a keybinding may also be specified by a symbol for another
 ;; special keybinding, indicating that the keybinding corresponding with that symbol should be used.
-;; Finish `one-key-copy/kill-items' function and kill-items special keybinding, and create new function (and corresponding
-;; special keybinding) `one-key-yank-items'.
 ;; Make functions autoloadable.
 ;; Prompt to save submenus when saving menu. Special keybinding to save all altered menus?
 ;; Autohighlighting of menu items using regexp associations?
@@ -460,8 +446,9 @@ those items will be merged with the parent menu instead."
   :group 'one-key)
 
 (defcustom one-key-column-major-order t
-  "If true then menu items are displayed in column major order (i.e. items will fill first column,
-then second, etc.). Otherwise menu items are displayed in row major order."
+  "If true then menu items are displayed in column major order, otherwise row major order.
+In column major order items will fill first column, then second, etc.
+In row major order the rows are filled one at a time."
   :type 'boolean
   :group 'one-key)
 
@@ -491,7 +478,7 @@ then second, etc.). Otherwise menu items are displayed in row major order."
   :group 'one-key)
 
 (defcustom one-key-include-menubar-items t
-  "Wheter or not to include menu items with no keybinding when creating one-key menus from keymaps."
+  "Whether or not to include menu items with no keybinding when creating one-key menus from keymaps."
   :type '(choice (const :tag "Yes" t)
                  (const :tag "No" nil)
                  (const :tag "Prompt each time" 'prompt))
@@ -603,7 +590,7 @@ the first item should come before the second in the menu."
                 :value-type (function :help-echo "Predicate that returns non-nil if 1st item comes before 2nd"))
   :group 'one-key)
 
-(defcustom one-key-special-keybindings  
+(defcustom one-key-special-keybindings
   '((quit-close "ESC" "Quit and close menu window" (lambda nil (keyboard-quit) nil))
     (quit-open"<C-escape>" "Quit, but keep menu window open"
               (lambda nil (setq keep-window-p t) nil))
@@ -631,7 +618,7 @@ the first item should come before the second in the menu."
                                  (setq one-key-menu-call-first-time t))) t))
     (up "<up>" "Scroll/move up one line" (lambda nil (one-key-scroll-or-move-up info-alist full-list) t))
     (down "<down>" "Scroll/move down one line" (lambda nil (one-key-scroll-or-move-up info-alist full-list t) t))
-    (scroll-down "<prior>" "Scroll menu down one page" (lambda nil (one-key-menu-window-scroll-up t) t))    
+    (scroll-down "<prior>" "Scroll menu down one page" (lambda nil (one-key-menu-window-scroll-up t) t))
     (scroll-up "<next>" "Scroll menu up one page" (lambda nil (one-key-menu-window-scroll-up) t))
     (help "C-h" "Show help for next item chosen"
           (lambda nil
@@ -1404,7 +1391,7 @@ lists in INFO-ALISTS.
 INFO-ALISTS is either a list of menu items, a list of such lists or a symbol whose value is a list or list of lists.
 Each item in a menu list is of the form: ((key . description) . command).
 If INFO-ALISTS is a list then MENU-NUMBER should be an index (starting at 0) indicating which list to display
-initially (default is 0), otherwise it should be nil. 
+initially (default is 0), otherwise it should be nil.
 The user can switch between the menu lists by pressing the appropriate keys in `one-key-default-special-keybindings'.
 If KEEP-WINDOW-P is non-nil then the menu window will be kept open even after exiting.
 If EXECUTE-WHEN-MISS-MATCH-P is nil then keys not matching menu items or `one-key-default-special-keybindings' will be ignored, otherwise the associated commands in the current keymaps will be executed.
@@ -1425,7 +1412,7 @@ If FILTER-REGEX is non-nil then only menu items whose descriptions match FILTER-
                          (nth menu-number info-alists)
                        info-alists))
          (issymbol (symbolp info-alist))
-         (full-list (if issymbol 
+         (full-list (if issymbol
                         (eval info-alist)
                       info-alist))
          (this-name (if (stringp names) names
@@ -1535,7 +1522,7 @@ If FILTER-REGEX is non-nil then only menu items whose descriptions match FILTER-
       (if keep-window-p (if (equal (buffer-name (window-buffer)) one-key-buffer-name) (other-window -1))
         (one-key-menu-window-close))
       ;; Finally, execute `protect-function' if it's a valid function.
-      (if (and protect-function 
+      (if (and protect-function
                (commandp protect-function))
           (call-interactively protect-function)))
     ;; propagate the value of `keep-window-p' back down the stack
@@ -1696,7 +1683,7 @@ Argument INFO-ALIST is the alist of keys and associated decriptions and function
                     ;; get current background and foreground colour
                     for (h s v) = (one-key-get-item-colour item nil 'hsv)
                     for fgcol = (one-key-get-item-colour item t)
-                    ;; update value of background colour 
+                    ;; update value of background colour
                     for newbgcol = (hexrgb-hsv-to-hex h s vval) do
                     (setf (cdar item)
                           (propertize desc 'face (list :background newbgcol
@@ -1832,7 +1819,7 @@ These keys will only be excluded from the toplevel menu, not the submenus."
     ;; loop over the items in the keymap which have keybindings
     (loop for key being the key-codes of keymap2 using (key-bindings bind)
           for itemiscons = (not (listp (cdr bind)))
-          ;; if the item is a keymap (to be used as a submenu), extract it 
+          ;; if the item is a keymap (to be used as a submenu), extract it
           for itemkeymap = (if (not itemiscons)
                                (let ((pos (position 'keymap bind)))
                                  (if pos (nthcdr pos bind)
@@ -1855,7 +1842,7 @@ These keys will only be excluded from the toplevel menu, not the submenus."
                                             (replace-regexp-in-string "-" " " (symbol-name itemcmd)))
                                          "unknown"))))
                          ;; if the item is a submenu highlight it, otherwise don't
-                         (cond (itemkeymap 
+                         (cond (itemkeymap
                                 (propertize str 'face
                                             (list :background "cyan"
                                                   :foreground one-key-item-foreground-colour)))
@@ -1883,7 +1870,7 @@ These keys will only be excluded from the toplevel menu, not the submenus."
                                (push (car submenuitems) menu-alist)
                                (unintern varname)
                                nil))))
-          for skip = (string-match "^--" desc) 
+          for skip = (string-match "^--" desc)
           unless (or skip (not cmd)) do ; skip menu divider and null items
           ;; add the item to the one-key menu list
           (push (cons (cons keystr desc) cmd) menu-alist)
@@ -1920,7 +1907,7 @@ created for them."
                         "-map$" "" (symbol-name keymap))
                      "unknown")))
          (keymap1 (if (symbolp keymap) (eval keymap) keymap)) ;get the keymap value
-         (menubar (lookup-key keymap1 [menu-bar])) ;get any menu-bar items 
+         (menubar (lookup-key keymap1 [menu-bar])) ;get any menu-bar items
          (mainvar (intern (concat "one-key-menu-" name "-alist"))) ;variable to hold the main menu
          usedkeys menu-alist)
     ;; loop over the keys in the keymap
@@ -1949,7 +1936,7 @@ created for them."
                            (desc1a (replace-regexp-in-string keymapnameregex "" desc1))
                            (desc1b (capitalize (replace-regexp-in-string "-" " " desc1a)))
                            (desc2 (concat desc1b " (" keydesc ")"))
-                           ;; if the key is invalid, generate a new one 
+                           ;; if the key is invalid, generate a new one
                            (keystr2 (if (member keystr one-key-disallowed-keymap-menu-keys)
                                         (one-key-generate-key desc2 usedkeys)
                                       keystr)))
@@ -1967,20 +1954,20 @@ created for them."
                            (desc3 (propertize desc2 'face
                                             (list :background "cyan"
                                                   :foreground one-key-item-foreground-colour)))
-                           ;; if the key is invalid, generate a new one 
+                           ;; if the key is invalid, generate a new one
                            (keystr2 (if (member keystr one-key-disallowed-keymap-menu-keys)
                                         (one-key-generate-key desc2 usedkeys)
                                       keystr)))
                       ;; if a submenu for this prefix key has already been created then merge this one with it
                       (if (member keystr usedkeys)
-                          (let ((existingvar (intern-soft 
+                          (let ((existingvar (intern-soft
                                               (concat "one-key-menu-" submenuname "-alist")))
                                 (menuvar (one-key-create-menus-from-keymap
                                           cmd (concat submenuname "temp") keydesc)))
                             (set existingvar (one-key-merge-menu-lists (eval existingvar) (eval menuvar)))
                             ;; delete the temporary variable
                             (unintern (symbol-name menuvar)))
-                        ;; otherwise call this function recursively to create a new submenu 
+                        ;; otherwise call this function recursively to create a new submenu
                         (let* ((menuvar (one-key-create-menus-from-keymap cmd submenuname keydesc))
                                ;; number of items in the submenu
                                (numnewitems (length (eval menuvar))))
@@ -2011,7 +1998,7 @@ created for them."
 
 (defun one-key-generate-key (desc &optional usedkeys elements trykey)
   "Return a key for the menu item whose description string is DESC.
-The generated key can be used in a `one-key' menu. 
+The generated key can be used in a `one-key' menu.
 If provided, ELEMENTS should be a list of keys to choose from, (otherwise `one-key-default-menu-keys' will be used),
 USEDKEYS should be a list of keys which cannot be used (since they have already be used),
 and TRYKEY is a key which will be returned if it is not in USEDKEYS (otherwise another key will be found).
@@ -2076,7 +2063,7 @@ COMMANDS should be a list of commands for the menu items, and KEYS an optional c
 If any element in KEYS is nil, or if KEYS is nil, then KEYFUNC will be used to generate a key for the item.
 DESCRIPTIONS is an optional argument which should contain a list of descriptions for the menu items.
 If any of the items in DESCRIPTIONS is nil or if DESCRIPTIONS is not supplied then the item will have its description
-set from the corresponding command name. 
+set from the corresponding command name.
 If the number of menu items is larger than MAXSIZE then several menus will be created, each of
 which contains at most MAXSIZE items. By default MAXSIZE is equal to the length of `one-key-default-menu-keys',
 and KEYFUNC is set to `one-key-generate-key' (which selects keys from `one-key-default-menu-keys')."
@@ -2235,7 +2222,7 @@ major mode) exists then it will be used, otherwise it will be created."
          (keystr2 (propertize "normal menu set"
                               'face (list :background col2b
                                           :foreground one-key-item-foreground-colour))))
-    (concat keystr1 keystr2 "\n" 
+    (concat keystr1 keystr2 "\n"
             (format "Sorted by %s (%s first). Press <f1> for help.\n"
                     one-key-current-sort-method
                     (if one-key-column-major-order "columns" "rows")))))
