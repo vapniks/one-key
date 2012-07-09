@@ -167,6 +167,20 @@ in the menu.")
   "Filesystem navigation using `one-key'."
   :group 'one-key)
 
+(defcustom one-key-dir-default-file-func 'find-file
+  "Default function to use for opening files from within a `one-key-dir' menu.
+The function should take a single argument - the name of the file to be opened/operated on."
+  :group 'one-key-dir
+  :type 'function)
+
+(defcustom one-key-dir-default-dir-func 'find-file
+  "Default function to use for opening the current directory from within a `one-key-dir' menu.
+The function should take a single argument - the name of the file to be opened/operated on.
+Note: this is only used when opening the current directory. Child or parent directories are opened recursively
+with `one-key-dir-visit'."
+  :group 'one-key-dir
+  :type 'function)
+
 (defcustom one-key-dir-parentdir-key ?^
   "Key that will be used to return to the parent directory.
 This should not be a letter or number key."
@@ -212,7 +226,7 @@ but can't go above this dir."
                toggle-help toggle-row/column-order sort-dir-next sort-dir-prev reverse-order limit-items highlight-items
                add-menu remove-menu move-item)
   "List of special keys to be used for one-key-dir menus (see `one-key-default-special-keybindings' for more info)."  
-  :group 'one-key
+  :group 'one-key-dir
   :type '(repeat (symbol :tag "Name" :help-echo "The name/symbol corresponding to the keybinding.")))
   
 (defun one-key-dir-sort-by-next-method (&optional prev)
@@ -236,12 +250,8 @@ If PREV is non-nil then sort by the previous method instead."
     (one-key-menu-window-close)))
 
 (defun* one-key-dir-visit (dir &key
-                               (filefunc (lambda nil
-                                           (interactive)
-                                           (find-file one-key-dir-current-filename)))
-                               (dirfunc (lambda nil
-                                          (interactive)
-                                          (find-file one-key-dir-current-filename)))
+                               (filefunc one-key-dir-default-file-func)
+                               (dirfunc one-key-dir-default-dir-func)
                                filename-map-func
                                (exclude-regex "^\\."))
   "Visit DIR using one-key.
@@ -256,7 +266,9 @@ in the directory tree."
   (unless (file-directory-p dir)
     (error "one-key-dir-visit called with a non-directory"))
   (unless (functionp filefunc)
-    (error "one-key-dir-visit called with a non-function."))
+    (error "one-key-dir-visit called with a non-function for filefunc."))
+  (unless (functionp dirfunc)
+    (error "one-key-dir-visit called with a non-function for dirfunc."))
   (unless (one-key-dir/legal-dir-p dir)
     (error "one-key-dir-visit called with an illegal directory."))
   (setq one-key-dir-current-dir dir)
@@ -274,12 +286,8 @@ in the directory tree."
     (setq max-lisp-eval-depth old-max-lisp-eval-depth)))
 
 (defun* one-key-dir/build-menu-alist (dir &key
-                                          (filefunc (lambda nil
-                                                      (interactive)
-                                                      (find-file one-key-dir-current-filename)))
-                                          (dirfunc (lambda nil
-                                                     (interactive)
-                                                     (find-file one-key-dir-current-filename)))
+                                          (filefunc one-key-dir-default-file-func)                                          
+                                          (dirfunc one-key-dir-default-dir-func)
                                           filename-map-func
                                           (exclude-regex "^\\.")
                                           (initial-sort-method 'extension))
@@ -310,15 +318,14 @@ lists will be returned (as list of lists). These lists can be navigated from the
                           `(lambda nil  ; command for directories
                              (interactive)
                              (one-key-dir-visit
-                              ,item :filefunc ,filefunc
-                              :dirfunc ,dirfunc
+                              ,item :filefunc ',filefunc
+                              :dirfunc ',dirfunc
                               :filename-map-func ,filename-map-func
                               :exclude-regex ,exclude-regex))
                         `(lambda nil    ; command for files
                            (interactive)
-                           (setq one-key-dir-current-filename
-                                 ,(file-truename item))
-                           (funcall ,filefunc)))))
+                           (setq one-key-dir-current-filename ,(file-truename item))
+                           (funcall ',filefunc one-key-dir-current-filename)))))
            (commands (mapcar cmdfunc items))
            (descfunc (lambda (item)
                        (let ((name (file-name-nondirectory item)))
@@ -331,14 +338,14 @@ lists will be returned (as list of lists). These lists can be navigated from the
                                              one-key-dir/max-items-per-page))
            (thisdircmd `(lambda nil (interactive)
                           (setq one-key-dir-current-filename ,dirname)
-                          (funcall ,dirfunc)))
+                          (funcall ',dirfunc one-key-dir-current-filename)))
            (updircmd `(lambda nil (interactive)
                         (one-key-dir-visit ,(file-name-directory (file-truename
                                                                   (if (equal (substring dir -1) "/")
                                                                       (substring dir 0 -1)
                                                                     dir)))
-                                           :filefunc ,filefunc
-                                           :dirfunc ,dirfunc
+                                           :filefunc ',filefunc
+                                           :dirfunc ',dirfunc
                                            :filename-map-func ,filename-map-func
                                            :exclude-regex ,exclude-regex))))
       (loop for menu in-ref menus do
@@ -390,7 +397,7 @@ Hidden and backup files and directories are not included."
 (one-key-add-to-alist 'one-key-types-of-menu
                       (list (lambda (name)
                               "This type accepts the path to any existing directory"
-                              (let ((dir (car (string-split name " "))))
+                              (let ((dir (car (string-split (or name "") " "))))
                                              (if (file-directory-p dir) dir)))
                             (lambda (name)
                               (let* ((alists (one-key-dir/build-menu-alist name))
