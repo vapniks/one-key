@@ -18,7 +18,7 @@
 ;;
 ;; Features that might be required by this library:
 ;;
-;; `cl' `hexrgb'
+;; `cl' `hexrgb' `reporter' `browse-url'
 ;;
 
 ;;; This file is NOT part of GNU Emacs
@@ -200,6 +200,10 @@
 ;; (setq max-lisp-eval-depth 10000)
 ;; (setq max-specpdl-size 10000)
 ;;
+
+;;; Bug reporting
+;;
+;; To report a bug: M-x one-key-submit-bug-report, or press the appropriate special key 
 
 ;;; Customize:
 ;;
@@ -679,6 +683,8 @@ the first item should come before the second in the menu."
                              (setq one-key-menu-call-first-time t)) t))
     (donate "<f11>" "Donate to support further development"
             (lambda nil (browse-url "http://onekeydonate.dynalias.net")))
+    (report-bug "<C-f11>" "Report a bug"
+                one-key-submit-bug-report)
     (show-menusets "C-h" "Show menus in menu set"
                    (lambda nil
                      (let* ((key (read-key "Enter the key for the menu set"))
@@ -729,7 +735,8 @@ types. See `one-key-default-special-keybindings' for example."
 (defcustom one-key-default-special-keybindings
   '(quit-close quit-open toggle-persistence toggle-display next-menu prev-menu up down scroll-down scroll-up help
                save-menu toggle-help toggle-row/column-order sort-next sort-prev reverse-order limit-items highlight-items
-               edit-item delete-item kill-items yank-items swap-keys add-item add-menu remove-menu move-item donate)
+               edit-item delete-item kill-items yank-items swap-keys add-item add-menu remove-menu move-item
+               donate report-bug)
   "List of special keys to be used if no other set of special keys is defined for a given one-key menu type.
 These keys are for performing general tasks on the menu such as sorting items, deleting items, etc.
 Each element of this list is a reference to one of the keybindings defined in `one-key-special-keybindings'.
@@ -740,7 +747,7 @@ The keys will be displayed in the one-key help buffer in the order shown when th
 (defcustom one-key-menu-sets-special-keybindings
   '(quit-close quit-open toggle-persistence toggle-display next-menu prev-menu up down scroll-down scroll-up show-menusets
                customize-menusets toggle-help toggle-row/column-order sort-next sort-prev reverse-order limit-items
-               highlight-items change-default-menuset add-menu remove-menu donate)
+               highlight-items change-default-menuset add-menu remove-menu donate report-bug)
   "List of special keys to be used for menu-sets menus (see `one-key-default-special-keybindings' for more info)."
   :group 'one-key
   :type '(repeat (symbol :tag "Name" :help-echo "The name/symbol corresponding to the keybinding.")))
@@ -906,6 +913,11 @@ containing the name of the buffer that was displayed when the one-key menu windo
                                          msg)))
   "Default message for one-key menus, prompting for donations.")
 
+(defvar one-key-maintainer-email "vapniks@yahoo.com"
+  "Email address of current maintainer.")
+
+(defvar one-key-version "0.7.1"
+  "Version number of this version of one-key")
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Interactive Functions ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun one-key-show-help (special-keybindings)
@@ -2249,6 +2261,59 @@ major mode) exists then it will be used, otherwise it will be created."
                     one-key-current-sort-method
                     (if one-key-column-major-order "columns" "rows")))))
 
+(defun one-key-submit-bug-report nil
+  "Submit a bug report for one-key via mail."
+  (interactive)
+  (require 'reporter)
+  (let ((reporter-prompt-for-summary-p "Bug report subject: "))
+    (reporter-submit-bug-report
+     one-key-maintainer-email
+     (concat "one-key version " one-key-version)
+     (list 'one-key-altered-menus
+           'one-key-auto-brighten-used-keys
+           'one-key-autosave-menus
+           'one-key-buffer-name
+           'one-key-column-major-order
+           'one-key-copied-items
+           'one-key-current-item-being-moved
+           'one-key-current-sort-method
+           'one-key-current-window-state
+           'one-key-default-menu-keys
+           'one-key-default-menu-number
+           'one-key-default-menu-set
+           'one-key-default-sort-method-alist
+           'one-key-default-special-keybindings
+           'one-key-default-title-func
+           'one-key-disallowed-keymap-menu-keys
+           'one-key-exclude-from-save
+           'one-key-include-menubar-items
+           'one-key-item-foreground-colour
+           'one-key-major-mode-remap-alist
+           'one-key-menu-call-first-time
+           'one-key-menu-sets-special-keybindings
+           'one-key-menu-show-key-help
+           'one-key-menu-window-configuration
+           'one-key-menu-window-max-height
+           'one-key-menus-save-file
+           'one-key-min-keymap-submenu-size
+           'one-key-mode-line-format
+           'one-key-mode-line-message
+           'one-key-null-keys
+           'one-key-persistent-menu-number
+           'one-key-popup-window
+           'one-key-sets-of-menus-alist
+           'one-key-special-keybindings
+           'one-key-submenus-replace-parents
+           'one-key-toplevel-alist
+           'one-key-types-of-menu)
+     nil nil
+     "Remember to cover the basics, that is, what you expected to happen and
+what in fact did happen.  You don't know how to make a good report?  See
+
+http://www.gnu.org/software/emacs/manual/html_node/emacs/Understanding-Bug-Reporting.html
+------------------------------------------------------------------------")))
+
+    
 ;; Set one-key menu types
 (one-key-add-to-alist 'one-key-types-of-menu
                       (list "top-level"
