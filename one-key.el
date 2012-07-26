@@ -394,6 +394,7 @@
 
 ;;; TODO
 ;;
+;; New special keybinding for limiting by regexp all items in current menu and all submenus?
 ;; Change `one-key-special-keybindings' data structure so that a keybinding may also be specified by a symbol for another
 ;; special keybinding, indicating that the keybinding corresponding with that symbol should be used.
 ;; Make functions autoloadable.
@@ -676,6 +677,8 @@ the first item should come before the second in the menu."
                                        (read-key "Enter key of item to be moved"))))
                              (setq one-key-current-item-being-moved key)
                              (setq one-key-menu-call-first-time t)) t))
+    (donate "<f11>" "Donate to support further development"
+            (lambda nil (browse-url "http://onekeydonate.dynalias.net")))
     (show-menusets "C-h" "Show menus in menu set"
                    (lambda nil
                      (let* ((key (read-key "Enter the key for the menu set"))
@@ -726,7 +729,7 @@ types. See `one-key-default-special-keybindings' for example."
 (defcustom one-key-default-special-keybindings
   '(quit-close quit-open toggle-persistence toggle-display next-menu prev-menu up down scroll-down scroll-up help
                save-menu toggle-help toggle-row/column-order sort-next sort-prev reverse-order limit-items highlight-items
-               edit-item delete-item kill-items yank-items swap-keys add-item add-menu remove-menu move-item)
+               edit-item delete-item kill-items yank-items swap-keys add-item add-menu remove-menu move-item donate)
   "List of special keys to be used if no other set of special keys is defined for a given one-key menu type.
 These keys are for performing general tasks on the menu such as sorting items, deleting items, etc.
 Each element of this list is a reference to one of the keybindings defined in `one-key-special-keybindings'.
@@ -737,17 +740,22 @@ The keys will be displayed in the one-key help buffer in the order shown when th
 (defcustom one-key-menu-sets-special-keybindings
   '(quit-close quit-open toggle-persistence toggle-display next-menu prev-menu up down scroll-down scroll-up show-menusets
                customize-menusets toggle-help toggle-row/column-order sort-next sort-prev reverse-order limit-items
-               highlight-items change-default-menuset add-menu remove-menu)
+               highlight-items change-default-menuset add-menu remove-menu donate)
   "List of special keys to be used for menu-sets menus (see `one-key-default-special-keybindings' for more info)."
   :group 'one-key
   :type '(repeat (symbol :tag "Name" :help-echo "The name/symbol corresponding to the keybinding.")))
 
 (defun one-key-get-special-key-descriptions (specialkeys)
-  "Given a list of symbols from `one-key-special-keybindings', return a corresponding list of key descriptions.
-This can be used to find out which special keys are used for a particular one-key menu type."
-  (loop for symb in specialkeys
-        for item = (assoc symb one-key-special-keybindings)
-        collect (cadr item)))
+  "Given a symbol or list of symbols from `one-key-special-keybindings', return the corresponding key descriptions.
+This can be used to find out which special keys are used for a particular one-key menu type.
+If `specialkeys' is a single symbol then a single string will be returned.
+If `specialkeys' is a list then a list of strings will be returned."
+  (if (listp specialkeys)
+      (loop for symb in specialkeys
+            for item = (assoc symb one-key-special-keybindings)
+            collect (cadr item))
+    (if (symbolp specialkeys)
+        (cadr (assoc specialkeys one-key-special-keybindings)))))
 
 (defcustom one-key-disallowed-keymap-menu-keys (nconc '("M-TAB")
                                                       (one-key-get-special-key-descriptions
@@ -761,27 +769,28 @@ Each item in this list is a key description as returned by `one-key-key-descript
   "A list of names of different types of `one-key' menu, and associated functions.
 Each item in the list contains (in this order):
 
-  1) Either a name for the menu type or a function which takes a name as its only argument and if that name corresponds
-     to this menu type it should return a new name or list of names for the menu/menus returned by the next item in the
-     list.
+  1) The name for this menu type.
 
-  2) A function which takes the menu name as its only argument and returns a cons cell whose car is the new name or list
+  2) A function which takes a string as its only argument and returns non-nil if that string corresponds to the name of
+     a menu of this type, otherwise it returns nil.
+
+  3) A function which takes the menu name as its only argument and returns a cons cell whose car is the new name or list
      of names for the menus, and whose cdr is a menu alist, a symbol whose value is a menu alist, or a list of symbols
      and/or menu alists. The number of names returned in the car should be equal to the number of menu alists/symbols
      returned in the cdr.
 
-  3) An function that takes no arguments and returns a title string for the `one-key' menu in the same form as
+  4) An function that takes no arguments and returns a title string for the `one-key' menu in the same form as
      `one-key-default-title-format-string'. The function will be evaluated in the context of the `one-key-highlight-menu'
      function, and will be processed by `one-key-highlight' before display.
      You should look at the `one-key-highlight-menu' function to see which variables may be used in this format string.
      Alternatively if this item is nil then `one-key-default-title-format-string' will be used.
 
-  4) Either a list of special keybindings in the same form as `one-key-default-special-keybindings', or a symbol
+  5) Either a list of special keybindings in the same form as `one-key-default-special-keybindings', or a symbol
      whose value is such a list, or nil. If nil then `one-key-default-special-keybindings' will be used."
-  :type '(repeat (list (choice (string :tag "Name"
-                                       :help-echo "A name for this menu type.")
-                               (function :tag "Condition"
-                                         :help-echo "A function which returns the new menu name(s) when passed a name corresponding to this type, and returns nil otherwise."))
+  :type '(repeat (list (string :tag "Name"
+                               :help-echo "A name for this menu type.")
+                       (function :tag "Condition"
+                                 :help-echo "A function which returns the new menu name(s) when passed a name corresponding to this type, and returns nil otherwise.")
                        (choice (symbol :tag "Menu alist symbol(s)"
                                        :help-echo "A symbol whose value is a menu alist of keys for menus of this type, or a list of such menus.")
                                (function :tag "Menu alist function"
@@ -885,6 +894,17 @@ containing the name of the buffer that was displayed when the one-key menu windo
        #("-%-" 0 3
          (help-echo "mouse-1: Select (drag to resize)\nmouse-2: Make current window occupy the whole frame\nmouse-3: Remove current window from display")))))
   "The `mode-line-format' for the *One-Key* buffer.")
+
+(defvar one-key-default-title-func (lambda nil
+                                     (let* ((keystr (one-key-get-special-key-descriptions 'donate))
+                                            (msg (concat "Please press " keystr " to support further development by donating.\n"))
+                                            (len (length msg))
+                                            (dif (- (window-width) len))
+                                            (spc (make-string (/ dif 2) ? )))
+                                       (if (> dif 0)
+                                           (concat spc msg)
+                                         msg)))
+  "Default message for one-key menus, prompting for donations.")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Interactive Functions ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -1207,16 +1227,20 @@ or the list that it points to (if its value is a symbol)."
 
 (defun one-key-get-menu-type (name)
   "Return the element of ``one-key-types-of-menu' corresponding to menu with name NAME, or nil if none exists."
-  (assoc-if (lambda (x) (or (equal x name)
-                            (and (functionp x)
-                                 (funcall x name))))
-            one-key-types-of-menu))
+  (find-if (lambda (x)
+             (let ((one (first x))
+                   (two (second x)))
+               (or (equal one name) 
+                   (and (functionp two)
+                        (funcall two name)))))
+           one-key-types-of-menu))
 
 (defun one-key-get-menus-for-type (name)
   "Given the name of an existing menu or menu type in `one-key-types-of-menu', return associated names and menu alists.
 If no such menu or menu type exists, return nil."
   (let* ((listname (concat "one-key-menu-" name "-alist"))
-         (func (or (second (one-key-get-menu-type name))
+         (type (one-key-get-menu-type name))
+         (func (or (third type)
                    (loop for sym being the symbols
                          for symname = (symbol-name sym)
                          when (equal listname symname)
@@ -1225,10 +1249,8 @@ If no such menu or menu type exists, return nil."
     (if (functionp func) (funcall func name) func)))
 
 (defun one-key-prompt-for-menu nil
-  "Prompt the user for a `one-key' menu type."
-  (let* ((alltypes (remove nil
-                           (mapcar (lambda (x) (let ((y (car x))) (if (stringp y) y)))
-                                   one-key-types-of-menu)))
+  "Prompt the user for a `one-key' menu type, and return menu name(s) and menu alist(s)."
+  (let* ((alltypes (remove nil (mapcar 'car one-key-types-of-menu)))
          (type (if (featurep 'ido)
                    (ido-completing-read "Menu type: " alltypes)
                  (completing-read "Menu type: " alltypes))))
@@ -1359,7 +1381,7 @@ Also create header-line from NAMES (a list of menu names), highlighting the MENU
 MENU-NUMBER should be the number of the currently selected menu in the NAMES list, or nil if NAMES contains
 a single menu name."
   (let* ((name (if menu-number (nth menu-number names) names))
-         (title-func (third (one-key-get-menu-type name)))
+         (title-func (or (fourth (one-key-get-menu-type name)) one-key-default-title-func))
          (infoline (if title-func (one-key-highlight (funcall title-func)
                                                      "\\(<[^<>]*>\\|'[^']*'\\)" '(face one-key-name))
                      nil))
@@ -1424,7 +1446,7 @@ If FILTER-REGEX is non-nil then only menu items whose descriptions match FILTER-
                              full-list)
                           full-list))
          ;; the special keybindings for this menu
-         (special-keybindings-var (or (fourth (one-key-get-menu-type this-name))
+         (special-keybindings-var (or (fifth (one-key-get-menu-type this-name))
                                       one-key-default-special-keybindings))
          (special-keybindings (one-key-assq-list (if (symbolp special-keybindings-var)
                                                      (eval special-keybindings-var)
@@ -2230,30 +2252,37 @@ major mode) exists then it will be used, otherwise it will be created."
 ;; Set one-key menu types
 (one-key-add-to-alist 'one-key-types-of-menu
                       (list "top-level"
+                            (lambda (name) (equal name "top-level"))
                             (cons "top-level" 'one-key-toplevel-alist)
-                            nil nil) t)
+                            one-key-default-title-func nil) t)
 (one-key-add-to-alist 'one-key-types-of-menu
                       (list "blank menu"
+                            (lambda (name) (equal name "blank menu"))
                             'one-key-create-blank-menu
-                            nil nil) t)
+                            one-key-default-title-func nil) t)
 (one-key-add-to-alist 'one-key-types-of-menu
                       (list "major-mode"
+                            (lambda (name) (string-match "-mode$" name))
                             'one-key-get-major-mode-menu
-                            nil nil) t)
+                            one-key-default-title-func nil) t)
 (one-key-add-to-alist 'one-key-types-of-menu
                       (list "existing menu"
+                            (lambda (name) (equal name "existing menu"))
                             'one-key-retrieve-existing-menu
-                            nil nil) t)
+                            one-key-default-title-func nil) t)
 (one-key-add-to-alist 'one-key-types-of-menu
                       (list "existing keymap"
+                            (lambda (name) (equal name "existing keymap"))
                             'one-key-create-menu-from-existing-keymap
-                            nil nil) t)
+                            one-key-default-title-func nil) t)
 (one-key-add-to-alist 'one-key-types-of-menu
                       (list "prefix key keymap"
+                            (lambda (name) (equal name "prefix key keymap"))
                             'one-key-create-menu-from-prefix-key-keymap
-                            nil nil) t)
+                            one-key-default-title-func nil) t)
 (one-key-add-to-alist 'one-key-types-of-menu
                       (list "menu-sets"
+                            (lambda (name) (equal name "menu-sets"))
                             (lambda (name)
                               (cons name (one-key-build-menu-sets-menu-alist)))
                             'one-key-create-menu-sets-title-format-string
