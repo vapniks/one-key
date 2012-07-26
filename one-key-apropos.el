@@ -84,12 +84,11 @@
 
 (defcustom one-key-apropos-special-keybindings
   '(quit-close quit-open toggle-persistence toggle-display next-menu prev-menu up down scroll-down scroll-up
-               toggle-help toggle-row/column-order sort-next sort-prev reverse-order limit-items
-               highlight-items add-menu remove-menu)
+               toggle-help toggle-row/column-order sort-next sort-prev reverse-order apropos limit-items
+               highlight-items edit-item delete-item swap-keys add-menu remove-menu)
   "List of special keys to be used for apropos-command menus (see `one-key-default-special-keybindings' for more info)."
   :group 'one-key
   :type '(repeat (symbol :tag "Name" :help-echo "The name/symbol corresponding to the keybinding.")))
-
 
 (defun one-key-apropos-prompt-for-words nil
   "Prompt the user for a string of words, and return regexp to use for searching commands."
@@ -119,8 +118,10 @@
     (setq apropos-accumulator nil)
     (one-key-create-menu-lists cmds descs2 keys)))
 
+;; Set menu-alist, title string and special keybindings for new `apropos-command' menus
 (one-key-add-to-alist 'one-key-types-of-menu
                       (list "apropos-command"
+                            (lambda (name) (string-match "apropos-command" name))
                             (lambda (name)
                               (let* ((regexp (one-key-apropos-prompt-for-words))
                                      (menus (one-key-apropos-build-menus regexp))
@@ -128,8 +129,7 @@
                                      (names (one-key-append-numbers-to-menu-name name nummenus)))
                                 (cons names menus)))
                             nil
-                            nil) t)
-
+                            'one-key-apropos-special-keybindings) t)
 
 (provide 'one-key-apropos)
 ;;; one-key-apropos.el ends here
