@@ -126,7 +126,6 @@
 ;; Add the following code to your ~/.emacs startup file:
 ;;
 ;; (require 'one-key-regs)
-;; (global-set-key (kbd "<menu>") 'one-key-menu-regs)
 ;;
 ;; You can then add a menu of type `one-key-registers' to the *One-Key* window by pressing the appropriate
 ;; key for adding a menu (press f1 to see the current special keybindings).
@@ -1154,6 +1153,7 @@ Unless NOPROMPT is non-nil the user will be prompted to check if they want to co
 ;; Set the menu-alist, title string format and special keybindings for `one-key-regs' menus
 (one-key-add-to-alist 'one-key-types-of-menu
                       (list "one-key-registers"
+                            (lambda (name) (equal name "one-key-registers"))
                             (cons "one-key-registers" 'one-key-menu-one-key-registers-alist)
                             (lambda nil
                               (if one-key-regs-show-legend
