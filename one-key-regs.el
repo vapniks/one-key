@@ -477,7 +477,8 @@ and COLOUR is the name of the associated colour to use in the `one-key' menu."
   '(quit-close quit-open toggle-persistence toggle-display next-menu prev-menu up down scroll-down scroll-up
                show-register show-register-prefix-keys save-registers merge-registers replace-registers toggle-help
                toggle-row/column-order sort-next sort-prev reverse-order limit-items highlight-items edit-register
-               delete-register clear-registers swap-register-keys add-register add-menu remove-menu move-item)
+               delete-register clear-registers swap-register-keys add-register add-menu remove-menu move-item donate
+               report-bug)
   "List of special keys to be used for one-key-registers menus (see `one-key-default-special-keybindings' for more info)."  
   :group 'one-key-regs
   :type '(repeat (symbol :tag "Name" :help-echo "The name/symbol corresponding to the keybinding.")))
