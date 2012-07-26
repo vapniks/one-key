@@ -393,30 +393,22 @@ Hidden and backup files and directories are not included."
 (defvar one-key-menu-one-key-dir-alist nil
   "Dummy variable used by `one-key-add-menu' to indicate that the user wants to add a `one-key-dir' menu.")
 
-;; Set the title string format and special keybindings for existing `one-key-dir' menus
-(one-key-add-to-alist 'one-key-types-of-menu
-                      (list (lambda (name)
-                              "This type accepts the path to any existing directory"
-                              (let ((dir (car (string-split (or name "") " "))))
-                                             (if (file-directory-p dir) dir)))
-                            (lambda (name)
-                              (let* ((alists (one-key-dir/build-menu-alist name))
-                                     (names (one-key-append-numbers-to-menu-name name (length alists))))
-                                (cons names alists)))
-                            (lambda nil (format "Files sorted by %s (%s first). Press <f1> for help.\n"
-                                           one-key-dir-current-sort-method
-                                           (if one-key-column-major-order "columns" "rows")))
-                            'one-key-dir-special-keybindings) t)
+
 ;; Set menu-alist, title string and special keybindings for new `one-key-dir' menus, prompting the user for the directory
 (one-key-add-to-alist 'one-key-types-of-menu
                       (list "directory menu"
+                            (lambda (name) ;; this type accepts the path to any existing directory
+                              (let ((dir (car (string-split (or name "") " "))))
+                                             (if (file-directory-p dir) dir)))
                             (lambda (name)
-                              (let* ((dir (if (featurep 'ido)
-                                              (ido-read-directory-name "Directory to use: " default-directory)
-                                            (read-directory-name "Directory to use: " default-directory)))
+                              (let* ((dir (if (file-directory-p name) name
+                                            (if (featurep 'ido)
+                                                (ido-read-directory-name "Directory to use: " default-directory)
+                                              (read-directory-name "Directory to use: " default-directory))))
                                      (menulists (one-key-dir/build-menu-alist dir))
-                                     (nummenus (length menulists)))
-                                (cons (one-key-append-numbers-to-menu-name dir nummenus) menulists)))
+                                     (nummenus (length menulists))
+                                     (names (one-key-append-numbers-to-menu-name dir nummenus)))
+                                (cons names menulists)))
                             (lambda nil (format "Files sorted by %s (%s first). Press <f1> for help.\n"
                                                 one-key-dir-current-sort-method
                                                 (if one-key-column-major-order "columns" "rows")))
