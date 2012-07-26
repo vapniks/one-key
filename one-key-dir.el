@@ -224,7 +224,7 @@ but can't go above this dir."
 (defcustom one-key-dir-special-keybindings
   '(quit-close quit-open toggle-persistence toggle-display next-menu prev-menu up down scroll-down scroll-up
                toggle-help toggle-row/column-order sort-dir-next sort-dir-prev reverse-order limit-items highlight-items
-               add-menu remove-menu move-item)
+               add-menu remove-menu move-item donate report-bug)
   "List of special keys to be used for one-key-dir menus (see `one-key-default-special-keybindings' for more info)."  
   :group 'one-key-dir
   :type '(repeat (symbol :tag "Name" :help-echo "The name/symbol corresponding to the keybinding.")))
