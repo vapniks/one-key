@@ -398,8 +398,8 @@ Hidden and backup files and directories are not included."
 (one-key-add-to-alist 'one-key-types-of-menu
                       (list "directory menu"
                             (lambda (name) ;; this type accepts the path to any existing directory
-                              (let ((dir (car (string-split (or name "") " "))))
-                                             (if (file-directory-p dir) dir)))
+                              (let ((dir (substring name 0 -4)))
+                                (file-directory-p dir)))
                             (lambda (name)
                               (let* ((dir (if (file-directory-p name) name
                                             (if (featurep 'ido)
