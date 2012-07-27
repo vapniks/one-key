@@ -752,6 +752,12 @@ The keys will be displayed in the one-key help buffer in the order shown when th
   :group 'one-key
   :type '(repeat (symbol :tag "Name" :help-echo "The name/symbol corresponding to the keybinding.")))
 
+(defun one-key-assq-list (symlist alist)
+  "Return a list of the cdr's of elements of ALIST whose car's match a symbol in SYMLIST.
+The matching is performed with assq so that only the first element of alist matching a symbol in SYMLIST is returned.
+The elements returned will be in the same order as the elements of SYMLIST."
+  (mapcar 'cdr (loop for symbol in symlist collect (assq symbol alist))))
+
 (defun one-key-get-special-key-contents (specialkeys)
   "Given a symbol or list of symbols from `one-key-special-keybindings', return the corresponding contents for each symbol.
 The first element of the contents of each item will be replaced by a key description string by following symbol references
@@ -1944,6 +1950,8 @@ the end (if present).
 Variables will be created for storing the menus, and the variable for the main menu will be returned.
 The main variable will be named one-key-menu-NAME-alist, and the submenus variables will be named
  one-key-menu-NAME-???-alist (where ??? is the name of the submenu).
+If the PREFIX arg is present then key descriptions in the menu will be prefixed by this arg (this is used when the
+function is called recursively).
 
 Any submenus that have fewer than `one-key-min-keymap-submenu-size' items will be merged with their parent menu,
 unless this would create a menu of more than (length one-key-default-menu-keys) items.
@@ -1954,7 +1962,9 @@ created for them."
                        (replace-regexp-in-string
                         "-map$" "" (symbol-name keymap))
                      "unknown")))
-         (keymap1 (if (symbolp keymap) (eval keymap) keymap)) ;get the keymap value
+         (keymap1 (if (functionp keymap) (symbol-function keymap)
+                    (if (symbolp keymap) (eval keymap)
+                      keymap))) ;get the keymap value
          (menubar (lookup-key keymap1 [menu-bar])) ;get any menu-bar items
          (mainvar (intern (concat "one-key-menu-" name "-alist"))) ;variable to hold the main menu
          usedkeys menu-alist)
@@ -2096,12 +2106,6 @@ The new names will be in the form \"MENUNAME (N)\" where N runs over the integer
 This is useful for creating menu types that return multiple menus."
     (loop for num from 1 to nummenus
         collect (concat menuname " (" (number-to-string num) ")")))
-
-(defun one-key-assq-list (symlist alist)
-  "Return a list of the cdr's of elements of ALIST whose car's match a symbol in SYMLIST.
-The matching is performed with assq so that only the first element of alist matching a symbol in SYMLIST is returned.
-The elements returned will be in the same order as the elements of SYMLIST."
-  (mapcar 'cdr (loop for symbol in symlist collect (assq symbol alist))))
 
 (defun* one-key-create-menu-lists (commands &optional descriptions keys
                                             (maxsize (length one-key-default-menu-keys))
@@ -2245,16 +2249,22 @@ major mode) exists then it will be used, otherwise it will be created."
     (one-key-create-menus-from-keymap kmap partname)
     (cons name (intern-soft (concat "one-key-menu-" partname "-alist")))))
 
-(defun one-key-create-menu-from-prefix-key-keymap (name)
+(defun one-key-create-menu-from-prefix-key-keymap (keystr)
   "Prompt the user for a prefix key and return a one-key menu for it along with it's name, in a cons cell."
-  (let* ((keysequence (read-key-sequence "Enter any key sequence that starts with the required prefix keys:"))
-         kmap)
+  (interactive (let ((keystr (read-string "Enter the emacs string representation of the required prefix keys: ")))
+                 (while (not (ignore-errors (read-kbd-macro keystr)))
+                   (setq keystr (read-string "Invalid key sequence! Try again: ")))
+                 (list keystr)))
+  (let (keysequence kmap)
+    (setq keysequence (read-kbd-macro keystr))
     (setq kmap (key-binding keysequence))
     (if (keymapp kmap)
-        (let* ((desc1 (one-key-key-description keysequence))
-               (desc2 (replace-regexp-in-string " " "_" desc1))
-               (desc3 (replace-regexp-in-string "#" "\\\\#" desc2)))
-          (cons desc3 (one-key-create-menus-from-keymap kmap desc3)))
+        (let* ((kmap2 (if (functionp kmap) (symbol-function kmap)
+                        (if (symbolp kmap) (eval kmap) kmap)))
+               (desc1 (replace-regexp-in-string " " "_" keystr))
+               (desc2 (replace-regexp-in-string "#" "\\\\#" desc1))
+               (desc3 (concat "Prefix-Key:" desc2)))
+          (cons desc3 (one-key-create-menus-from-keymap kmap2 desc3 desc2)))
       (error "No keymap is currently associated with that prefix key!"))))
 
 (defun one-key-create-menu-sets-title-format-string nil
@@ -2355,9 +2365,14 @@ http://www.gnu.org/software/emacs/manual/html_node/emacs/Understanding-Bug-Repor
                             'one-key-create-menu-from-existing-keymap
                             one-key-default-title-func nil) t)
 (one-key-add-to-alist 'one-key-types-of-menu
-                      (list "prefix key keymap"
-                            (lambda (name) (equal name "prefix key keymap"))
-                            'one-key-create-menu-from-prefix-key-keymap
+                      (list "Prefix-Key"
+                            (lambda (name) (string-match "Prefix-Key" name))
+                            (lambda (name)
+                              (let* ((keystr1 (substring name 11))
+                                     (keystr2 (replace-regexp-in-string "_" "" keystr1)))
+                                (if keystr2
+                                    (one-key-create-menu-from-prefix-key-keymap keystr2)
+                                  (call-interactively 'one-key-create-menu-from-prefix-key-keymap))))
                             one-key-default-title-func nil) t)
 (one-key-add-to-alist 'one-key-types-of-menu
                       (list "menu-sets"
