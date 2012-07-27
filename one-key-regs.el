@@ -431,7 +431,7 @@ and COLOUR is the name of the associated colour to use in the `one-key' menu."
 (customize-set-variable 'one-key-special-keybindings
                         (one-key-add-elements-to-alist
                          'one-key-special-keybindings
-                         '((show-register "C-h" "Display register contents"
+                         '((show-register help "Display register contents"
                                           (lambda nil
                                             (let* ((key (read-key "Enter the key for the register to display"))
                                                    (reg (assoc key register-alist)))
@@ -444,17 +444,17 @@ and COLOUR is the name of the associated colour to use in the `one-key' menu."
                                                   (with-selected-window (next-window)
                                                     (one-key-regs-open-registers-file))
                                                   (setq one-key-menu-window-configuration nil) nil))
-                           (save-registers "C-s" "Save registers and menu"
+                           (save-registers save-menu "Save registers and menu"
                                            (lambda nil (one-key-regs-save-registers
                                                         one-key-regs-currently-loaded-file
                                                         t) t))
-                           (edit-register "<f5>" "Edit a register"
+                           (edit-register edit-item "Edit a register"
                                           (lambda nil (one-key-regs-edit-menu-item info-alist full-list) t))
-                           (delete-register "<f6>" "Delete a register"
+                           (delete-register delete-item "Delete a register"
                                             (lambda nil (one-key-regs-delete-menu-item info-alist) t))
-                           (swap-register-keys "<f8>" "Swap register keys"
+                           (swap-register-keys swap-keys "Swap register keys"
                                                (lambda nil (one-key-regs-swap-menu-items full-list) t))
-                           (add-register "<f9>" "Add a register"
+                           (add-register add-item "Add a register"
                                          (lambda nil (one-key-regs-prompt-to-add-menu-item info-alist full-list) t))
                            (show-register-prefix-keys "C-p" "Show prefix associations"
                                                       one-key-regs-show-prefix-key-associations)
