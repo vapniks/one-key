@@ -399,8 +399,6 @@
 ;;; TODO
 ;;
 ;; New special keybinding for limiting by regexp all items in current menu and all submenus?
-;; Change `one-key-special-keybindings' data structure so that a keybinding may also be specified by a symbol for another
-;; special keybinding, indicating that the keybinding corresponding with that symbol should be used.
 ;; Make functions autoloadable.
 ;; Prompt to save submenus when saving menu. Special keybinding to save all altered menus?
 ;; Autohighlighting of menu items using regexp associations?
@@ -683,8 +681,7 @@ the first item should come before the second in the menu."
                              (setq one-key-menu-call-first-time t)) t))
     (donate "<f11>" "Donate to support further development"
             (lambda nil (browse-url "http://onekeydonate.dynalias.net")))
-    (report-bug "<C-f11>" "Report a bug"
-                one-key-submit-bug-report)
+    (report-bug "<C-f11>" "Report a bug" one-key-submit-bug-report)
     (show-menusets "C-h" "Show menus in menu set"
                    (lambda nil
                      (let* ((key (read-key "Enter the key for the menu set"))
@@ -715,7 +712,10 @@ Each item in the list contains (in this order):
 
   1) A symbol to reference the keybinding in the special keybinding sets for different menu types.
 
-  2) A string representation of the key (as returned by `one-key-key-description').
+  2) A string representation of the key (as returned by `one-key-key-description'), or a symbol referencing
+     another item whose key description should be used instead (this allows you to keep you special keybindings
+     in sync when you use different items for different menu types).
+     Warning: make sure you don't end up with a circular set of key references or one-key will get stuck in a loop.
 
   3) A short description of the associated action. This description will be displayed in the one-key help buffer.
 
@@ -752,17 +752,32 @@ The keys will be displayed in the one-key help buffer in the order shown when th
   :group 'one-key
   :type '(repeat (symbol :tag "Name" :help-echo "The name/symbol corresponding to the keybinding.")))
 
+(defun one-key-get-special-key-contents (specialkeys)
+  "Given a symbol or list of symbols from `one-key-special-keybindings', return the corresponding contents for each symbol.
+The first element of the contents of each item will be replaced by a key description string by following symbol references
+in `one-key-special-keybindings'.
+In other words if `one-key-special-keybindings' contains the items (symba symbb \"descriptiona\" commanda), and
+ (symbb \"a\" \"descriptionb\" commandb), then (one-key-get-special-key-contents '(symba symbb)) will return '((\"a\" \"descriptiona\" commanda) (\"b\" \"descriptionb\" commandb)). Notice that symbb is replaced by \"a\" in the returned list since
+this is the key description for symbb. At most 5 symbolic links will be followed before setting the key to nil."
+  (let* ((symbs (if (listp specialkeys) specialkeys
+                 (if (symbolp specialkeys) (list specialkeys)
+                   (error "Invalid argument"))))
+         (items (one-key-assq-list symbs one-key-special-keybindings)))
+    (loop for (key . rest) in items
+          for x = 1
+          do (while (and key (symbolp key))
+               (setq key (cadr (assoc key one-key-special-keybindings)))
+               (if (> x 4) (setq key nil) (setq x (1+ x))))
+          collect (cons key (if key rest (list "undefined key!"))))))
+
 (defun one-key-get-special-key-descriptions (specialkeys)
   "Given a symbol or list of symbols from `one-key-special-keybindings', return the corresponding key descriptions.
 This can be used to find out which special keys are used for a particular one-key menu type.
 If `specialkeys' is a single symbol then a single string will be returned.
 If `specialkeys' is a list then a list of strings will be returned."
-  (if (listp specialkeys)
-      (loop for symb in specialkeys
-            for item = (assoc symb one-key-special-keybindings)
-            collect (cadr item))
-    (if (symbolp specialkeys)
-        (cadr (assoc specialkeys one-key-special-keybindings)))))
+  (let* ((keys (mapcar 'car (one-key-get-special-key-contents specialkeys)))
+         (len (length keys)))
+    (if (> len 1) keys (car keys))))
 
 (defcustom one-key-disallowed-keymap-menu-keys (nconc '("M-TAB")
                                                       (one-key-get-special-key-descriptions
@@ -1460,10 +1475,9 @@ If FILTER-REGEX is non-nil then only menu items whose descriptions match FILTER-
          ;; the special keybindings for this menu
          (special-keybindings-var (or (fifth (one-key-get-menu-type this-name))
                                       one-key-default-special-keybindings))
-         (special-keybindings (one-key-assq-list (if (symbolp special-keybindings-var)
-                                                     (eval special-keybindings-var)
-                                                   special-keybindings-var)
-                                                 one-key-special-keybindings))
+         (special-keybindings (one-key-get-special-key-contents (if (symbolp special-keybindings-var)
+                                                                    (eval special-keybindings-var)
+                                                                  special-keybindings-var)))
          ;; following function is used for recursively calling itself when needed
          (self (function (lambda () (one-key-menu names info-alists
                                                   :menu-number menu-number
