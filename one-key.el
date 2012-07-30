@@ -455,6 +455,15 @@ In row major order the rows are filled one at a time."
   :type 'boolean
   :group 'one-key)
 
+(defcustom one-key-force-multi-column-keymap-menus t
+  "If non-nil then one-key menus created from keymaps will have command descriptions shortened to fit two columns.
+If nil then command descriptions will be allowed to fit the entire width of the menu if necessary in which case the
+menu will contain only a single column.
+
+Menus created from keymaps include major-mode menus and prefix-key menus."
+  :type 'boolean
+  :group 'one-key)
+
 (defcustom one-key-menu-window-max-height nil
   "The max height of popup menu window."
   :type 'int
@@ -475,7 +484,7 @@ In row major order the rows are filled one at a time."
   :type 'boolean
   :group 'one-key)
 
-(defcustom one-key-exclude-from-save nil
+(defcustom one-key-exclude-from-save '("Prefix-Key:")
   "List of regular expressions matching names of menus which should not be autosaved."
   :type '(repeat (regexp :tag "Regexp" :help-echo "Regular expression matching menu names to exclude from autosave." ))
   :group 'one-key)
@@ -514,7 +523,48 @@ current major mode) will be used (and created if necessary)."
   :type '(alist :key-type (function :tag "Major mode" :help-echo "A major mode function") :value-type (string :tag "Name of associated menu" :help-echo "The name of the menu to be associated with the major mode"))
   :group 'one-key)
 
-(defcustom one-key-toplevel-alist '((("k" . "one-key") . one-key-menu-one-key))
+(defcustom one-key-toplevel-alist '((("r" . "Prefix-Key:C-x r (bookmark and register commands)") .
+                                     (lambda nil (interactive)
+                                       (funcall 'one-key-prefix-key-menu-command "C-x r" t)))
+                                    (("v" . "Prefix-Key:C-x v (version control commands)") .
+                                     (lambda nil (interactive)
+                                       (funcall 'one-key-prefix-key-menu-command "C-x v" t)))
+                                    (("a" . "Prefix-Key:C-x a (abbrev commands)") .
+                                     (lambda nil (interactive)
+                                       (funcall 'one-key-prefix-key-menu-command "C-x a" t)))
+                                    (("n" . "Prefix-Key:C-x n (narrow/widen commands)") .
+                                     (lambda nil (interactive)
+                                       (funcall 'one-key-prefix-key-menu-command "C-x n" t)))
+                                    (("C-k" . "Prefix-Key:C-x C-k (keyboard macro commands)") .
+                                     (lambda nil (interactive)
+                                       (funcall 'one-key-prefix-key-menu-command "C-x C-k" t)))
+                                    (("w" . "Prefix-Key:C-x w (highlight commands)") .
+                                     (lambda nil (interactive)
+                                       (funcall 'one-key-prefix-key-menu-command "C-x w" t)))
+                                    (("RET" . "Prefix-Key:C-x RET (input/coding commands)") .
+                                     (lambda nil (interactive)
+                                       (funcall 'one-key-prefix-key-menu-command "C-x RET" t)))
+                                    (("4" . "Prefix-Key:C-x 4 (other window commands)") .
+                                     (lambda nil (interactive)
+                                       (funcall 'one-key-prefix-key-menu-command "C-x 4" t)))
+                                    (("5" . "Prefix-Key:C-x 5 (other frame commands)") .
+                                     (lambda nil (interactive)
+                                       (funcall 'one-key-prefix-key-menu-command "C-x 5" t)))
+                                    (("M-g" . "Prefix-Key:M-g (error commands)") .
+                                     (lambda nil (interactive)
+                                       (funcall 'one-key-prefix-key-menu-command "M-g" t)))
+                                    (("C-h" . "Prefix-Key:C-h (help commands)") .
+                                     (lambda nil (interactive)
+                                       (funcall 'one-key-prefix-key-menu-command "C-h" t)))
+                                    (("C-x" . "Prefix-Key:C-x (all C-x keybindings)") .
+                                     (lambda nil (interactive)
+                                       (funcall 'one-key-prefix-key-menu-command "C-x" t)))
+                                    (("ESC" . "Prefix-Key:ESC (all meta key keybindings)") .
+                                     (lambda nil (interactive)
+                                       (funcall 'one-key-prefix-key-menu-command "ESC" t)))
+                                    (("C-c" . "Prefix-Key:C-c (all C-c keybindings)") .
+                                     (lambda nil (interactive)
+                                       (funcall 'one-key-prefix-key-menu-command "C-c" t))))
   "The `one-key' top-level alist.
 Contains list of key items for toplevel one-key menu.
 Each item contains a key, description and command, in that order.
@@ -1967,6 +2017,7 @@ created for them."
                       keymap))) ;get the keymap value
          (menubar (lookup-key keymap1 [menu-bar])) ;get any menu-bar items
          (mainvar (intern (concat "one-key-menu-" name "-alist"))) ;variable to hold the main menu
+         (winwidth (window-width)) ;need to know the window width to make sure descriptions aren't too long
          usedkeys menu-alist)
     ;; loop over the keys in the keymap
     (loop for key being the key-codes of keymap1 using (key-bindings cmd) with usedcmds
@@ -1993,7 +2044,12 @@ created for them."
                            (desc1 (if (symbolp cmd) (symbol-name cmd) (format "%S" cmd)))
                            (desc1a (replace-regexp-in-string keymapnameregex "" desc1))
                            (desc1b (capitalize (replace-regexp-in-string "-" " " desc1a)))
-                           (desc2 (concat desc1b " (" keydesc ")"))
+                           (desc1c (concat desc1b " (" keydesc ")"))
+                           (startchar (max 0 (- (+ (length keydesc) 6 (length desc1c))
+                                                (if one-key-force-multi-column-keymap-menus
+                                                    (/ winwidth 2)
+                                                  winwidth))))
+                           (desc2 (substring desc1c startchar))
                            ;; if the key is invalid, generate a new one
                            (keystr2 (if (member keystr one-key-disallowed-keymap-menu-keys)
                                         (one-key-generate-key desc2 usedkeys)
@@ -2015,12 +2071,11 @@ created for them."
                            ;; if the key is invalid, generate a new one
                            (keystr2 (if (member keystr one-key-disallowed-keymap-menu-keys)
                                         (one-key-generate-key desc2 usedkeys)
-                                      keystr)))
+                                      keystr))
+                           (existingvar (intern-soft (concat "one-key-menu-" submenuname "-alist"))))
                       ;; if a submenu for this prefix key has already been created then merge this one with it
-                      (if (member keystr usedkeys)
-                          (let ((existingvar (intern-soft
-                                              (concat "one-key-menu-" submenuname "-alist")))
-                                (menuvar (one-key-create-menus-from-keymap
+                      (if (and existingvar (member keystr usedkeys))
+                          (let ((menuvar (one-key-create-menus-from-keymap
                                           cmd (concat submenuname "temp") keydesc)))
                             (set existingvar (one-key-merge-menu-lists (eval existingvar) (eval menuvar)))
                             ;; delete the temporary variable
@@ -2267,6 +2322,37 @@ major mode) exists then it will be used, otherwise it will be created."
           (cons desc3 (one-key-create-menus-from-keymap kmap2 desc3 desc2)))
       (error "No keymap is currently associated with that prefix key!"))))
 
+(defun one-key-prefix-key-menu-command (keystr &optional submenup)
+  "Given prefix key description KEYSTR open a one-key menu containing the commands associated with that prefix key.
+If SUBMENUP is non-nil then the `one-key-open-submenu' command is used to add/replace a menu in the current menu set."
+  (interactive (let ((keystr (read-string "Enter the emacs string representation of the required prefix keys: ")))
+                 (while (not (ignore-errors (read-kbd-macro keystr)))
+                   (setq keystr (read-string "Invalid key sequence! Try again: ")))
+                 (list keystr)))
+  (let* ((pair (one-key-create-menu-from-prefix-key-keymap keystr))
+         (name (car pair))
+         (menu (cdr pair)))
+    (if submenup
+        (one-key-open-submenu name menu)
+    (one-key-menu name menu))))
+
+(defun one-key-assign-prefix-keys (keystrings)
+  "Given a list of prefix key descriptions in KEYSTRINGS, assign those prefix keys to corresponding one-key menus.
+The one-key menus are those produced by the `one-key-create-menu-from-prefix-key-keymap' function."
+  (loop for keystr in keystrings
+        for (name . menu) = (one-key-create-menu-from-prefix-key-keymap keystr)
+        do (local-set-key (read-kbd-macro keystr)
+                           `(lambda nil (interactive) (one-key-menu ,name ,menu)))))
+
+;; This needs to go after the definition of `one-key-assign-prefix-keys'
+(defcustom one-key-assigned-prefix-keys nil
+  "A list of key descriptions for prefix keys that will have one-key menus automatically assigned to them."
+  :type '(repeat (string :tag "Prefix key" :help-echo "Key description of a prefix key in the same format as used by edit macro mode (e.g. C-x, M-s)."))
+  :group 'one-key
+  :set (lambda (symb val)
+         (one-key-assign-prefix-keys val)
+         (set-default symb val)))
+
 (defun one-key-create-menu-sets-title-format-string nil
   "Return a title format string for menu sets one-key menus."
   (let* ((col1 (if one-key-auto-brighten-used-keys "#7FFF00000000" "red"))
@@ -2332,7 +2418,10 @@ major mode) exists then it will be used, otherwise it will be created."
            'one-key-types-of-menu)
      nil nil
      "Remember to cover the basics, that is, what you expected to happen and
-what in fact did happen.  You don't know how to make a good report?  See
+what in fact did happen.
+Please mention which major mode was active and what keys were pressed at the time of the fault.
+
+To read how to make a good bug report see:
 
 http://www.gnu.org/software/emacs/manual/html_node/emacs/Understanding-Bug-Reporting.html
 ------------------------------------------------------------------------")))
@@ -2368,8 +2457,8 @@ http://www.gnu.org/software/emacs/manual/html_node/emacs/Understanding-Bug-Repor
                       (list "Prefix-Key"
                             (lambda (name) (string-match "Prefix-Key" name))
                             (lambda (name)
-                              (let* ((keystr1 (substring name 11))
-                                     (keystr2 (replace-regexp-in-string "_" "" keystr1)))
+                              (let* ((keystr1 (if (> (length name) 11) (substring name 11) nil))
+                                     (keystr2 (if keystr1 (replace-regexp-in-string "_" "" keystr1))))
                                 (if keystr2
                                     (one-key-create-menu-from-prefix-key-keymap keystr2)
                                   (call-interactively 'one-key-create-menu-from-prefix-key-keymap))))
@@ -2393,6 +2482,11 @@ http://www.gnu.org/software/emacs/manual/html_node/emacs/Understanding-Bug-Repor
           (message "Can't read file %s" one-key-menus-save-file))
       (message "Can't find file %s" one-key-menus-save-file))
   (message "`one-key-menus-save-file' is not set, no menus loaded"))
+
+;; Set the prefix keys in `one-key-assigned-prefix-keys' to open the corresponding one-key menus
+;; (loop for keystr in one-key-assigned-prefix-keys
+;;       for (name . menu) = (one-key-create-menu-from-prefix-key-keymap keystr)
+;;       do (global-set-key (read-kbd-macro keystr) (one-key-menu name menu)))
 
 (provide 'one-key)
 
