@@ -205,8 +205,6 @@
 ;;
 ;; To report a bug: M-x one-key-submit-bug-report, or press the appropriate special key 
 
-;;; Customize:
-;;
 ;; `one-key-default-menu-keys' : A list of chars which may be used as the default keys in automatically generated 
 ;;                               `one-key' menus.
 ;; `one-key-min-keymap-submenu-size' : The minimum number of elements allowed in a submenu when creating menus from 
@@ -214,6 +212,8 @@
 ;; `one-key-popup-window' : Whether to popup window when `one-key-menu' is run for the first time.
 ;; `one-key-buffer-name' : The buffer name of the popup menu window.
 ;; `one-key-column-major-order' : If true then menu items are displayed in column major order, otherwise row major order.
+;; `one-key-force-multi-column-keymap-menus' : If non-nil then one-key menus created from keymaps will have command 
+;;                                             descriptions shortened to fit two columns.
 ;; `one-key-menu-window-max-height' : The max height of popup menu window.
 ;; `one-key-menus-save-file' : The file where `one-key' menus are saved.
 ;; `one-key-autosave-menus' : If non-nil then one-key menus will automatically be saved when created or changed.
@@ -553,13 +553,19 @@ current major mode) will be used (and created if necessary)."
                                     (("M-g" . "Prefix-Key:M-g (error commands)") .
                                      (lambda nil (interactive)
                                        (funcall 'one-key-prefix-key-menu-command "M-g" t)))
+                                    (("M-o" . "Prefix-Key:M-o (font-lock/centering commands)") .
+                                     (lambda nil (interactive)
+                                       (funcall 'one-key-prefix-key-menu-command "M-o" t)))
+                                    (("M-s" . "Prefix-Key:M-s (occur/highlight commands)") .
+                                     (lambda nil (interactive)
+                                       (funcall 'one-key-prefix-key-menu-command "M-s" t)))
                                     (("C-h" . "Prefix-Key:C-h (help commands)") .
                                      (lambda nil (interactive)
                                        (funcall 'one-key-prefix-key-menu-command "C-h" t)))
                                     (("C-x" . "Prefix-Key:C-x (all C-x keybindings)") .
                                      (lambda nil (interactive)
                                        (funcall 'one-key-prefix-key-menu-command "C-x" t)))
-                                    (("ESC" . "Prefix-Key:ESC (all meta key keybindings)") .
+                                    (("<C-escape>" . "Prefix-Key:ESC (all meta key keybindings)") .
                                      (lambda nil (interactive)
                                        (funcall 'one-key-prefix-key-menu-command "ESC" t)))
                                     (("C-c" . "Prefix-Key:C-c (all C-c keybindings)") .
@@ -721,7 +727,10 @@ the first item should come before the second in the menu."
     (add-item "<f9>" "Add a menu item"
               (lambda nil (one-key-prompt-to-add-menu-item info-alist full-list) t))
     (add-menu "<C-f9>" "Add a menu"
-              (lambda nil (one-key-add-menus) nil)) ; no need to return t since `one-key-add-menus' does recursion itself
+              (lambda nil (one-key-add-menus)
+                (setq one-key-menu-call-first-time t)
+                (one-key-handle-last nil self t)
+                nil)) ; no need to return t since `one-key-add-menus' does recursion itself
     (remove-menu "<C-S-f9>" "Remove this menu"
                  (lambda nil (one-key-delete-menu) t))
     (move-item "<f10>" "Reposition item (with arrow keys)"
@@ -1368,9 +1377,7 @@ function, and is called within that function."
             info-alists (if multi (concatenate 'list (list info-alists) newlists)
                           (list info-alists newlists))
             names (if multi (concatenate 'list (list this-name) newnames)
-                    (list this-name newnames)))))
-  (setq one-key-menu-call-first-time t)
-  (one-key-handle-last nil self t))
+                    (list this-name newnames))))))
 
 (defun* one-key-delete-menu (&optional (name this-name))
   "Remove the menu with name NAME from the list of menus, or the current menu if NAME is not supplied.
@@ -1880,7 +1887,9 @@ THIS-NAME being dynamically bound."
   (let ((currname this-name))
     (one-key-add-menus name var)
     (if one-key-submenus-replace-parents
-        (one-key-delete-menu currname))))
+        (one-key-delete-menu currname)))
+    (setq one-key-menu-call-first-time t)
+    (one-key-handle-last nil self t))
 
 (defun one-key-merge-menu-lists (lista listb)
   "Given two one-key menu lists, merge them and return the result.
@@ -2336,23 +2345,6 @@ If SUBMENUP is non-nil then the `one-key-open-submenu' command is used to add/re
         (one-key-open-submenu name menu)
     (one-key-menu name menu))))
 
-(defun one-key-assign-prefix-keys (keystrings)
-  "Given a list of prefix key descriptions in KEYSTRINGS, assign those prefix keys to corresponding one-key menus.
-The one-key menus are those produced by the `one-key-create-menu-from-prefix-key-keymap' function."
-  (loop for keystr in keystrings
-        for (name . menu) = (one-key-create-menu-from-prefix-key-keymap keystr)
-        do (local-set-key (read-kbd-macro keystr)
-                           `(lambda nil (interactive) (one-key-menu ,name ,menu)))))
-
-;; This needs to go after the definition of `one-key-assign-prefix-keys'
-(defcustom one-key-assigned-prefix-keys nil
-  "A list of key descriptions for prefix keys that will have one-key menus automatically assigned to them."
-  :type '(repeat (string :tag "Prefix key" :help-echo "Key description of a prefix key in the same format as used by edit macro mode (e.g. C-x, M-s)."))
-  :group 'one-key
-  :set (lambda (symb val)
-         (one-key-assign-prefix-keys val)
-         (set-default symb val)))
-
 (defun one-key-create-menu-sets-title-format-string nil
   "Return a title format string for menu sets one-key menus."
   (let* ((col1 (if one-key-auto-brighten-used-keys "#7FFF00000000" "red"))
@@ -2483,10 +2475,6 @@ http://www.gnu.org/software/emacs/manual/html_node/emacs/Understanding-Bug-Repor
       (message "Can't find file %s" one-key-menus-save-file))
   (message "`one-key-menus-save-file' is not set, no menus loaded"))
 
-;; Set the prefix keys in `one-key-assigned-prefix-keys' to open the corresponding one-key menus
-;; (loop for keystr in one-key-assigned-prefix-keys
-;;       for (name . menu) = (one-key-create-menu-from-prefix-key-keymap keystr)
-;;       do (global-set-key (read-kbd-macro keystr) (one-key-menu name menu)))
 
 (provide 'one-key)
 
