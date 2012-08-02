@@ -100,6 +100,38 @@
 ;; Extension libraries (such as `one-key-dir' or `one-key-regs') may also define customizable special keys specific
 ;; to the menu type defined in the library.
 ;;
+;; By default the following special keybindings are defined:
+;;
+;; ESC        : Quit and close menu window                       
+;; <C-escape> : Quit, but keep menu window open                  
+;; <C-menu>   : Toggle menu persistence                          
+;; <menu>     : Toggle menu display                              
+;; <left>     : Change to next menu                              
+;; <right>    : Change to previous menu                          
+;; <up>       : Scroll/move up one line                          
+;; <down>     : Scroll/move down one line                        
+;; <prior>    : Scroll menu down one page                        
+;; <next>     : Scroll menu up one page                          
+;; C-h        : Show help for next item chosen                   
+;; C-s        : Save current state of menu                       
+;; <f1>       : Toggle this help buffer                          
+;; <f2>       : Toggle column/row ordering of items              
+;; <f3>       : Sort items by next method
+;; <C-f3>     : Sort items by previous method          
+;; <f4>       : Reverse order of items                 
+;; /          : Limit items to those matching regexp   
+;; C-/        : Highlight items matching regexp        
+;; <f5>       : Edit a menu item                       
+;; <f6>       : Delete a menu item                     
+;; <f7>       : Copy/kill coloured items               
+;; <C-f7>     : Yank copied items                      
+;; <f8>       : Swap menu item keys                    
+;; <f9>       : Add a menu item                        
+;; <C-f9>     : Add a menu                             
+;; <C-S-f9>   : Remove this menu                       
+;; <f10>      : Reposition item (with arrow keys)      
+;; <f11>      : Donate to support further development  
+;; <C-f11>    : Report a bug                           
 
 ;;; Creating menus:
 ;; 
@@ -172,6 +204,11 @@
 ;;    2) press the key of the item to be moved
 ;;    3) use the up/down arrow keys to move the item
 ;;    4) exit one-key to fix the item
+;;
+;; Support further development: writing this code required a significant amount of unpaid labour on my part.
+;; Please consider donating to help support further development by pressing f11 in the *One-Key* menu.
+;; To report a bug press C-f11. Please report the circumstances in which the bug occured (where you creating a new
+;; menu? what major-mode was in use at the time? etc.).
 
 
 ;;; Installation:
