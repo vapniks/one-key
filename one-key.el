@@ -205,6 +205,8 @@
 ;;
 ;; To report a bug: M-x one-key-submit-bug-report, or press the appropriate special key 
 
+;;; Customize:
+
 ;; `one-key-default-menu-keys' : A list of chars which may be used as the default keys in automatically generated 
 ;;                               `one-key' menus.
 ;; `one-key-min-keymap-submenu-size' : The minimum number of elements allowed in a submenu when creating menus from 
@@ -402,8 +404,6 @@
 ;; Make functions autoloadable.
 ;; Prompt to save submenus when saving menu. Special keybinding to save all altered menus?
 ;; Autohighlighting of menu items using regexp associations?
-;; Automatically generate one-key menus for common prefix keys (e.g. C-x r) and store them in memory.
-;; This is already implemented to a certain extent but I think it could be improved. Needs further investigation.
 ;; 
 ;;; Require
 (eval-when-compile (require 'cl))
@@ -523,7 +523,49 @@ current major mode) will be used (and created if necessary)."
   :type '(alist :key-type (function :tag "Major mode" :help-echo "A major mode function") :value-type (string :tag "Name of associated menu" :help-echo "The name of the menu to be associated with the major mode"))
   :group 'one-key)
 
-(defcustom one-key-toplevel-alist '((("r" . "Prefix-Key:C-x r (bookmark, rectangle and register commands)") .
+(defcustom one-key-toplevel-alist '((("M" . "Cursor motion commands") .
+                                     (lambda nil (interactive)
+                                       (one-key-open-submenu "Cursor motion commands"
+                                                             one-key-menu-cursor-motion-commands-alist)))
+                                    (("B" . "Buffer and file commands") .
+                                     (lambda nil (interactive)
+                                       (one-key-open-submenu "Buffer and file commands"
+                                                             one-key-menu-buffer-and-file-commands-alist)))
+                                    (("E" . "Editing commands") .
+                                     (lambda nil (interactive)
+                                       (one-key-open-submenu "Editing commands"
+                                                             one-key-menu-editing-commands-alist)))
+                                    (("C-s" . "Searching commands") .
+                                     (lambda nil (interactive)
+                                       (one-key-open-submenu "Searching commands"
+                                                             one-key-menu-searching-commands-alist)))
+                                    (("S" . "Sorting commands") .
+                                     (lambda nil (interactive)
+                                       (one-key-open-submenu "Sorting commands"
+                                                             one-key-menu-sorting-commands-alist)))
+                                    (("W" . "Window commands") .
+                                     (lambda nil (interactive)
+                                       (one-key-open-submenu "Window commands"
+                                                             one-key-menu-window-commands-alist)))
+                                    (("C-h" . "Prefix-Key:C-h (help commands)") .
+                                     (lambda nil (interactive)
+                                       (funcall 'one-key-prefix-key-menu-command "C-h" t)))
+                                    (("<C-escape>" . "Prefix-Key:ESC (all meta key keybindings)") .
+                                     (lambda nil (interactive)
+                                       (funcall 'one-key-prefix-key-menu-command "ESC" t)))
+                                    (("M-g" . "Prefix-Key:M-g (error commands)") .
+                                     (lambda nil (interactive)
+                                       (funcall 'one-key-prefix-key-menu-command "M-g" t)))
+                                    (("M-o" . "Prefix-Key:M-o (font-lock/centering commands)") .
+                                     (lambda nil (interactive)
+                                       (funcall 'one-key-prefix-key-menu-command "M-o" t)))
+                                    (("M-s" . "Prefix-Key:M-s (occur/highlight commands)") .
+                                     (lambda nil (interactive)
+                                       (funcall 'one-key-prefix-key-menu-command "M-s" t)))
+                                    (("C-x" . "Prefix-Key:C-x (all C-x keybindings)") .
+                                     (lambda nil (interactive)
+                                       (funcall 'one-key-prefix-key-menu-command "C-x" t)))
+                                    (("r" . "Prefix-Key:C-x r (bookmark, rectangle and register commands)") .
                                      (lambda nil (interactive)
                                        (funcall 'one-key-prefix-key-menu-command "C-x r" t)))
                                     (("v" . "Prefix-Key:C-x v (version control commands)") .
@@ -553,24 +595,6 @@ current major mode) will be used (and created if necessary)."
                                     (("6" . "Prefix-Key:C-x 6 (2 column mode commands)") .
                                      (lambda nil (interactive)
                                        (funcall 'one-key-prefix-key-menu-command "C-x 6" t)))
-                                    (("M-g" . "Prefix-Key:M-g (error commands)") .
-                                     (lambda nil (interactive)
-                                       (funcall 'one-key-prefix-key-menu-command "M-g" t)))
-                                    (("M-o" . "Prefix-Key:M-o (font-lock/centering commands)") .
-                                     (lambda nil (interactive)
-                                       (funcall 'one-key-prefix-key-menu-command "M-o" t)))
-                                    (("M-s" . "Prefix-Key:M-s (occur/highlight commands)") .
-                                     (lambda nil (interactive)
-                                       (funcall 'one-key-prefix-key-menu-command "M-s" t)))
-                                    (("C-h" . "Prefix-Key:C-h (help commands)") .
-                                     (lambda nil (interactive)
-                                       (funcall 'one-key-prefix-key-menu-command "C-h" t)))
-                                    (("C-x" . "Prefix-Key:C-x (all C-x keybindings)") .
-                                     (lambda nil (interactive)
-                                       (funcall 'one-key-prefix-key-menu-command "C-x" t)))
-                                    (("ESC" . "Prefix-Key:ESC (all meta key keybindings)") .
-                                     (lambda nil (interactive)
-                                       (funcall 'one-key-prefix-key-menu-command "ESC" t)))
                                     (("C-c" . "Prefix-Key:C-c (mode specific bindings)") .
                                      (lambda nil (interactive)
                                        (funcall 'one-key-prefix-key-menu-command "C-c" t)))
@@ -1000,7 +1024,7 @@ containing the name of the buffer that was displayed when the one-key menu windo
 
 (defvar one-key-default-title-func (lambda nil
                                      (let* ((keystr (one-key-get-special-key-descriptions 'donate))
-                                            (msg (concat "Please press " keystr " to support further development by donating.\n"))
+                                            (msg (concat "If you find this useful please press " keystr " to support the author and further development.\n"))
                                             (len (length msg))
                                             (dif (- (window-width) len))
                                             (spc (make-string (/ dif 2) ? )))
@@ -1014,6 +1038,121 @@ containing the name of the buffer that was displayed when the one-key menu windo
 
 (defvar one-key-version "0.7.1"
   "Version number of this version of one-key")
+
+;; some menus for the toplevel
+(defvar one-key-menu-sorting-commands-alist
+  '((("l" . "Sort lines lexicographically (M-x sort-lines)") . sort-lines)
+    (("p" . "Sort paragraphs lexicographically (M-x sort-paragraphs)") . sort-paragraphs)
+    (("P" . "Sort pages lexicographically (M-x sort-pages)") . sort-pages)
+    (("f" . "Sort lines lexicographically by whitespace seperated fields (M-x sort-fields)") . sort-fields)
+    (("n" . "Sort lines numerically by whitespace seperated fields (M-x sort-numeric-fields)") . sort-numeric-fields)
+    (("c" . "Sort lines lexicographically by columns defined by point and mark (M-x sort-columns)") . sort-columns)
+    (("r" . "Sort lines matching 1st regexp by field matching 2nd regexp, lexicographically (M-x sort-regexp-fields)") . sort-regexp-fields)
+    (("R" . "Reverse order of lines in region (M-x reverse-region)") . reverse-region))
+  "The `one-key' menu alist for sorting commands.")
+
+(defvar one-key-menu-searching-commands-alist
+  '((("C-s" . "Search forward (C-s)") . (lambda nil (interactive) (isearch-mode t nil nil t)))
+    (("C-r" . "Search backward (C-r)") . (lambda nil (interactive) (isearch-mode nil nil nil t)))
+    (("M-%" . "Replace string (M-%)") . query-replace)
+    (("C-M-s" . "Search forward for regexp (C-M-s)") . isearch-forward-regexp)
+    (("C-M-r" . "Search backward for regexp (C-M-r)") . isearch-backward-regexp)    
+    (("C-M-%" . "Replace regexp (C-M-%)") . query-replace-regexp)
+    (("b" . "Regular expression builder (M-x re-builder)") . re-builder))
+  "The `one-key' menu alist for search/replace commands.")
+
+(defvar one-key-menu-editing-commands-alist
+  '((("C-SPC" . "Set mark (C-SPC)") . set-mark-command)
+    (("h" . "Mark entire buffer (C-x h)") . mark-whole-buffer)
+    (("C-p" . "Mark page (C-x C-p)") . mark-page)
+    (("h" . "Mark paragraph (M-h)") . mark-paragraph)
+    (("C-x" . "Exchange point and mark (C-x C-x)") . exchange-point-and-mark)
+    (("M-w" . "Copy selected region (M-w, C-Insert)") . kill-ring-save)
+    (("C-w" . "Cut selected region (C-w, S-DEL)") . kill-region)
+    (("C-y" . "Paste/yank last copied/cut text (C-y)") . yank)
+    (("M-y" . "Paste/yank ealier copied/cut text (M-y)") . yank-pop)
+    (("C-d" . "Delete character forward (C-d)") . delete-char)
+    (("M-DEL" . "Delete word backward (M-DEL)") . backward-kill-word)
+    (("M-D" . "Delete word forward (M-D, C-S-DEL)") . kill-word)
+    (("C-k" . "Delete to end of line (C-k)") . kill-line)
+    (("M-k" . "Delete to end of sentence (M-k)") . kill-sentence)
+    (("M-u" . "Make word uppercase (M-u)") . upcase-word)
+    (("M-l" . "Make word lowercase (M-l)") . downcase-word)
+    (("M-c" . "Capitalize word (M-c)") . capitalize-word)
+    (("C-t" . "Transpose/swap adjacent characters (C-t)") . transpose-chars)
+    (("M-t" . "Transpose/swap adjacent words (M-t)") . transpose-words)
+    (("t" . "Transpose/swap lines (C-x C-t)") . transpose-lines)
+    (("M-^" . "Join previous line (M-^)") . delete-indentation)
+    (("TAB" . "Indent all lines in region (C-x TAB)") . indent-rigidly)
+    (("M-q" . "Fill or justify paragraph (M-q)") . fill-paragraph)
+    (("C-o" . "Open a new line before this one (C-o)") . open-line)
+    (("1" . "Remove all but 1 empty line (C-x C-o)") . delete-blank-lines))
+  "The `one-key' menu alist for editing commands.")
+
+(defvar one-key-menu-cursor-motion-commands-alist 
+  '((("C-f" . "Forward a character (C-f)") . forward-char)
+    (("C-b" . "Backward a charcter (C-b)") . backward-char)
+    (("C-n" . "Forward a line (C-n)") . next-line)
+    (("C-p" . "Backward a line (C-p)") . previous-line)
+    (("C-a" . "Goto the beginning of line (C-a)") . move-beginning-of-line)
+    (("C-e" . "Goto the end of line (C-e)") . move-end-of-line)
+    (("M-f" . "Forward a word (M-f)") . forward-word)
+    (("M-b" . "Backward a word (M-b)") . backward-word)
+    (("M-e" . "Forward a sentence (M-e)") . forward-sentence)
+    (("M-a" . "Backward a sentence (M-a)") . backward-sentence)
+    (("M-<" . "Goto the beginning of buffer (M-<)") . beginning-of-buffer)
+    (("M->" . "Goto the end of buffer (M->)") . end-of-buffer)
+    (("{" . "Move backwards paragraph (M-{") . backward-paragraph)
+    (("}" . "Move forwards paragraph (M-})") . forward-paragraph)
+    (("[" . "Move backwards page (C-x [)") . backward-page)
+    (("]" . "Move forwards page (C-x ])") . forward-page))
+  "The `one-key' menu alist for cursor motion commands.")
+
+(defvar one-key-menu-buffer-and-file-commands-alist 
+  '((("C-f" . "Open file (C-x C-f)") . find-file)
+    (("d" . "Open directory (C-x d)") . (lambda nil (interactive)
+                                          (if (featurep 'ido) (call-interactively 'ido-dired)
+                                            (call-interactively 'dired))))
+    (("C-s" . "Save current file (C-x C-s)") . save-buffer)
+    (("C-w" . "Save file as (C-x C-w)") . write-file)
+    (("s" . "Prompt user for files to save (C-x s)") . save-some-buffers)
+    (("i" . "Insert file contents into buffer (C-x i)") . insert-file)
+    (("b" . "Switch to another buffer (C-x b)") . switch-to-buffer)
+    (("4" . "Switch to another buffer in another window (C-x 4 b)") . switch-to-buffer-other-window)
+    (("5" . "Switch to another buffer in another frame (C-x 5 b)") . switch-to-buffer-other-frame)
+    (("<C-left>" . "Select previous buffer (C-x <left>)") . previous-buffer)
+    (("<C-right>" . "Select next buffer (C-x <right>)") . next-buffer)    
+    (("k" . "Kill buffer (C-x k)") . kill-buffer)
+    (("K" . "Prompt to kill buffers (M-x kill-some-buffers)") . kill-some-buffers)
+    (("C-v" . "Kill current buffer then open another file (C-x C-v)") . find-alternate-file)
+    (("m" . "Menu for switching/killing buffers (M-x bs-show)") . bs-show)
+    (("l" . "List existing buffers (C-x C-b)") . list-buffers)
+    (("C-q" . "Toggle read-only status of buffer (C-x C-q)") . toggle-read-only)
+    (("R" . "Rename buffer (M-x rename-buffer)") . rename-buffer)
+    )
+  "The `one-key' menu alist for buffer and file commands.")
+
+(defvar one-key-menu-window-commands-alist
+  '((("1" . "Make this window fill it's frame (C-x 1)") . delete-other-windows)
+    (("2" . "Split this window vertically (C-x 2)") . split-window-vertically)
+    (("3" . "Split this window horizontally (C-x 3)") . split-window-horizontally)
+    (("o" . "Select next window (C-x o)") . other-window)
+    (("0" . "Kill this buffer and window (C-x 4 0)") . kill-buffer-and-window)
+    (("^" . "Make this window taller (C-x ^)") . enlarge-window)
+    (("-" . "Make this window shorter (C-x -)") . shrink-window-if-larger-than-buffer)
+    (("}" . "Make this window wider (C-x })") . enlarge-window-horizontally)
+    (("{" . "Make this window narrower (C-x {)") . shrink-window-horizontally)
+    (("+" . "Make all windows the same height (C-x +)") . balance-windows)
+    (("C-M-v" . "Scroll the next window (C-M-v)") . scroll-other-window)
+    (("b" . "Select buffer in another window (C-x 4 b)") . switch-to-buffer-other-window)
+    (("C-o". "Display buffer in another window (C-x 4 C-o)") . display-buffer)
+    (("f" . "Open a file in another window (C-x 4 f)") . find-file-other-window)
+    (("d" . "Open a directory in another window (C-x 4 d)") . dired-other-window)
+    (("m" . "Compose email in another window (C-x 4 m)") . mail-other-window)
+    (("." . "Find tag of current tags table in another window (C-x 4 .)") . find-tag-other-window)
+    (("r" . "Open a file as read-only in another window (C-x 4 r)") . find-file-read-only-other-window))
+  "The `one-key' menu alist for window commands.")
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Interactive Functions ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun one-key-show-help (special-keybindings)
