@@ -2664,11 +2664,9 @@ http://www.gnu.org/software/emacs/manual/html_node/emacs/Understanding-Bug-Repor
 
 ;; Load the saved one-key menus.
 (if one-key-menus-save-file
-    (if (file-exists-p one-key-menus-save-file)
-        (if (file-readable-p one-key-menus-save-file)
-            (load-file one-key-menus-save-file)
-          (message "Can't read file %s" one-key-menus-save-file))
-      (message "Can't find file %s" one-key-menus-save-file))
+    (if (file-readable-p one-key-menus-save-file)
+        (load-file one-key-menus-save-file)
+      (message "Can't read file %s" one-key-menus-save-file))
   (message "`one-key-menus-save-file' is not set, no menus loaded"))
 
 
