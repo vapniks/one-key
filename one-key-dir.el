@@ -253,16 +253,24 @@ If PREV is non-nil then sort by the previous method instead."
                                (filefunc one-key-dir-default-file-func)
                                (dirfunc one-key-dir-default-dir-func)
                                filename-map-func
-                               (exclude-regex "^\\."))
+                               (exclude-regex "^\\.")
+                               (non-visitable-regex nil)
+                               (non-parentable-regex nil))
   "Visit DIR using one-key.
-For each sub-dir of DIR, the associated command will be `(one-key-dir-visit sub-dir filefunc)',
-for each file under DIR, the associated command will be `(funcall filefunc)' (so filefunc should not require any arguments).
+For each sub-dir of DIR, the function will be called recursively replacing DIR with the sub-dir.
+For each file under DIR, the associated command will be `(funcall filefunc)' (so filefunc should not require any arguments).
 In FILEFUNC, `one-key-dir-current-filename' can be used to do operations on the current file.
-The optional FILENAME-MAP-FUNC specifies a function to be called on each file name,
-it has one argument (string), the original file name, and returns a string, the
-new file name which will be displayed in the one-key menu.
-DIR should either be `one-key-dir/topdir' or a directory under `one-key-dir/topdir' 
-in the directory tree."
+The optional FILENAME-MAP-FUNC specifies a function to be called on each file name, it has one argument (string),
+the original file name, and returns a string, the new file name which will be displayed in the one-key menu.
+DIR should either be `one-key-dir/topdir' or a directory under `one-key-dir/topdir' in the directory tree.
+This prevents the user from navigating above `one-key-dir/topdir'.
+Any files/dirs that match the EXCLUDE-REGEX argument will be omitted from the menu.
+
+Normally items for the current directory and parent directory are included, and will be labelled \".\" and \"..\" with corresponding keys `one-key-dir-current-directory-key' and `one-key-dir-parentdir-key'.
+However the arguments NON-VISITABLE-REGEX and NON-PARENTABLE-REGEX are regular expressions indicating which directories
+should not include these items. Any directories whose full path names match these regular expressions will have the
+current/parent dir item excluded from it's menu. By default these two arguments are nil which means that all menus will
+include current/parent dir items."
   (unless (file-directory-p dir)
     (error "one-key-dir-visit called with a non-directory"))
   (unless (functionp filefunc)
@@ -278,7 +286,9 @@ in the directory tree."
 	(let* ((dir-alists (one-key-dir/build-menu-alist
                                              dir :filefunc filefunc :dirfunc dirfunc
                                              :filename-map-func filename-map-func
-                                             :exclude-regex exclude-regex))
+                                             :exclude-regex exclude-regex
+                                             :non-visitable-regex non-visitable-regex
+                                             :non-parentable-regex non-parentable-regex))
                (nummenus (length dir-alists))
                (dirname (file-name-as-directory (file-truename dir)))
                (menunames (one-key-append-numbers-to-menu-name dirname nummenus)))
@@ -291,8 +301,8 @@ in the directory tree."
                                           filename-map-func
                                           (exclude-regex "^\\.")
                                           (initial-sort-method 'extension)
-                                          (this-dir t)
-                                          (parent-dir t))
+                                          (non-visitable-regex nil)
+                                          (non-parentable-regex nil))
   "Build `one-key-menu' items lists for directory DIR.
 Each element of the returned list has the following form: ((KEY . NAME) . FUNCTION).
 Where FUNCTION is a function that may call FILEFUNC or DIRFUNC depending on whether the item corresponds to a file
@@ -301,9 +311,11 @@ If FILENAME-MAP-FUNC is non-nil it should be a function that takes a single file
 as argument and returns a label for the menu item. Otherwise the name of the file/directory will be used for the label.
 If EXCLUDE-REGEX is non-nil it should be a regular expression which will be matched against each items name (before being
 put through FILENAME-MAP-FUNC). Any matching items will be omitted from the results.
-THIS-DIR and PARENT-DIR indicate whether or not to include items for the current directory and parent directory
-respectively (these will be labelled \".\" and \"..\" with corresponding keys `one-key-dir-current-directory-key' and
-`one-key-dir-parentdir-key'). If non-nil (default) then the corresponding item will be included.
+Normally items for the current directory and parent directory are included, and will be labelled \".\" and \"..\" with corresponding keys `one-key-dir-current-directory-key' and `one-key-dir-parentdir-key'.
+However the arguments NON-VISITABLE-REGEX and NON-PARENTABLE-REGEX are regular expressions indicating which directories
+should not include these items. Any directories whose full path names match these regular expressions will have the
+current/parent dir item excluded from it's menu. By default these two arguments are nil which means that all menus will
+include current/parent dir items.
 
 Only the first `one-key-dir/max-items-per-page' items (excluding \"..\" and \".\") will be placed in each list.
 If there are no more than `one-key-dir/max-items-per-page' items, then a single list will be returned, otherwise several
@@ -327,7 +339,9 @@ lists will be returned (as list of lists). These lists can be navigated from the
                               ,item :filefunc ',filefunc
                               :dirfunc ',dirfunc
                               :filename-map-func ,filename-map-func
-                              :exclude-regex ,exclude-regex))
+                              :exclude-regex ,exclude-regex
+                              :non-visitable-regex ,non-visitable-regex
+                              :non-parentable-regex ,non-parentable-regex))
                         `(lambda nil    ; command for files
                            (interactive)
                            (setq one-key-dir-current-filename ,(file-truename item))
@@ -353,12 +367,16 @@ lists will be returned (as list of lists). These lists can be navigated from the
                                            :filefunc ',filefunc
                                            :dirfunc ',dirfunc
                                            :filename-map-func ,filename-map-func
-                                           :exclude-regex ,exclude-regex))))
+                                           :exclude-regex ,exclude-regex
+                                           :non-visitable-regex ,non-visitable-regex
+                                           :non-parentable-regex ,non-parentable-regex))))
       (loop for menu in-ref menus do
-            (push (cons (cons (single-key-description one-key-dir-current-directory-key)
-                              ".") thisdircmd) menu)
-            (push (cons (cons (single-key-description one-key-dir-parentdir-key)
-                              "..") updircmd) menu))
+            (unless (and non-visitable-regex (string-match non-visitable-regex dirname))
+                (push (cons (cons (single-key-description one-key-dir-current-directory-key)
+                                  ".") thisdircmd) menu))
+            (unless (and non-parentable-regex (string-match non-parentable-regex dirname))
+                (push (cons (cons (single-key-description one-key-dir-parentdir-key)
+                                  "..") updircmd) menu)))
       menus)))
 
 (defun one-key-dir/subdirs (directory &optional file?)
