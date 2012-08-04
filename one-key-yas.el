@@ -6,16 +6,16 @@
 ;; Maintainer: Joe Bloggs <vapniks@yahoo.com>
 ;; Copyright (C) 2010, , all rights reserved.
 ;; Created: 2010-09-21 14:31:52
-;; Version: 0.1
-;; Last-Updated: 2010-09-21 14:31:52
+;; Version: 1.0
+;; Last-Updated: 2012-08-02 18:30:52
 ;;           By: Joe Bloggs
 ;; URL: http://www.emacswiki.org/emacs/download/one-key-yas.el
 ;; Keywords: yasnippet one-key snippet
-;; Compatibility: GNU Emacs 24.0.50.1
+;; Compatibility: GNU Emacs 24.1.1
 ;;
 ;; Features that might be required by this library:
 ;;
-;; one-key.el (tested on version 0.6.9) yasnippet.el (tested on version 0.6.1c)
+;; one-key.el (tested on version 1.0) yasnippet.el (tested on version 0.6.1b)
 ;;
 
 ;;; This file is NOT part of GNU Emacs
@@ -42,7 +42,7 @@
 ;; Functions for using one-key menus to access yasnippets.
 ;;
 ;; You can quickly access your yasnippets using one-key by binding a 
-;; key-combo to `one-key-yas/show-mode-nr' or to one of the following 
+;; key-combo to `one-key-yas/get-mode-menu-alist-and-name-nr' or to one of the following 
 ;; commands:
 ;; `one-key-yas/show-dir' can be used to show a directory using
 ;; one-key. You can navigate the subdirs by pressing keys indicated 
@@ -51,12 +51,12 @@
 ;; `one-key-yas/show-yas-root-directory' can be used to navigate
 ;; the `yas/root-directory' using one-key, and expand snippets
 ;; (it calls `one-key-yas/show-dir' on `yas/root-directory').
-;; `one-key-yas/show-modes' can be used to show all the loaded
+;; `one-key-yas/get-allmodes-menu-alist-and-name' can be used to show all the loaded
 ;; modes' snippet definitions using one-key.
-;; `one-key-yas/show-mode' shows a one-key menu for snippets in the 
+;; `one-key-yas/get-mode-menu-alist-and-name' shows a one-key menu for snippets in the 
 ;; yasnippet directory of the current major mode and it's parents, 
 ;; but doesn't show any subdirs of that directory.
-;; `one-key-yas/show-mode-nr' works like `one-key-yas/show-mode' but 
+;; `one-key-yas/get-mode-menu-alist-and-name-nr' works like `one-key-yas/get-mode-menu-alist-and-name' but 
 ;; also shows menu items to navigate subdirs of the yasnippet directory
  
 ;;; Installation:
@@ -85,17 +85,15 @@
 ;;      * First released.
 ;; 
 
+;;; TODO
+;;
+;; Add a one-key menu type for this type of menu
+
 ;;; Require
 (require 'one-key)
 (require 'yasnippet)
 
 ;;; Code:
-
-(defvar one-key-yas/max-lisp-eval-depth 2000
-  "The `max-lisp-eval-depth' when using one-key-yas.el.
-Because one-key related functions don't exit until the one-key menu buffer is killed,
-either because a snippet is inserted or an unknown keystroke was entered, setting this 
-to a large number can avoid the error of `Lisp nesting exceeds max-lisp-eval-depth")
 
 (defconst one-key-yas/alphabets-and-numbers
   (let (alphabets-and-numbers)
@@ -108,13 +106,27 @@ to a large number can avoid the error of `Lisp nesting exceeds max-lisp-eval-dep
   "A list contains characters [a-zA-Z0-9].
 This list is used when generating keys in `one-key-yas/generate-key'")
 
-(defun one-key-yas/show-yas-root-directory ()
+(defvar one-key-yas/toplevel-item-description
+  #("Show top level snippets directory" 0 32 (face (:background "cyan" :foreground "black")))
+  "The item description for the toplevel item in one-key-yas menus.")
+
+(defvar one-key-yas/allmodes-item-description
+  #("Show all major-mode snippets menus" 0 33 (face (:background "cyan" :foreground "black")))
+  "The item description for the allmodes item in one-key-yas menus.")
+
+(defvar one-key-yas/updir-item-description
+  #(".." 0 1 (face (:background "cyan" :foreground "black")))
+  "The item description for navigating up directories in one-key-yas menus.")
+
+(defvar one-key-yas/up-key "^"
+  "Key description of the key to use for toplevel or allmodes items in one-key-yas menus.")
+
+(defun one-key-yas/show-yas-root-directory nil
   "Show `yas/root-directory' using `one-key'.
 If `yas/root-directory' is set to a list, only show the first directory"
   (interactive)
   (unless yas/root-directory
     (error "yas/root-directory is not set"))
-  
   (if (listp yas/root-directory)
       (one-key-yas/show-dir (car yas/root-directory))
     (one-key-yas/show-dir yas/root-directory)))
@@ -123,92 +135,83 @@ If `yas/root-directory' is set to a list, only show the first directory"
   "Show DIR's content in a one-key menu.
 For directories, entering the corresponding menu key will navigate to that directory recursively.
 For snippet files entering the corresponding menu key will expand the snippet."
-  (interactive (list (ido-read-directory-name "Directory for root of tree: " default-directory)))  
   (unless (file-directory-p dir)
     (error "one-key-yas/show-dir called with a non-directory"))
+  (let* ((dir-name (file-name-as-directory (file-truename dir)))
+         (rootdir (if (listp yas/root-directory) (car yas/root-directory)
+                    yas/root-directory))
+         (rootdirname (file-name-as-directory (file-truename rootdir)))
+         (isroot (equal dir-name rootdirname))
+         (key-name-list (one-key-yas/build-key-name-list dir isroot))
+         (menu-alist (one-key-yas/build-menu-alist key-name-list))
+         (menuname (if isroot "yasnippet:rootdir"
+                     (concat "yasnippet:" (file-name-nondirectory (substring dir-name 0 -1))))))
+      (one-key-open-submenu menuname menu-alist)))
+
+(defun one-key-yas/show-rootdir nil
+  "Return a name and one-key menu-alist for the `yas/root-directory'.
+The name returned will be set to \"yasnippet:rootdir\" and the return value will be in the form
+ (\"yasnippet:rootdir\". menu-alist)."
+  (unless yas/root-directory
+    (error "yas/root-directory is not set"))
+  (one-key-yas/show-dir yas/root-directory))
   
-  (let ((old-max-lisp-eval-depth max-lisp-eval-depth))
-    (setq max-lisp-eval-depth one-key-yas/max-lisp-eval-depth)
-    (unwind-protect
-	(let* ((dir-name (file-name-as-directory (file-truename dir)))
-	       (key-name-list (one-key-yas/build-key-name-list dir))
-	       (one-key-menu-yas/dir-alist (one-key-yas/build-menu-alist key-name-list)))
-	  (flet ((one-key-menu-yas-func ()
-					(one-key-menu dir-name
-						      one-key-menu-yas/dir-alist)))
-	    (one-key-menu-yas-func)))
-      (setq max-lisp-eval-depth old-max-lisp-eval-depth))
-    (setq max-lisp-eval-depth old-max-lisp-eval-depth)))
+(defun one-key-yas/get-allmodes-menu-alist-and-name nil
+  "Return a name and one-key menu-alist of submenus for major-modes which have associated snippets.
+The name returned will be set to \"yasnippet:allmodes\" and the return value will be in the form
+ (\"yasnippet:allmodes\". menu-alist)."
+  (let* ((keys (list one-key-yas/up-key))
+         modes menu-alist)
+    (maphash #'(lambda (key value)
+                 (when (yas/real-mode? key)
+                   (push key modes))) yas/snippet-tables)
+    ;; build the key and menu alist
+    (dolist (mode modes)
+      (let* ((modename (symbol-name mode))
+             (key (one-key-yas/generate-key modename keys)))
+        (push key keys)
+        (push (cons (cons key modename)
+                    `(lambda nil (interactive)
+                       (let ((modepair (one-key-yas/get-mode-menu-alist-and-name-nr ',mode)))
+                         (one-key-open-submenu (car modepair) (cdr modepair))))) menu-alist)))
+    (push (cons (cons one-key-yas/up-key one-key-yas/toplevel-item-description)
+                (lambda nil (interactive)
+                  (one-key-yas/show-rootdir)))
+          menu-alist)
+  (cons "yasnippet:allmodes" menu-alist)))
 
-(defun one-key-yas/show-modes ()
-  "Show all the major modes that have snippets definition using `one-key'."
-  (interactive)
-  (let ((old-max-lisp-eval-depth max-lisp-eval-depth))
-    (setq max-lisp-eval-depth one-key-yas/max-lisp-eval-depth)
-    (unwind-protect
-	(let* (mode-names
-	       (dummy (maphash #'(lambda (key value)
-				   (when (yas/real-mode? key)
-				     (push key mode-names))) yas/snippet-tables))
-	       (keys '("C-b" "q"))
-	       (menu-alist nil))
-	  
-	  ;; build the key and menu alist
-	  (dolist (mode-name mode-names)
-	    (let ((key (one-key-yas/generate-key (symbol-name mode-name) keys)))
-	      (push key keys)
-	      (push (cons (cons key (symbol-name mode-name))
-			  `(lambda () (interactive)
-			     (one-key-yas/show-mode ',mode-name 'has-parent))) menu-alist)))
-	  
-	  (flet ((one-key-menu-yas-func ()
-					(one-key-menu "All loaded modes in Yasnippet"
-						      menu-alist)))
-	    (one-key-menu-yas-func)))
-      ;; if an error happens, restore the orignial value
-      (setq max-lisp-eval-depth old-max-lisp-eval-depth))
-    (setq max-lisp-eval-depth old-max-lisp-eval-depth)))
-
-(defun one-key-yas/show-mode (&optional mode has-parent)
-  "Show all the applicable snippets for mode MODE.
-If optional MODE is nil, current buffer's major mode will be used.
-If optional HAS-PARENT is non-nil, a menu item with key `C-b' will be added for showing
-all snippet directories."
-  (interactive)
+(defun one-key-yas/get-mode-menu-alist-and-name (mode)
+  "Return a name and one-key menu-alist of snippets for major-mode MODE (a major-mode symbol).
+Result is returned as a cons cell in the form (name . menu-alist)."
   (or mode (setq mode major-mode))  
   (let* ((templates (yas/all-templates (one-key-yas/get-snippet-tables mode)))
 	 (file-names (mapcar #'(lambda (template) (file-name-nondirectory (yas/template-file template)))
 			     templates))
-	 (keys '("C-b" "q"))
-	 (key-name-list nil))
-    
+	 (keys (list one-key-yas/up-key))
+	 key-name-list one-key-menu-yas/mode-alist)
     (mapcar* #'(lambda (file-name template)
 		 (let ((key (one-key-yas/generate-key file-name keys))
-		       (snippet-def (yas/template-content template))
-		       )
+		       (snippet-def (yas/template-content template)))
 		   (push key keys)
 		   (push `(,key ,(yas/template-name template) nil nil ,snippet-def) key-name-list)))
 	     file-names templates)
+    (setq one-key-menu-yas/mode-alist (one-key-yas/build-menu-alist key-name-list))
+    ;; using one-key-yas/up-key to return to top level.
+    (push (cons (cons one-key-yas/up-key one-key-yas/allmodes-item-description)
+                (lambda nil (interactive)
+                  (let ((modespair (one-key-yas/get-allmodes-menu-alist-and-name)))
+                    (one-key-open-submenu (car modespair) (cdr modespair)))))
+          one-key-menu-yas/mode-alist)
+    (cons (concat "yasnippet:" (symbol-name mode)) one-key-menu-yas/mode-alist)))
 
-    (let ((one-key-menu-yas/mode-alist (one-key-yas/build-menu-alist key-name-list)))      
-      (when has-parent
-	;; using "C-b" to return to top level.
-	(setq one-key-menu-yas/mode-alist
-	      (append one-key-menu-yas/mode-alist
-		      (list (cons (cons "C-b" "Show all loaded snippets in modes")
-				  (lambda () (interactive)
-				    (one-key-yas/show-modes)))))))
+(defun one-key-yas/get-mode-menu-alist-and-name-nr (mode &optional has-parent)
+ "Return a name and one-key menu-alist of snippets for major-mode MODE.
+MODE's parent mode's snippets are also shown in the one-key menu.
+Result is returned as a cons cell in the form (name . menu-alist).
+If optional HAS-PARENT is non-nil, a menu item with key `^' will be added for showing all snippet mode directories.
 
-      (flet ((one-key-menu-yas-func ()
-				    (one-key-menu mode
-						  one-key-menu-yas/mode-alist)))
-	(one-key-menu-yas-func)))))
-
-(defun one-key-yas/show-mode-nr (&optional mode)
- "Show the applicable snippets for mode MODE, and it's subdirectories.
-If optional MODE is nil, current buffer's major mode will be used.
-MODE's parent mode's snippets are also shown in the one-key menu."
-  (interactive)
+If there are no snippets associated with the current major-mode a menu of menus for all supported
+major-modes will be returned."
   (or mode (setq mode major-mode))
   (if (one-key-yas/get-snippet-tables mode)
       (let* ((templates (yas/all-templates (one-key-yas/get-snippet-tables mode)))
@@ -221,22 +224,21 @@ MODE's parent mode's snippets are also shown in the one-key menu."
 			       (if (equal path "") 
 				   (concat yas/root-directory "/text-mode")
 				 path)))
-	     (parent-templates (remove nil
-				       (mapcar #'(lambda (template)
-						   (unless (string-match (concat "/" (regexp-opt `(,(symbol-name mode))) "/")
-									 (yas/template-file template))
-						     template))
-					       templates)))
+	     (parent-templates
+              (remove nil
+                      (mapcar #'(lambda (template)
+                                  (unless (string-match (concat "/" (regexp-opt `(,(symbol-name mode))) "/")
+                                                        (yas/template-file template))
+                                    template))
+                              templates)))
 	     (parent-file-names (mapcar #'(lambda (template) (file-name-nondirectory (yas/template-file template)))
 					parent-templates))
 	     (key-name-list (one-key-yas/build-key-name-list
 			     (file-name-as-directory (file-truename (concat mode-snippets-path
 									    "/" (symbol-name mode) "/")))
 			     'dont-show-parent-dir))
-	     (keys (mapcar #'(lambda (key-name)
-			       (car key-name))
-			   key-name-list)))
-	
+	     (keys (mapcar #'(lambda (key-name) (car key-name)) key-name-list))
+             menu-alist)
 	;; The parent mode's key-name-list
 	(mapcar* #'(lambda (file-name template)
 		     (let ((key (one-key-yas/generate-key file-name keys))
@@ -244,18 +246,19 @@ MODE's parent mode's snippets are also shown in the one-key menu."
 		       (push key keys)
 		       (push `(,key ,(yas/template-name template) nil nil ,snippet-def) key-name-list)))
 		 parent-file-names parent-templates)
-
-	(let ((one-key-menu-yas/mode-alist (one-key-yas/build-menu-alist key-name-list)))      
-	  (flet ((one-key-menu-yas-func ()
-					(one-key-menu (symbol-name mode)
-						      one-key-menu-yas/mode-alist)))
-	    (one-key-menu-yas-func))))
-    (one-key-yas/show-modes)))
+        (setq menu-alist (one-key-yas/build-menu-alist key-name-list))
+        (push (cons (cons one-key-yas/up-key one-key-yas/allmodes-item-description)
+                    (lambda nil (interactive)
+                      (let ((modespair (one-key-yas/get-allmodes-menu-alist-and-name)))
+                        (one-key-open-submenu (car modespair) (cdr modespair))))) menu-alist)
+        (cons (concat "yasnippet:" (symbol-name mode))
+              menu-alist))
+    (one-key-yas/get-allmodes-menu-alist-and-name)))
 
 ;;; Function that return an alist that can be used by one-key
-;;; ((("c" . "c-mode/") . (lambda () (interactive) (one-key-yas/show-dir "")))
-;;;  (("+" . "c++-mode/") . (lambda () (interactive) (one-key-yas/show-dir "")))
-;;;  (("t" . "time") . (lambda () (interactive) (yas/expand-snippet ""))))
+;;; ((("c" . "c-mode/") . (lambda nil (interactive) (one-key-yas/show-dir "")))
+;;;  (("+" . "c++-mode/") . (lambda nil (interactive) (one-key-yas/show-dir "")))
+;;;  (("t" . "time") . (lambda nil (interactive) (yas/expand-snippet ""))))
 (defun one-key-yas/build-menu-alist (key-name-list)
   "Return the menu alist that will be used by one-key.
 KEY-NAME-LIST is generated by `one-key-yas/build-key-name-list'"
@@ -263,13 +266,12 @@ KEY-NAME-LIST is generated by `one-key-yas/build-key-name-list'"
     (dolist (key-name key-name-list)
       (when (fourth key-name)		; A directory
 	(push (cons (cons (first key-name) (second key-name))
-		    `(lambda () (interactive)
-		       (one-key-yas/show-dir (third ',key-name))))
+		    `(lambda nil (interactive)
+		       (one-key-yas/show-dir ,(third key-name))))
 	      menu-alist))
-      
       (unless (fourth key-name)		; A snippet file
 	(push (cons (cons (first key-name) (second key-name))
-		    `(lambda () (interactive)
+		    `(lambda nil (interactive)
 		       (yas/expand-snippet ,(fifth key-name))))
 	      menu-alist)))
     menu-alist))
@@ -283,13 +285,14 @@ If optional DONT-SHOW-PARENT is non-nil, there will not be a
 \"C-b\" \"Back to parent directory \" item."
   (unless (file-directory-p dir)
     (error "one-key-yas/build-key-name-list called with a non-directory"))
-  
   (let* ((dir-name (file-name-as-directory (file-truename dir)))
 	 (sub-dirs (mapcar #'file-name-nondirectory (yas/subdirs dir)))
 	 (files (mapcar #'file-name-nondirectory (yas/subdirs dir t)))
-	 (keys (if dont-show-parent '("q") '("C-b" "q"))) ; Initially, it contains some already used keybindings
+	 (keys (if dont-show-parent nil (list one-key-yas/up-key))) ; Initially, it contains some already used keybindings
 	 (key-name-list nil))
-    
+    (unless dont-show-parent
+      (setq key-name-list (list `(,one-key-yas/up-key ,one-key-yas/updir-item-description
+                                                      ,(expand-file-name ".." dir-name) t))))
     ;; build key for sub-dirs
     (dolist (sub-dir sub-dirs)
       (let ((key (one-key-yas/generate-key sub-dir keys)))
@@ -298,7 +301,6 @@ If optional DONT-SHOW-PARENT is non-nil, there will not be a
 			 ,(concat (file-name-as-directory dir-name) sub-dir)
 			 t)
 		  key-name-list)))
-
     ;; build keys for snippet files
     ;; If it is, instead of the file name, we use the snippet name
     ;; as the NAME part of the key-name-list
@@ -313,17 +315,11 @@ If optional DONT-SHOW-PARENT is non-nil, there will not be a
 	      (let ((snippet-def (yas/parse-template full-file)))
 		(push `(,key ,(third snippet-def) ,dir-name nil ,(second snippet-def))
 		      key-name-list)))))))
-    
     ;;; Here we push the "C-b"
     ;; FIXME : for this we should only expand to the yas/root-directory
     ;; Or we use a variable `one-key-yas/restricted-to-root-directory'
     ;; By default it is t, which means don't go up to the root directory
     ;; otherwise, expand it until /
-    (unless dont-show-parent
-      (push `("C-b" ,(concat "Back to parent directory: "
-			     (file-name-nondirectory (expand-file-name ".." dir)))
-	      ,(expand-file-name ".." dir-name) t)
-	    key-name-list))
     key-name-list))
 
 ;; The key part is how to compute the key from a name, the algorithm is
@@ -362,7 +358,6 @@ KEYS contains all the already used keys."
 	(when (one-key-yas/key-not-used char-key keys)
 	  (setq key char-key)
 	  (return))))
-    
     (unless key
       ;; using character in original file isn't OK
       ;; Now try to revert the case
@@ -375,7 +370,6 @@ KEYS contains all the already used keys."
 	  (when (one-key-yas/key-not-used case-char-key keys)
 	    (setq key case-char-key)
 	    (return)))))
-    
     (unless key
       ;; using one character in FILE-NAME doesn't work, now try to use
       ;; "C-" as prefix (lower case file-name)
@@ -386,7 +380,6 @@ KEYS contains all the already used keys."
 	    (when (one-key-yas/key-not-used C-prefix-key keys)
 	      (setq key C-prefix-key)
 	      (return))))))
-    
     ;; try "C-" as prefix and upcase characters
     (unless key
       (let ((u-file-name (upcase file-name)))
@@ -396,7 +389,6 @@ KEYS contains all the already used keys."
 	    (when (one-key-yas/key-not-used C-prefix-key keys)
 	      (setq key C-prefix-key)
 	      (return))))))
-
     ;; try "M-" as prefix and lower case characters
     (unless key
       (let ((l-file-name (downcase file-name)))
@@ -406,7 +398,6 @@ KEYS contains all the already used keys."
 	    (when (one-key-yas/key-not-used C-prefix-key keys)
 	      (setq key C-prefix-key)
 	      (return))))))
-
     ;; try "M-" as prefix and upcase characters
     (unless key
       (let ((l-file-name (upcase file-name)))
@@ -416,7 +407,6 @@ KEYS contains all the already used keys."
 	    (when (one-key-yas/key-not-used M-prefix-key keys)
 	      (setq key M-prefix-key)
 	      (return))))))
-    
     ;; try using characters in one-key-yas/alphabets-and-numbers
     (unless key
       (dolist (element one-key-yas/alphabets-and-numbers)
@@ -424,7 +414,6 @@ KEYS contains all the already used keys."
 	  (when (one-key-yas/key-not-used normal-key keys)
 	    (setq key normal-key)
 	    (return)))))
-    
     ;; try using "C-" + characters in one-key-yas/alphabets-and-numbers
     (unless key
       (dolist (element one-key-yas/alphabets-and-numbers)
@@ -432,7 +421,6 @@ KEYS contains all the already used keys."
 	  (when (one-key-yas/key-not-used C-prefix-key keys)
 	    (setq key C-prefix-key)
 	    (return)))))
-    
     ;; try using "M-" + characters in one-key-yas/alphabets-and-numbers
     (unless key
       (dolist (element one-key-yas/alphabets-and-numbers)
@@ -440,7 +428,6 @@ KEYS contains all the already used keys."
 	  (when (one-key-yas/key-not-used M-prefix-key keys)
 	    (setq key M-prefix-key)
 	    (return)))))
-    
     (unless key
       (error "Can not generate a unique key for file : %s" file-name))
     key))
@@ -462,16 +449,28 @@ KEYS contains all the already used keys."
 (defun one-key-yas/get-snippet-tables (mode-symbol)
   "Get snippet tables for mode MODE-SYMBOL.
 Return a list of 'yas/snippet-table' objects indexed by mode."
-  (let ((mode-tables
-         (mapcar #'(lambda (mode)
-                     (gethash mode yas/snippet-tables))
-		 (list mode-symbol)))
-        (all-tables))
-    
+  (let ((mode-tables (list (gethash mode-symbol yas/snippet-tables)))
+        all-tables)
     (dolist (table (remove nil mode-tables))
       (push table all-tables)
       (nconc all-tables (yas/snippet-table-get-all-parents table)))
     (remove-duplicates all-tables)))
+
+
+;; Set the menu-alist, title string format and special keybindings for `yasnippet' menus
+(one-key-add-to-alist 'one-key-types-of-menu
+                      (list "yasnippet"
+                            (lambda (name) (string-match "^yasnippet" name))
+                            (lambda (name)
+                              (let ((modename (if (> (length name) 10) (substring name 10)
+                                                (symbol-name (with-selected-window (previous-window) major-mode)))))
+                                (if (equal modename "rootdir")
+                                    (one-key-yas/show-rootdir)
+                                  (let ((mode (intern-soft modename)))
+                                    (one-key-yas/get-mode-menu-alist-and-name-nr mode)))))
+                            one-key-default-title-func
+                            'one-key-default-special-keybindings) t)
+
 
 (provide 'one-key-yas)
 ;;; one-key-yas.el ends here
