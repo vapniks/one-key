@@ -290,14 +290,20 @@ in the directory tree."
                                           (dirfunc one-key-dir-default-dir-func)
                                           filename-map-func
                                           (exclude-regex "^\\.")
-                                          (initial-sort-method 'extension))
+                                          (initial-sort-method 'extension)
+                                          (this-dir t)
+                                          (parent-dir t))
   "Build `one-key-menu' items lists for directory DIR.
 Each element of the returned list has the following form: ((KEY . NAME) . FUNCTION).
 Where FUNCTION is a function that may call FILEFUNC or DIRFUNC depending on whether the item corresponds to a file
-or directory. If FILENAME-MAP-FUNC is non-nil it should be a function that takes a single file or directory name
+or directory. FILEFUNC and DIRFUNC are functions of one argument that take a file/directory name respectively.
+If FILENAME-MAP-FUNC is non-nil it should be a function that takes a single file or directory name
 as argument and returns a label for the menu item. Otherwise the name of the file/directory will be used for the label.
 If EXCLUDE-REGEX is non-nil it should be a regular expression which will be matched against each items name (before being
 put through FILENAME-MAP-FUNC). Any matching items will be omitted from the results.
+THIS-DIR and PARENT-DIR indicate whether or not to include items for the current directory and parent directory
+respectively (these will be labelled \".\" and \"..\" with corresponding keys `one-key-dir-current-directory-key' and
+`one-key-dir-parentdir-key'). If non-nil (default) then the corresponding item will be included.
 
 Only the first `one-key-dir/max-items-per-page' items (excluding \"..\" and \".\") will be placed in each list.
 If there are no more than `one-key-dir/max-items-per-page' items, then a single list will be returned, otherwise several
@@ -398,8 +404,9 @@ Hidden and backup files and directories are not included."
 (one-key-add-to-alist 'one-key-types-of-menu
                       (list "directory menu"
                             (lambda (name) ;; this type accepts the path to any existing directory
-                              (let ((dir (substring name 0 -4)))
-                                (file-directory-p dir)))
+                              (and (> (length name) 4)
+                                   (let ((dir (substring name 0 -4)))
+                                     (file-directory-p dir))))
                             (lambda (name)
                               (let* ((dir (if (file-directory-p name) name
                                             (if (featurep 'ido)
