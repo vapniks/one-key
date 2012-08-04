@@ -392,12 +392,12 @@ Hidden and backup files and directories are not included."
   "Return t if DIR is TOPDIR or a descendant of TOPDIR.
 Default value for TOPDIR is `one-key-dir/topdir'."
   (or (string= (file-name-as-directory (file-truename dir))
-	       (file-name-as-directory (file-truename one-key-dir/topdir)))
-      (one-key-dir/descendant-p dir)))
+	       (file-name-as-directory (file-truename topdir)))
+      (one-key-dir/descendant-p dir topdir)))
 
-(defun one-key-dir/descendant-p (dir)
+(defun* one-key-dir/descendant-p (dir &optional (topdir one-key-dir/topdir))
   "Return t if DIR is a descendant of `one-key-dir/topdir'."
-  (let ((topdir-name (file-name-as-directory (file-truename one-key-dir/topdir)))
+  (let ((topdir-name (file-name-as-directory (file-truename topdir)))
 	(dir-name (file-name-as-directory (file-truename dir))))
     (and (not (string= topdir-name dir-name))
 	 (= (- (abs (compare-strings topdir-name 0 nil dir-name 0 nil)) 1) (length topdir-name)))))
