@@ -1080,6 +1080,18 @@ containing the name of the buffer that was displayed when the one-key menu windo
 (defvar one-key-version "1.0"
   "Version number of this version of one-key")
 
+(defvar one-key-key-description-remap
+  '(("<return>" . "RET")
+    ("<tab>" . "TAB")
+    ("<space>" . "SPC")
+    ("<begin>" . "<home>")
+    ("<escape>" . "ESC")
+    ("<C-escape>" . "C-ESC")
+    ("<delete>" . "DEL"))
+  "Alist of key descriptions and their preferred versions.
+This is required in order that keys such as RET (which can also be described as <return> are always described and
+recognized the same way.")
+
 ;; some menus for the toplevel
 (defvar one-key-menu-sorting-commands-alist
   '((("l" . "Sort lines lexicographically (M-x sort-lines)") . sort-lines)
@@ -2343,18 +2355,6 @@ created for them."
                return (one-key-key-description element))
          (error "Can not generate a unique key for menu item : %s" desc))))
 
-(defvar one-key-key-description-remap
-  '(("<return>" . "RET")
-    ("<tab>" . "TAB")
-    ("<space>" . "SPC")
-    ("<begin>" . "<home>")
-    ("<escape>" . "ESC")
-    ("<C-escape>" . "C-ESC")
-    ("<delete>" . "DEL"))
-  "Alist of key descriptions and their preferred versions.
-This is required in order that keys such as RET (which can also be described as <return> are always described and
-recognized the same way.")
-
 (defun one-key-remap-key-description (keydesc)
   (let ((pair (assoc keydesc one-key-key-description-remap)))
     (if pair (cdr pair) keydesc)))
@@ -2434,7 +2434,7 @@ and KEYFUNC is set to `one-key-generate-key' (which selects keys from `one-key-d
                             for keystrs = (loop for key in keys2
                                                 for desc in descs2
                                                 collect (or (one-key-key-description key)
-                                                            (let ((newkey (one-key-generate-key desc usedkeys)))
+                                                            (let ((newkey (funcall keyfunc desc usedkeys)))
                                                               (push newkey usedkeys)
                                                               newkey)))
                             collect (loop for cmd in cmds
