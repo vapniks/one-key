@@ -348,101 +348,23 @@ If optional DONT-SHOW-PARENT is non-nil, there will not be a
 ;; 1. Extract the generating key strategies as simple functions
 ;; 2. This function is not only used for the file-name, but also for the mode-name.
 ;;    So the argument name should be changed
-(defun one-key-yas/generate-key (file-name keys)
+(defun one-key-yas/generate-key (file-name &optional usedkeys)
   "Return the generated key for file named FILE-NAME.
 The generated key will be used in the one-key menu.  FILE-NAME is a string.
-KEYS contains all the already used keys."
-  (let (key)
-    (dotimes (idx (length file-name))
-      (let ((char-key (char-to-string (aref file-name idx))))
-	(when (one-key-yas/key-not-used char-key keys)
-	  (setq key char-key)
-	  (return))))
-    (unless key
-      ;; using character in original file isn't OK
-      ;; Now try to revert the case
-      ;; lower case=>upper case
-      ;; upper case=>lower case
-      (dotimes (idx (length file-name))
-	(let ((case-char-key (char-to-string
-			      (one-key-yas/revert-char-case
-			       (aref file-name idx)))))
-	  (when (one-key-yas/key-not-used case-char-key keys)
-	    (setq key case-char-key)
-	    (return)))))
-    (unless key
-      ;; using one character in FILE-NAME doesn't work, now try to use
-      ;; "C-" as prefix (lower case file-name)
-      (let ((l-file-name (downcase file-name)))
-	(dotimes (idx (length l-file-name))
-	  (let ((C-prefix-key (concat "C-"
-				      (char-to-string (aref l-file-name idx)))))
-	    (when (one-key-yas/key-not-used C-prefix-key keys)
-	      (setq key C-prefix-key)
-	      (return))))))
-    ;; try "C-" as prefix and upcase characters
-    (unless key
-      (let ((u-file-name (upcase file-name)))
-	(dotimes (idx (length u-file-name))
-	  (let ((C-prefix-key (concat "C-"
-				      (char-to-string (aref u-file-name idx)))))
-	    (when (one-key-yas/key-not-used C-prefix-key keys)
-	      (setq key C-prefix-key)
-	      (return))))))
-    ;; try "M-" as prefix and lower case characters
-    (unless key
-      (let ((l-file-name (downcase file-name)))
-	(dotimes (idx (length l-file-name))
-	  (let ((C-prefix-key (concat "M-"
-				      (char-to-string (aref l-file-name idx)))))
-	    (when (one-key-yas/key-not-used C-prefix-key keys)
-	      (setq key C-prefix-key)
-	      (return))))))
-    ;; try "M-" as prefix and upcase characters
-    (unless key
-      (let ((l-file-name (upcase file-name)))
-	(dotimes (idx (length l-file-name))
-	  (let ((M-prefix-key (concat "M-"
-				      (char-to-string (aref l-file-name idx)))))
-	    (when (one-key-yas/key-not-used M-prefix-key keys)
-	      (setq key M-prefix-key)
-	      (return))))))
-    ;; try using characters in one-key-yas/alphabets-and-numbers
-    (unless key
-      (dolist (element one-key-yas/alphabets-and-numbers)
-	(let ((normal-key (char-to-string element)))
-	  (when (one-key-yas/key-not-used normal-key keys)
-	    (setq key normal-key)
-	    (return)))))
-    ;; try using "C-" + characters in one-key-yas/alphabets-and-numbers
-    (unless key
-      (dolist (element one-key-yas/alphabets-and-numbers)
-	(let ((C-prefix-key (concat "C-" (char-to-string element))))
-	  (when (one-key-yas/key-not-used C-prefix-key keys)
-	    (setq key C-prefix-key)
-	    (return)))))
-    ;; try using "M-" + characters in one-key-yas/alphabets-and-numbers
-    (unless key
-      (dolist (element one-key-yas/alphabets-and-numbers)
-	(let ((M-prefix-key (concat "M-" (char-to-string element))))
-	  (when (one-key-yas/key-not-used M-prefix-key keys)
-	    (setq key M-prefix-key)
-	    (return)))))
-    (unless key
-      (error "Can not generate a unique key for file : %s" file-name))
-    key))
-
-(defun one-key-yas/key-not-used (key key-name-list)
-  "Return t if KEY is not used in KEY-NAME-LIST."
-  (dolist (key-name key-name-list t)
-    (if (string= key key-name)
-	(return nil))))
-
-(defun one-key-yas/revert-char-case (char)
-  "Revert character CHAR's case if it is in alphabet."
-  (cond ((and (<= char ?z) (>= char ?a)) (upcase char))
-	((and (<= char ?Z) (>= char ?A)) (downcase char))
-	(t char)))
+USEDKEYS contains all the already used usedkeys."
+  (flet ((findmatch (transformer keys)
+                    (dolist (key (mapcar transformer keys)) (unless (member key usedkeys) (return key))))
+         (uptransformer (prefix) `(lambda (char) (concat ,prefix (upcase (char-to-string char)))))
+         (downtransformer (prefix) `(lambda (char) (concat ,prefix (downcase (char-to-string char)))))
+         (findall (keys) (or (findmatch (uptransformer "") keys)
+                             (findmatch (downtransformer "") keys)
+                             (findmatch (uptransformer "C-") keys)
+                             (findmatch (downtransformer "C-") keys)
+                             (findmatch (uptransformer "M-") keys)
+                             (findmatch (downtransformer "M-") keys))))
+    (or (findall file-name)
+        (findall one-key-yas/alphabets-and-numbers)
+        (error "Can not generate a unique key for file : %s" file-name))))
 
 ;;; Unlike the original version in Yasnippet `yas/get-snippet-tables'
 ;;; this function only uses mode-symbol to index the loaded tables
@@ -456,21 +378,64 @@ Return a list of 'yas/snippet-table' objects indexed by mode."
       (nconc all-tables (yas/snippet-table-get-all-parents table)))
     (remove-duplicates all-tables)))
 
+(defun one-key-yas-get-mode-dir (mode)
+  "Given major-mode symbol MODE, return the directory containing snippets for that mode.
+If there is no snippets directory associated with that mode return `yas/root-directory'."
+  (let* ((templates (yas/all-templates (one-key-yas/get-snippet-tables mode)))
+         (full-file-names (mapcar #'(lambda (template) (yas/template-file template)) templates))
+         (regex (regexp-opt (list (concat "/" (symbol-name mode) "/")))))
+    (or (dolist (file-name full-file-names)
+          (when (string-match regex file-name)
+            (return (substring file-name 0 (match-end 0)))))
+        yas/root-directory)))
+
+(defun one-key-yas-filefunc (file)
+  (let (snippet)
+    (with-temp-buffer
+      (insert-file-contents file)
+      (goto-char (point-min))
+      (setq snippet
+            (buffer-substring-no-properties 
+             (re-search-forward "# --.*\n") 
+             (point-max))))
+    (yas/expand-snippet snippet)))
+
+(defun one-key-yas-filename-map-func (file)
+  "Return name for menu item corresponding to file or dir FILE in yasnippet one-key menus."
+  (if (file-directory-p file) (file-name-nondirectory file)
+    (with-temp-buffer
+      (let ((full-file (file-truename file)))
+        (if (file-readable-p full-file)
+            (progn (insert-file-contents full-file nil nil nil t)
+                   (third (yas/parse-template full-file)))
+          file)))))
+
+(defun one-key-yas-get-menu (name)
+  "Return cons cell in form (menu-name . menu-alist) for yasnippet one-key menus with name NAME."
+  (let* ((modename (if (> (length name) 10) (substring name 10)
+                     (symbol-name (with-selected-window (previous-window) major-mode))))
+         (mode (intern-soft modename))
+         (modedir (one-key-yas-get-mode-dir mode))
+         (menuname (concat "yasnippet:" modename)))
+    (cons menuname (car (one-key-dir/build-menu-alist
+                         modedir
+                         :filefunc 'one-key-yas-filefunc
+                         :filename-map-func 'one-key-yas-filename-map-func
+                         :exclude-regex "^\\.\\|~$"
+                         :topdir yas/root-directory)))))
 
 ;; Set the menu-alist, title string format and special keybindings for `yasnippet' menus
 (one-key-add-to-alist 'one-key-types-of-menu
                       (list "yasnippet"
                             (lambda (name) (string-match "^yasnippet" name))
-                            (lambda (name)
-                              (let ((modename (if (> (length name) 10) (substring name 10)
-                                                (symbol-name (with-selected-window (previous-window) major-mode)))))
-                                (if (equal modename "rootdir")
-                                    (one-key-yas/show-rootdir)
-                                  (let ((mode (intern-soft modename)))
-                                    (one-key-yas/get-mode-menu-alist-and-name-nr mode)))))
+                            'one-key-yas-get-menu
                             one-key-default-title-func
                             'one-key-default-special-keybindings) t)
 
-
 (provide 'one-key-yas)
 ;;; one-key-yas.el ends here
+
+
+
+
+
