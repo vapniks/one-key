@@ -300,6 +300,7 @@ Default values for TOPDIR and VISITABLE are `one-key-dir/topdir' and t respectiv
                                           filename-map-func
                                           (exclude-regex "^\\.")
                                           (initial-sort-method 'extension)
+                                          (keyfunc 'one-key-generate-key)
                                           (topdir one-key-dir/topdir)
                                           (visitable t))
   "Build `one-key-menu' items lists for directory DIR.
@@ -336,7 +337,7 @@ lists will be returned (as list of lists). These lists can be navigated from the
                              (one-key-dir-visit
                               ,item :filefunc ',filefunc
                               :dirfunc ',dirfunc
-                              :filename-map-func ,filename-map-func
+                              :filename-map-func ',filename-map-func
                               :exclude-regex ,exclude-regex
                               :topdir ,topdir
                               :visitable ,visitable))
@@ -346,14 +347,14 @@ lists will be returned (as list of lists). These lists can be navigated from the
                            (funcall ',filefunc one-key-dir-current-filename)))))
            (commands (mapcar cmdfunc items))
            (descfunc (lambda (item)
-                       (let ((name (file-name-nondirectory item)))
+                       (let ((name (if filename-map-func (funcall filename-map-func item)
+                                     (file-name-nondirectory item))))
                          (if (file-directory-p item)
                              (propertize (concat name "/") 'face 'one-key-dir-directory)
                            (if (file-symlink-p item) (propertize name 'face 'one-key-dir-symlink)
                              (propertize name 'face 'one-key-dir-file-name))))))
            (descriptions (mapcar descfunc items))
-           (menus (one-key-create-menu-lists commands descriptions nil
-                                             one-key-dir/max-items-per-page))
+           (menus (one-key-create-menu-lists commands descriptions nil one-key-dir/max-items-per-page keyfunc))
            (thisdircmd `(lambda nil (interactive)
                           (setq one-key-dir-current-filename ,dirname)
                           (funcall ',dirfunc one-key-dir-current-filename)))
@@ -364,7 +365,7 @@ lists will be returned (as list of lists). These lists can be navigated from the
                                                                     dir)))
                                            :filefunc ',filefunc
                                            :dirfunc ',dirfunc
-                                           :filename-map-func ,filename-map-func
+                                           :filename-map-func ',filename-map-func
                                            :exclude-regex ,exclude-regex
                                            :topdir ,topdir
                                            :visitable ,visitable))))
@@ -372,7 +373,7 @@ lists will be returned (as list of lists). These lists can be navigated from the
             (if visitable
                 (push (cons (cons (single-key-description one-key-dir-current-directory-key)
                                   ".") thisdircmd) menu))
-            (if (one-key-dir/legal-dir-p dir topdir)
+            (if (one-key-dir/descendant-p dir topdir)
                 (push (cons (cons (single-key-description one-key-dir-parentdir-key)
                                   "..") updircmd) menu)))
       menus)))
