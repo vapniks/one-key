@@ -2336,24 +2336,40 @@ created for them."
     ;; return the main menu variable
     mainvar))
 
- (defun one-key-generate-key (desc &optional usedkeys elements trykey)
-   "Return a key for the menu item whose description string is DESC.
- The generated key can be used in a `one-key' menu.
- If provided, ELEMENTS should be a list of keys to choose from, (otherwise `one-key-default-menu-keys' will be used),
- USEDKEYS should be a list of keys which cannot be used (since they have already be used),
- and TRYKEY is a key which will be returned if it is not in USEDKEYS (otherwise another key will be found).
- This function can be used to help automatic creation of `one-key' menus."
-   (let ((elements (or elements one-key-default-menu-keys)))
-     (or (and trykey
-              (not (memq trykey usedkeys))
-              (not (member (one-key-key-description trykey) usedkeys))
-              trykey)
-         (loop for element in elements
-               for keystr = (one-key-key-description element)
-               if (not (or (memq element usedkeys)
-                           (member keystr usedkeys)))
-               return (one-key-key-description element))
-         (error "Can not generate a unique key for menu item : %s" desc))))
+(defun one-key-generate-key (desc &optional usedkeys elements trykey)
+ "Return a key for the menu item whose description string is DESC.
+The generated key can be used in a `one-key' menu, and this function can be used to help automatic creation
+of `one-key' menus.
+The function will try to choose a key corresponding to a char appearing in DESC, first choosing lowercase letters,
+then uppercase, then key presses with control then with the meta key.
+USEDKEYS should be a list of keys which cannot be used (since they have already be used).
+If the ELEMENTS arg (a list of keys) is provided the normal key selection method will not be used and instead a key
+from ELEMENTS that is not in USEDKEYS will be chosen instead.
+If TRYKEY is provided it should be a key and will be returned if it is not in USEDKEYS (otherwise another key will be
+found)."
+  (let ((trykey2 (one-key-key-description trykey)))
+    (flet ((findmatch (transformer keys)
+                      (dolist (key (mapcar transformer keys)) (unless (member key usedkeys) (return key))))
+           (uptransformer (prefix) `(lambda (char) (concat ,prefix (upcase (char-to-string char)))))
+           (downtransformer (prefix) `(lambda (char) (concat ,prefix (downcase (char-to-string char)))))
+           (findall (keys) (or (findmatch (uptransformer "") keys)
+                               (findmatch (downtransformer "") keys)
+                               (findmatch (uptransformer "C-") keys)
+                               (findmatch (downtransformer "C-") keys)
+                               (findmatch (uptransformer "M-") keys)
+                               (findmatch (downtransformer "M-") keys))))
+      (or (and trykey2
+               (not (memq trykey2 usedkeys))
+               (not (member (one-key-key-description trykey2) usedkeys))
+               trykey)
+          (if elements (loop for element in elements
+                             for keystr = (one-key-key-description element)
+                             if (not (or (memq element usedkeys)
+                                         (member keystr usedkeys)))
+                             return keystr))
+          (findall desc)
+          (findall one-key-default-menu-keys)
+          (error "Can not generate a unique key for file : %s" desc)))))
 
 (defun one-key-remap-key-description (keydesc)
   (let ((pair (assoc keydesc one-key-key-description-remap)))
@@ -2400,6 +2416,7 @@ This is useful for creating menu types that return multiple menus."
   "Create list/lists of menu items for use in `one-key' menu.
 COMMANDS should be a list of commands for the menu items, and KEYS an optional corresponding list of keys.
 If any element in KEYS is nil, or if KEYS is nil, then KEYFUNC will be used to generate a key for the item.
+KEYFUNC should be a function of two arguments: the item description and a list of used keys (in that order).
 DESCRIPTIONS is an optional argument which should contain a list of descriptions for the menu items.
 If any of the items in DESCRIPTIONS is nil or if DESCRIPTIONS is not supplied then the item will have its description
 set from the corresponding command name.
