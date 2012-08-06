@@ -95,17 +95,6 @@
 
 ;;; Code:
 
-(defconst one-key-yas/alphabets-and-numbers
-  (let (alphabets-and-numbers)
-    (dotimes (i 26)
-      (push (+ ?a i) alphabets-and-numbers)
-      (push (+ ?A i) alphabets-and-numbers))
-    (dotimes (i 10)
-      (push (+ i ?0) alphabets-and-numbers))
-    alphabets-and-numbers)
-  "A list contains characters [a-zA-Z0-9].
-This list is used when generating keys in `one-key-yas/generate-key'")
-
 (defvar one-key-yas/toplevel-item-description
   #("Show top level snippets directory" 0 32 (face (:background "cyan" :foreground "black")))
   "The item description for the toplevel item in one-key-yas menus.")
@@ -168,7 +157,7 @@ The name returned will be set to \"yasnippet:allmodes\" and the return value wil
     ;; build the key and menu alist
     (dolist (mode modes)
       (let* ((modename (symbol-name mode))
-             (key (one-key-yas/generate-key modename keys)))
+             (key (one-key-generate-key modename keys)))
         (push key keys)
         (push (cons (cons key modename)
                     `(lambda nil (interactive)
@@ -190,7 +179,7 @@ Result is returned as a cons cell in the form (name . menu-alist)."
 	 (keys (list one-key-yas/up-key))
 	 key-name-list one-key-menu-yas/mode-alist)
     (mapcar* #'(lambda (file-name template)
-		 (let ((key (one-key-yas/generate-key file-name keys))
+		 (let ((key (one-key-generate-key file-name keys))
 		       (snippet-def (yas/template-content template)))
 		   (push key keys)
 		   (push `(,key ,(yas/template-name template) nil nil ,snippet-def) key-name-list)))
@@ -241,7 +230,7 @@ major-modes will be returned."
              menu-alist)
 	;; The parent mode's key-name-list
 	(mapcar* #'(lambda (file-name template)
-		     (let ((key (one-key-yas/generate-key file-name keys))
+		     (let ((key (one-key-generate-key file-name keys))
 			   (snippet-def (yas/template-content template)))
 		       (push key keys)
 		       (push `(,key ,(yas/template-name template) nil nil ,snippet-def) key-name-list)))
@@ -295,7 +284,7 @@ If optional DONT-SHOW-PARENT is non-nil, there will not be a
                                                       ,(expand-file-name ".." dir-name) t))))
     ;; build key for sub-dirs
     (dolist (sub-dir sub-dirs)
-      (let ((key (one-key-yas/generate-key sub-dir keys)))
+      (let ((key (one-key-generate-key sub-dir keys)))
 	    (push key keys)
 	    (push `(,key ,(concat sub-dir "/")
 			 ,(concat (file-name-as-directory dir-name) sub-dir)
@@ -309,7 +298,7 @@ If optional DONT-SHOW-PARENT is non-nil, there will not be a
       (dolist (file files)
 	(let ((full-file (file-truename (concat dir-name file))))
 	  (when (file-readable-p full-file)
-	    (let ((key (one-key-yas/generate-key file keys)))	      
+	    (let ((key (one-key-generate-key file keys)))	      
 	      (push key keys)
 	      (insert-file-contents full-file nil nil nil t)
 	      (let ((snippet-def (yas/parse-template full-file)))
@@ -321,50 +310,6 @@ If optional DONT-SHOW-PARENT is non-nil, there will not be a
     ;; By default it is t, which means don't go up to the root directory
     ;; otherwise, expand it until /
     key-name-list))
-
-;; The key part is how to compute the key from a name, the algorithm is
-;; as follows :
-;; "C-b" is left for returning to parent level,
-;; "q" is left for quiting the one-key menu
-
-;; For a name N (a string), we check it char by char
-;; 1. If current char is not in key-name-list, we use this char as current
-;; file/directory name's key.
-;; 2. If all the characters are used for keys, then we re-search this name,
-;; and use the revert-case of each character. If it is not used as a key,
-;; use it. Otherwise,
-;; 3. We add a prefix "C-", and use the downcase character as the key.
-;; 4. We add a prefix "C-", and use the upcase character as the key.
-;; 5. We add a prefix "M-", and use the downcase character as the key.
-;; 6. We add a prefix "M-", and use the upcase character as the key.
-;; 7. We use the characters [a-zA-Z0-9] as the key
-;; 8. "C-" + [a-zA-Z0-9]
-;; 9. "M-" + [a-zA-Z0-9]
-
-;; Hopefully, the above 9 steps will generate unique keys for all the 
-;; files/directories under a directory. If not, issue an error.
-
-;; FIXME :
-;; 1. Extract the generating key strategies as simple functions
-;; 2. This function is not only used for the file-name, but also for the mode-name.
-;;    So the argument name should be changed
-(defun one-key-yas/generate-key (file-name &optional usedkeys)
-  "Return the generated key for file named FILE-NAME.
-The generated key will be used in the one-key menu.  FILE-NAME is a string.
-USEDKEYS contains all the already used usedkeys."
-  (flet ((findmatch (transformer keys)
-                    (dolist (key (mapcar transformer keys)) (unless (member key usedkeys) (return key))))
-         (uptransformer (prefix) `(lambda (char) (concat ,prefix (upcase (char-to-string char)))))
-         (downtransformer (prefix) `(lambda (char) (concat ,prefix (downcase (char-to-string char)))))
-         (findall (keys) (or (findmatch (uptransformer "") keys)
-                             (findmatch (downtransformer "") keys)
-                             (findmatch (uptransformer "C-") keys)
-                             (findmatch (downtransformer "C-") keys)
-                             (findmatch (uptransformer "M-") keys)
-                             (findmatch (downtransformer "M-") keys))))
-    (or (findall file-name)
-        (findall one-key-yas/alphabets-and-numbers)
-        (error "Can not generate a unique key for file : %s" file-name))))
 
 ;;; Unlike the original version in Yasnippet `yas/get-snippet-tables'
 ;;; this function only uses mode-symbol to index the loaded tables
