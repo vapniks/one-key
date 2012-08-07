@@ -2113,9 +2113,7 @@ Any items in LISTB that have the same command as an item in LISTA will be disgar
 also occur in LISTA will be exchanged for a new key that doesn't occur in either list."
   (loop for ((key . desc) . cmd) in (nconc lista listb) with usedkeys with usedcmds
         unless (memq cmd usedcmds)
-        collect (cons (cons (let ((newkey (if (member key usedkeys)
-                                              (one-key-generate-key desc usedkeys)
-                                            key)))
+        collect (cons (cons (let ((newkey (one-key-generate-key desc usedkeys nil key)))
                               (push newkey usedkeys)
                               newkey)
                             desc)
@@ -2243,9 +2241,9 @@ created for them."
          (menubar (lookup-key keymap1 [menu-bar])) ;get any menu-bar items
          (mainvar (intern (concat "one-key-menu-" name "-alist"))) ;variable to hold the main menu
          (winwidth (window-width)) ;need to know the window width to make sure descriptions aren't too long
-         usedkeys menu-alist)
+         usedkeys usedcmds menu-alist)
     ;; loop over the keys in the keymap
-    (loop for key being the key-codes of keymap1 using (key-bindings cmd) with usedcmds
+    (loop for key being the key-codes of keymap1 using (key-bindings cmd)
           ;; get the key description
           for keystr = (if (consp key) ; could be a cons cell representing a range of keys if we have a char-table
                            (one-key-key-description (car key))
@@ -2352,12 +2350,12 @@ found)."
                       (dolist (key (mapcar transformer keys)) (unless (member key usedkeys) (return key))))
            (uptransformer (prefix) `(lambda (char) (concat ,prefix (upcase (char-to-string char)))))
            (downtransformer (prefix) `(lambda (char) (concat ,prefix (downcase (char-to-string char)))))
-           (findall (keys) (or (findmatch (uptransformer "") keys)
-                               (findmatch (downtransformer "") keys)
-                               (findmatch (uptransformer "C-") keys)
+           (findall (keys) (or (findmatch (downtransformer "") keys)
+                               (findmatch (uptransformer "") keys)
                                (findmatch (downtransformer "C-") keys)
-                               (findmatch (uptransformer "M-") keys)
-                               (findmatch (downtransformer "M-") keys))))
+                               (findmatch (uptransformer "C-") keys)
+                               (findmatch (downtransformer "M-") keys)                               
+                               (findmatch (uptransformer "M-") keys))))
       (or (and trykey2
                (not (memq trykey2 usedkeys))
                (not (member (one-key-key-description trykey2) usedkeys))
