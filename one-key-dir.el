@@ -6,8 +6,8 @@
 ;; Maintainer: Joe Bloggs <vapniks@yahoo.com>
 ;; Copyright (C) 2010, Joe Bloggs, all rights reserved.
 ;; Created: 2010-09-21 17:23:00
-;; Version: 0.1
-;; Last-Updated: 2010-09-21 17:23:00
+;; Version: 1.0
+;; Last-Updated: 2012-08-07 17:23:00
 ;;           By: Joe Bloggs
 ;; URL: http://www.emacswiki.org/emacs/download/one-key-dir.el
 ;; Keywords: one-key, directories
@@ -15,7 +15,7 @@
 ;;
 ;; Features that might be required by this library:
 ;;
-;; one-key.el
+;; `hexrgb' `one-key'
 ;;
 
 ;;; This file is NOT part of GNU Emacs
@@ -39,19 +39,21 @@
 
 ;;; Commentary: 
 ;; 
-;; Functions for quickly navigating directory trees with one-key menus
-;; 
-;; `one-key-dir-visit' can be used to navigate a directory tree and apply functions 
-;;  to files. It's not an interactive function, so you should write wrapping functions
-;;  yourself. You can refer to `one-key-dir/find-file' as an example, which can be
-;;  used to navigate to and open a file using one-key.
-;;
-;; NOTE: hidden files and directories are excluded from the one-key menus generated, 
-;; as are backup files (files whose names begin with "~"). This is to keep the number of
-;; items in the one-key menus small enough so that enough keys can be generated.
-;; Also note that if the number of items is large they may not all fit in the viewing area
-;; of the one-key menu. In this case you can use the UP/DOWN arrow keys to scroll the menu 
-;; up and down to view the rest of the items.
+;; This library defines a `one-key' menu type for navigating directories, and visiting files.
+;; See the documentation for `one-key' for how to add a new menu to a menu-set.
+;; From the *One-Key* buffer you can add a menu of type "directory" which will prompt you for a given directory.
+;; You can also add a menu of type "dir:<PATH>" to a menu set from the customization buffer for
+;; `one-key-set-of-menus-alist', where <PATH> is the path to an existing directory.
+
+;; The one-key-dir menu will contain items for files and directories in the associated directory,
+;; and also the items "." which will take you to a dired buffer for the directory, and ".." which will
+;; open a menu for the parent directory. If there are a large number of items they may not all fit in
+;; one menu, in which case several menus may be created (with the same name suffixed by a number in brackets).
+;; You can switch between the different menus by using the left/right arrow keys (or whatever the appropriate
+;; keys are in `one-key-special-keybindings').
+
+;; By default hidden files and directories (with names beginning with ".") are excluded from the menu.
+;; This can be changed by customizing `one-key-dir-default-exclude-regex'.
 
 ;;; Installation:
 ;;
@@ -66,15 +68,26 @@
 ;; (require 'one-key-dir)
 
 ;;; Customize:
-;; There is nothing to customize.
+
+;; `one-key-dir-default-exclude-regex' : A regular expression matching files/dirs to be excluded by default from 
+;;                                       one-key-dir menus.
+;; `one-key-dir-default-file-func' : Default function to use for opening files from within a `one-key-dir' menu.
+;; `one-key-dir-default-dir-func' : Default function to use for opening the current directory from within a `one-key-dir' 
+;;                                  menu.
+;; `one-key-dir-parentdir-key' : Key that will be used to return to the parent directory.
+;; `one-key-dir-current-directory-key' : Key that will be used to open the current directory.
+;; `one-key-dir/topdir' : The fixed top level dir that `one-key-dir-visit' can explore the subdirs of,
+;; `one-key-dir/max-items-per-page' : The maximum number of menu items to display on each page.
+;; `one-key-dir-special-keybindings' : List of special keys to be used for one-key-dir menus (see 
+;;                                     `one-key-default-special-keybindings' for more info).
 
 ;;; TODO:
 ;;
 ;; Handle large directories by splitting items between several alists and passing these to `one-key-menu' as a list
 ;; of alists/symbols (once that functionality is added to `one-key-menu').
-;; Allow different methods for allocating keys to menu items (e.g. using first unused letter of each item).
 ;; Auto-highlight menu items based on filetype using dired colour scheme.
 ;; Add "sort by filetype" to sort list.
+;; Put sort type info in mode-line instead of top of buffer.
 
 ;;; Change log:
 ;;	
@@ -106,11 +119,6 @@
                              (face-foreground 'dired-symlink nil t)))))
   "*Face used for symlinks."
   :group 'one-key-dir)
-
-(defvar one-key-dir/max-lisp-eval-depth 2000
-  "The `max-lisp-eval-depth' when using one-key-dir.el.
-Because one-key related functions don't exit until the one-key menu buffer is killed. 
-Setting this to a large number can avoid error of `Lisp nesting exceeds max-lisp-eval-depth")
 
 (defvar one-key-dir-current-filename nil
   "Current file's name which is visited by one-key.")
@@ -166,6 +174,12 @@ in the menu.")
 (defgroup one-key-dir nil
   "Filesystem navigation using `one-key'."
   :group 'one-key)
+
+(defcustom one-key-dir-default-exclude-regex "^\\."
+  "A regular expression matching files/dirs to be excluded by default from one-key-dir menus.
+This is the default value for the exclude-regex argument to `one-key-dir/build-menu-alist' and `one-key-dir-visit'."
+  :type 'regexp
+  :group 'one-key-dir)
 
 (defcustom one-key-dir-default-file-func 'find-file
   "Default function to use for opening files from within a `one-key-dir' menu.
@@ -253,7 +267,7 @@ If PREV is non-nil then sort by the previous method instead."
                                (filefunc one-key-dir-default-file-func)
                                (dirfunc one-key-dir-default-dir-func)
                                filename-map-func
-                               (exclude-regex "^\\.")
+                               (exclude-regex one-key-dir-default-exclude-regex)
                                (topdir one-key-dir/topdir)
                                (visitable t))
   "Visit DIR using one-key.
@@ -279,26 +293,23 @@ Default values for TOPDIR and VISITABLE are `one-key-dir/topdir' and t respectiv
   (unless (one-key-dir/legal-dir-p dir)
     (error "one-key-dir-visit called with an illegal directory."))
   (setq one-key-dir-current-dir dir)
-  (let ((old-max-lisp-eval-depth max-lisp-eval-depth))
-    (setq max-lisp-eval-depth one-key-dir/max-lisp-eval-depth)
-    (unwind-protect
-	(let* ((dir-alists (one-key-dir/build-menu-alist
-                                             dir :filefunc filefunc :dirfunc dirfunc
-                                             :filename-map-func filename-map-func
-                                             :exclude-regex exclude-regex
-                                             :topdir topdir
-                                             :visitable visitable))
-               (nummenus (length dir-alists))
-               (dirname (file-name-as-directory (file-truename dir)))
-               (menunames (one-key-append-numbers-to-menu-name dirname nummenus)))
-          (one-key-menu menunames dir-alists)))
-    (setq max-lisp-eval-depth old-max-lisp-eval-depth)))
+  (unwind-protect
+      (let* ((dir-alists (one-key-dir/build-menu-alist
+                          dir :filefunc filefunc :dirfunc dirfunc
+                          :filename-map-func filename-map-func
+                          :exclude-regex exclude-regex
+                          :topdir topdir
+                          :visitable visitable))
+             (nummenus (length dir-alists))
+             (dirname (file-name-as-directory (file-truename dir)))
+             (menunames (one-key-append-numbers-to-menu-name dirname nummenus)))
+        (one-key-menu menunames dir-alists))))
 
 (defun* one-key-dir/build-menu-alist (dir &key
                                           (filefunc one-key-dir-default-file-func)                                          
                                           (dirfunc one-key-dir-default-dir-func)
                                           filename-map-func
-                                          (exclude-regex "^\\.")
+                                          (exclude-regex one-key-dir-default-exclude-regex)
                                           (initial-sort-method 'extension)
                                           (keyfunc 'one-key-generate-key)
                                           (topdir one-key-dir/topdir)
@@ -412,15 +423,9 @@ Default value for TOPDIR is `one-key-dir/topdir'."
                        (read-directory-name "Directory to use: " default-directory))))
   (one-key-dir-visit topdir))
 
-;; Redefine `one-key-add-menu' so that directories can also be added.
-;; Use the following dummy variable for user variable selection.
-(defvar one-key-menu-one-key-dir-alist nil
-  "Dummy variable used by `one-key-add-menu' to indicate that the user wants to add a `one-key-dir' menu.")
-
-
 ;; Set menu-alist, title string and special keybindings for new `one-key-dir' menus, prompting the user for the directory
 (one-key-add-to-alist 'one-key-types-of-menu
-                      (list "directory menu"
+                      (list "directory"
                             (lambda (name) ;; this type accepts the path to any existing directory
                               (and (> (length name) 4)
                                    (let ((dir (substring name 0 -4)))
