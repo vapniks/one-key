@@ -449,13 +449,13 @@ and COLOUR is the name of the associated colour to use in the `one-key' menu."
                                                         one-key-regs-currently-loaded-file
                                                         t) t))
                            (edit-register edit-item "Edit a register"
-                                          (lambda nil (one-key-regs-edit-menu-item info-alist full-list) t))
+                                          (lambda nil (one-key-regs-edit-menu-item okm-info-alist okm-full-list) t))
                            (delete-register delete-item "Delete a register"
-                                            (lambda nil (one-key-regs-delete-menu-item info-alist) t))
+                                            (lambda nil (one-key-regs-delete-menu-item okm-info-alist) t))
                            (swap-register-keys swap-keys "Swap register keys"
-                                               (lambda nil (one-key-regs-swap-menu-items full-list) t))
+                                               (lambda nil (one-key-regs-swap-menu-items okm-full-list) t))
                            (add-register add-item "Add a register"
-                                         (lambda nil (one-key-regs-prompt-to-add-menu-item info-alist full-list) t))
+                                         (lambda nil (one-key-regs-prompt-to-add-menu-item okm-info-alist okm-full-list) t))
                            (show-register-prefix-keys "C-p" "Show prefix associations"
                                                       one-key-regs-show-prefix-key-associations)
                            (clear-registers "<C-f6>" "Delete all registers"
@@ -742,8 +742,7 @@ If COLOUR is \"\" then all highlighting (and more generally any text properties)
           (setf (cdar item)
                 (propertize str 'face (list :background colour :foreground one-key-item-foreground-colour)))))
   (setq one-key-menu-call-first-time t)
-  (one-key-menu-window-close)
-  )
+  (one-key-menu-window-close))
 
 (defun one-key-regs-shift-key-queue (char)
   "If CHAR is a member of a key queue in `one-key-regs-key-queues' then shift registers in keys after it in the queue.
@@ -755,7 +754,8 @@ shifted into it's key. This is a recursive function."
                (nextchar (nth (1+ pos) keyqueue))
                (thisreg (assoc char register-alist)))
           (if (and nextchar thisreg)
-              (let* ((thisitem (copy-list (one-key-get-menu-item (car thisreg) one-key-menu-one-key-registers-alist)))
+              (let* ((thisitem (copy-list (one-key-get-menu-item (car thisreg)
+                                                                 one-key-menu-one-key-registers-alist)))
                      (nextreg (copy-list (assoc nextchar register-alist))))
                 (if nextreg (one-key-regs-shift-key-queue nextchar))
                 (set-register nextchar (cdr thisreg))
