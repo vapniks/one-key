@@ -255,7 +255,7 @@
 ;; `one-key-popup-window' : Whether to popup window when `one-key-menu' is run for the first time.
 ;; `one-key-buffer-name' : The buffer name of the popup menu window.
 ;; `one-key-column-major-order' : If true then menu items are displayed in column major order, otherwise row major order.
-;; `one-key-force-multi-column-keymap-menus' : If non-nil then one-key menus created from keymaps will have command 
+;; `one-key-min-number-of-columns' : If non-nil then one-key menus created from keymaps will have command 
 ;;                                             descriptions shortened to fit two columns.
 ;; `one-key-menu-window-max-height' : The max height of popup menu window.
 ;; `one-key-menus-save-file' : The file where `one-key' menus are saved.
@@ -496,13 +496,14 @@ In row major order the rows are filled one at a time."
   :type 'boolean
   :group 'one-key)
 
-(defcustom one-key-force-multi-column-keymap-menus t
-  "If non-nil then one-key menus created from keymaps will have command descriptions shortened to fit two columns.
-If nil then command descriptions will be allowed to fit the entire width of the menu if necessary in which case the
-menu will contain only a single column.
-
-Menus created from keymaps include major-mode menus and prefix-key menus."
-  :type 'boolean
+(defcustom one-key-min-number-of-columns 2
+  "An integer greater than 0 indicating the minimum number of columns to create for one-key menus.
+Items in one-key menus will have their descriptions shortened (in the `one-key-format' function) so that the indicated
+number of columns can be created."
+  :type '(choice (const :tag "One column" 1)
+                 (const :tag "Two columns" 2)
+                 (const :tag "Three columns" 3)
+                 (const :tag "Four columns" 4))
   :group 'one-key)
 
 (defcustom one-key-menu-window-max-height nil
@@ -2019,7 +2020,8 @@ Argument INFO-ALIST is the alist of keys and associated decriptions and function
 (defun one-key-optimize-col-widths (lengths maxlength)
   "Given a list of the lengths of the menu items, work out the maximum possible number of columns and return their widths.
 Actually the function returns a list of cons cells in the form (numrows . width) each of which corresponds to a column in
-the optimal assignment and indicates the number of rows and width of that column."
+the optimal assignment and indicates the number of rows and width of that column.
+LENGTHS is the list of menu item lengths, and MAXLENGTH is the maximum width over which the columns may span."
   (let ((nitems (length lengths))
         (ncols 1)
         bestcols)
@@ -2048,17 +2050,30 @@ the optimal assignment and indicates the number of rows and width of that column
   "Format `one-key' menu window key description text (as displayed by the `one-key-menu' function).
 Argument INFO-ALIST is an alist of keys and corresponding descriptions and functions, or a symbol referencing that list.
 Each element of this list is in the form: ((key . describe) . command)."
-  (let ((items-alist (if (symbolp info-alist) (eval info-alist) info-alist)))
+  (let* ((items-alist (if (symbolp info-alist) (eval info-alist) info-alist))
+         (winwidth (- (window-width) 1))
+         (maxlen (/ winwidth one-key-min-number-of-columns)))
     (if (> (length items-alist) 0)
-        (let* ((item-lengths (mapcar (lambda (item) (+ (length (cdar item))
-                                                       (length (one-key-remap-key-description (caar item))) 4))
+        (let* (items-alist2
+               (item-lengths (mapcar (lambda (item)
+                                       (let* ((desc (cdar item))
+                                              (desclen (length desc))
+                                              (keydesc (one-key-remap-key-description (caar item)))
+                                              (keydesclen (length keydesc))
+                                              (rest (cdr item))
+                                              (newdesclen (min (- maxlen keydesclen 4) desclen))
+                                              (newdesc (substring desc 0 newdesclen))
+                                              (newitem (cons (cons keydesc newdesc) rest)))
+                                         (push newitem items-alist2)
+                                         (+ newdesclen keydesclen 4)))
                                      items-alist))
-               (colspecs (one-key-optimize-col-widths item-lengths (- (window-width) 3)))
-               (numitems (length items-alist))
+               (colspecs (one-key-optimize-col-widths item-lengths winwidth))
+               (numitems (length items-alist2))
                (maxcols (length colspecs))
                (maxrow (caar (last colspecs)))
                (extras (% numitems maxcols))
                keystroke-msg)
+          (setq items-alist (nreverse items-alist2))
           (loop for row from 0 to maxrow
                 for ncols = (if (= row maxrow) extras maxcols) do
                 (loop for col from 0 to (1- ncols) with sofar = 0
@@ -2243,7 +2258,6 @@ created for them."
                       keymap)))         ;get the keymap value
          (menubar (lookup-key keymap1 [menu-bar])) ;get any menu-bar items
          (mainvar (intern (concat "one-key-menu-" name "-alist"))) ;variable to hold the main menu
-         (winwidth (window-width)) ;need to know the window width to make sure descriptions aren't too long
          usedkeys usedcmds menu-alist)
     ;; loop over the keys in the keymap
     (loop for key being the key-codes of keymap1 using (key-bindings cmd)
@@ -2272,12 +2286,7 @@ created for them."
                            (desc1 (if (symbolp cmd) (symbol-name cmd) (format "%S" cmd)))
                            (desc1a (replace-regexp-in-string keymapnameregex "" desc1))
                            (desc1b (capitalize (replace-regexp-in-string "-" " " desc1a)))
-                           (desc1c (concat desc1b " (" keydesc ")"))
-                           (startchar (max 0 (- (+ (length keydesc) 6 (length desc1c))
-                                                (if one-key-force-multi-column-keymap-menus
-                                                    (/ winwidth 2)
-                                                  winwidth))))
-                           (desc2 (substring desc1c startchar))
+                           (desc2 (concat desc1b " (" keydesc ")"))
                            ;; if the key is invalid, generate a new one
                            (keystr2 (if (member keystr one-key-disallowed-keymap-menu-keys)
                                         (one-key-generate-key desc2 usedkeys)
@@ -2350,7 +2359,11 @@ If TRYKEY is provided it should be a key and will be returned if it is not in US
 found)."
   (let ((trykey2 (one-key-key-description trykey)))
     (flet ((findmatch (transformer keys)
-                      (dolist (key (mapcar transformer keys)) (unless (member key usedkeys) (return key))))
+                      (dolist (key (mapcar 'identity keys))
+                        (let ((key2 (funcall transformer key)))
+                          (if (and (member key one-key-default-menu-keys)
+                                   (not (member key2 usedkeys)))
+                            (return key2)))))
            (uptransformer (prefix) `(lambda (char) (concat ,prefix (upcase (char-to-string char)))))
            (downtransformer (prefix) `(lambda (char) (concat ,prefix (downcase (char-to-string char)))))
            (findall (keys) (or (findmatch (downtransformer "") keys)
@@ -2373,6 +2386,7 @@ found)."
           (error "Can not generate a unique key for file : %s" desc)))))
 
 (defun one-key-remap-key-description (keydesc)
+  "Remap key description string KEYDESC according to it's entry in `one-key-key-description-remap' if it has one."
   (let ((pair (assoc keydesc one-key-key-description-remap)))
     (if pair (cdr pair) keydesc)))
 
