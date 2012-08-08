@@ -2094,8 +2094,9 @@ CONTENTS may be a command or a list whose first element is a command (it will be
     (if item (progn (setf (cdar item) desc (cdr item) contents) menu-alist)
       (add-to-list 'menu-alist (cons (cons thekey desc) contents)))))
 
-(defun one-key-open-submenu (name var)
-  "Open a menu named NAME with menu alist variable VAR as a submenu of the current menu, replacing it if necessary.
+(defun one-key-open-submenu (names vars)
+  "Open menu/menus named NAMES with menu alist variables VARS as a submenu of the current menu, replacing it if necessary.
+NAMES can be either a single string or a list of strings. VARS can be a single menu alist or a list of menu alists.
 If `one-key-submenus-replace-parents' is non-nil then the current menu will be replaced with the submenu, otherwise
 a new menu will be added to the current menu set.
 This function will only work if called within the context of the `one-key-menu' function since it depends on the variable
