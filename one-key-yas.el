@@ -110,7 +110,7 @@ If there is no snippets directory associated with that mode return `yas/root-dir
 
 (defun one-key-yas-filefunc (file)
   "Expand the snippet stored in snippet file FILE.
-This function is used in calls to `one-key-dir/build-menu-alist'."
+This function is used in calls to `one-key-dir-build-menu-alist'."
   (let (snippet)
     (with-temp-buffer
       (insert-file-contents file)
@@ -139,7 +139,7 @@ This function is used in calls to `one-key-dir/build-menu-alist'."
          (mode (intern-soft modename))
          (modedir (one-key-yas-get-mode-dir mode))
          (menuname (concat "yas:" modename)))
-    (cons menuname (car (one-key-dir/build-menu-alist
+    (cons menuname (car (one-key-dir-build-menu-alist
                          modedir
                          :filefunc 'one-key-yas-filefunc
                          :filename-map-func 'one-key-yas-filename-map-func
