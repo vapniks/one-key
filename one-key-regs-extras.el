@@ -453,7 +453,7 @@ bookmark should be added to the `one-key' menu."
                      `(let ((dir ,(if (featurep 'ido)
                                       (ido-read-directory-name "Directory: ")
                                     (read-directory-name "Directory: "))))
-                        (one-key-dir/find-file dir))
+                        (one-key-dir-visit dir))
                      (lambda (reg) (format "Dir: %s" (cadar (caddr reg))))))
       (if (not (assq 'one-key-dir one-key-regs-colours-alist))
           (add-to-list 'one-key-regs-colours-alist
