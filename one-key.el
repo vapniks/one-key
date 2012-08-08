@@ -2102,7 +2102,7 @@ a new menu will be added to the current menu set.
 This function will only work if called within the context of the `one-key-menu' function since it depends on the variable
 THIS-NAME being dynamically bound."
   (let ((currname this-name))
-    (one-key-add-menus name var)
+    (one-key-add-menus names vars)
     (if one-key-submenus-replace-parents
         (one-key-delete-menu currname)))
     (setq one-key-menu-call-first-time t)
