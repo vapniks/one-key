@@ -198,6 +198,7 @@
 
 ;;; Require
 (require 'one-key)
+(require 'one-key-dir)
 (eval-when-compile (require 'cl))
 ;;; Code:
 
@@ -459,18 +460,11 @@ and COLOUR is the name of the associated colour to use in the `one-key' menu."
                            (show-register-prefix-keys "C-p" "Show prefix associations"
                                                       one-key-regs-show-prefix-key-associations)
                            (clear-registers "<C-f6>" "Delete all registers"
-                                            (lambda nil (one-key-regs-clear-registers)
-                                              (setq one-key-menu-call-first-time t) t))
+                                            (lambda nil (one-key-regs-clear-registers) t))
                            (replace-registers "C-l" "Load registers (replace)"
-                                              (lambda nil
-                                                (with-selected-window (previous-window)
-                                                  (call-interactively 'one-key-regs-replace-registers))
-                                                (setq one-key-menu-call-first-time t) t))
+                                              (lambda nil (one-key-regs-open-register-sets-menu "replace") t))
                            (merge-registers "M-l" "Load registers (merge)"
-                                            (lambda nil
-                                              (with-selected-window (previous-window)
-                                                (call-interactively 'one-key-regs-merge-registers))
-                                              (setq one-key-menu-call-first-time t) t))
+                                            (lambda nil (one-key-regs-open-register-sets-menu "prompt") t))
                            ) t))
 
 (defcustom one-key-regs-special-keybindings
@@ -611,7 +605,16 @@ This variable is used by one-key-regs when saving changes to the current registe
 (defcustom one-key-regs-merge-conflicts 'prompt
   "What method to use to handle conflicts when loading new registers.
 If a new register uses the same char as a currently loaded register this variable is used to decide how to resolve
-the conflict."
+the conflict.
+It can take one of the following values:
+
+prompt           : prompt the user for how to merge each individual conflict
+overwriteold     : overwrite old registers which conflict
+discardnew       : discard new registers which conflict
+changeold        : change char of old registers which conflict
+changenew        : change char of new registers which conflict
+replace          : completely replace old register set with new one
+"
   :group 'one-key-regs
   :type '(choice (const :tag "Prompt" prompt)
                  (const :tag "Overwrite old registers which conflict" overwriteold)
@@ -971,7 +974,8 @@ Available keys: %s" (cdr label) (mapcar 'char-to-string unused-keys))))
   "Load registers stored in a one-key-regs file.
 If there are any conflicts between the chars used in the new registers with those used in the already loaded
 registers the conflicts will be resolved according to the value of MERGEMETHOD which is set equal
-to `one-key-regs-merge-conflicts' if called interactively, unless a prefix arg is supplied.
+to `one-key-regs-merge-conflicts' if called interactively, unless a prefix arg is supplied, 
+ (see the documentation for `one-key-regs-merge-conflicts' to see the possible values of MERGEMETHOD and their meanings).
 If a prefix arg is supplied and `one-key-regs-merge-conflicts' is set to 'prompt then MERGEMETHOD will be
 set to 'replace, otherwise it will be set to 'prompt."
   (interactive
@@ -1032,9 +1036,17 @@ set to 'replace, otherwise it will be set to 'prompt."
                  (changeold (changekey oldreg oldmenuitem nil) (addnew) (addold))
                  (changenew (changekey newreg newmenuitem nil) (addnew) (addold)))
             ;; if newreg and oldreg are different add oldreg unless mergemethod is replace
-            else if (not (eq mergemethod 'replace)) do (addold)) 
-      ;; short hack to clear minibuffer
-      (message nil))))
+            else if (not (eq mergemethod 'replace)) do (addold))))
+  ;; short hack to clear echo area (need both lines - not sure why)
+  (message " ")
+  (message nil))
+
+(defun one-key-regs-open-register-sets-menu (mergetype)
+  "Returns a menu-alist of register set items.
+The items correspond to the register set files stored in `one-key-regs-default-directory', and pressing the key for an
+item will load the corresponding register set."
+  (let* ((pair (one-key-get-menus-for-type (concat "register sets (merge=" mergetype ")"))))
+    (one-key-open-submenu (car pair) (cdr pair))))
 
 (defun one-key-regs-get-associated-file nil
   "Return the path to the one-key registers file associated with the current buffer."
@@ -1059,13 +1071,6 @@ or `one-key-regs-currently-loaded-file' if that is nil."
                       (file-name-directory defaultfile)
                       defaultfile t
                       (file-name-nondirectory defaultfile)))))
-
-(defun one-key-regs-replace-registers (file)
-  "Replace the currently loaded register set with that saved in file FILE."
-  (interactive
-   (list (one-key-regs-prompt-for-file)))
-  (one-key-regs-merge-registers file 'replace)
-  (setq one-key-regs-currently-loaded-file file))
 
 (defun one-key-regs-clear-registers (&optional noprompt)
   "Delete all registers from memory.
@@ -1150,6 +1155,41 @@ Unless NOPROMPT is non-nil the user will be prompted to check if they want to co
             concat (propertize name 'face
                                (list :background (if one-key-auto-brighten-used-keys newcolour colour)
                                      :foreground one-key-item-foreground-colour))))
+
+;; Set the menu-alist, title string format and special keybindings for `register sets' menus
+(one-key-add-to-alist 'one-key-types-of-menu
+                      (list "register sets"
+                            (lambda (name) (string-match "register sets" name))
+                            (lambda (name)
+                              (let* ((choices '("prompt" "overwriteold" "discardnew" "changeold" "changenew" "replace"))
+                                     (mergename (if (string-match "(merge=\\(.*\\))" name)
+                                                    (match-string 1 name)
+                                                  (if (featurep 'ido)
+                                                      (ido-completing-read "Merge method: " choices)
+                                                    (completing-read "Merge method: " choices))))
+                                     (mergetype (intern mergename))
+                                     (merge-func
+                                      `(lambda (file)
+                                         (interactive)
+                                         (one-key-regs-merge-registers file ',mergetype)
+                                         (setq one-key-regs-currently-loaded-file file)
+                                         (let ((old-val one-key-submenus-replace-parents)
+                                               (one-key-submenus-replace-parents t))
+                                           (one-key-open-submenu "one-key-registers" 'one-key-menu-one-key-registers-alist)
+                                           (setq one-key-submenus-replace-parents old-val))))
+                                     (menu-alists (one-key-dir-build-menu-alist
+                                                   one-key-regs-default-directory
+                                                   :filefunc merge-func
+                                                   :topdir one-key-regs-default-directory))
+                                     (name (concat "register sets (merge=" mergename ")"))
+                                     (names (one-key-append-numbers-to-menu-name name (length menu-alists))))
+                                (cons names menu-alists)))
+                            (lambda nil
+                              (format "Currently loaded registers file: %s\n"
+                                      (if one-key-regs-currently-loaded-file
+                                          (file-name-nondirectory one-key-regs-currently-loaded-file)
+                                        "Unsaved registers")))
+                            'one-key-regs-special-keybindings) t)
 
 ;; Set the menu-alist, title string format and special keybindings for `one-key-regs' menus
 (one-key-add-to-alist 'one-key-types-of-menu
