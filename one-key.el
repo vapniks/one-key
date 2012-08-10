@@ -799,11 +799,11 @@ the first item should come before the second in the menu."
     (delete-item "<f6>" "Delete a menu item"
                  (lambda nil (one-key-delete-menu-item okm-info-alist okm-full-list) t))
     (kill-items "<f7>" "Copy/kill coloured items"
-               (lambda nil (one-key-copy/kill-items okm-info-alist okm-full-list filtered-list)
-                 (setq one-key-menu-call-first-time t) t))
+                (lambda nil (one-key-copy/kill-items okm-info-alist okm-full-list filtered-list)
+                  (setq one-key-menu-call-first-time t) t))
     (yank-items "<C-f7>" "Yank copied items"
                 (lambda nil (one-key-yank-items okm-info-alist okm-full-list filtered-list)
-                 (setq one-key-menu-call-first-time t) t))
+                  (setq one-key-menu-call-first-time t) t))
     (swap-keys "<f8>" "Swap menu item keys"
                (lambda nil (one-key-swap-menu-items okm-info-alist okm-full-list) t))
     (add-item "<f9>" "Add a menu item"
@@ -831,7 +831,7 @@ the first item should come before the second in the menu."
                             (desc (car menuset))
                             (names (cdr menuset)))
                        (message "%S" names) t)))
-    (customize-menusets "C-s" "Customize menu sets"
+    (customize-menusets "C-c" "Customize menu sets"
                         (lambda nil
                           (setq one-key-menu-window-configuration nil)
                           (with-selected-window (previous-window)
@@ -847,7 +847,24 @@ the first item should come before the second in the menu."
                                 (if pos (setf (nth pos okm-menu-alists) (one-key-build-menu-sets-menu-alist))
                                   (setq okm-menu-alists (one-key-build-menu-sets-menu-alist))))
                               (setq one-key-menu-call-first-time t)
-                              (one-key-menu-window-close) t)))
+                              (one-key-menu-window-close) t))
+    (save-menuset save-menu "Save current menu set"
+                  (lambda nil
+                    (let* ((names (mapcar 'car one-key-sets-of-menus-alist)) 
+                           (newname (read-string "Name for menu set: "))
+                           newset oldsets)
+                      (unless (and (member newname names)
+                                   (not (y-or-n-p
+                                         "A menu set with that name already exists, overwrite it?")))
+                        (setq newset (if (y-or-n-p "Include \"menu-sets\" menu?")
+                                         (append (list newname) okm-menu-names)
+                                       (remove "menu-sets" (append (list newname) okm-menu-names))))
+                        (setq oldsets (remove-if (lambda (item) (string= (car item) newname))
+                                                 one-key-sets-of-menus-alist))
+                        (eval `(customize-save-variable 'one-key-sets-of-menus-alist
+                                                        ',(append oldsets (list newset))))))
+                      (setq one-key-menu-call-first-time t)
+                      (one-key-menu-window-close))))
   "An list of special keys; labels, keybindings, descriptions and associated functions.
 Each item in the list contains (in this order):
 
@@ -887,8 +904,8 @@ The keys will be displayed in the one-key help buffer in the order shown when th
 
 (defcustom one-key-menu-sets-special-keybindings
   '(quit-close quit-open toggle-persistence toggle-display next-menu prev-menu up down scroll-down scroll-up show-menusets
-               customize-menusets toggle-help toggle-row/column-order sort-next sort-prev reverse-order limit-items
-               highlight-items change-default-menuset add-menu remove-menu donate report-bug)
+               save-menuset customize-menusets toggle-help toggle-row/column-order sort-next sort-prev reverse-order
+               limit-items highlight-items change-default-menuset add-menu remove-menu donate report-bug)
   "List of special keys to be used for menu-sets menus (see `one-key-default-special-keybindings' for more info)."
   :group 'one-key
   :type '(repeat (symbol :tag "Name" :help-echo "The name/symbol corresponding to the keybinding.")))
@@ -946,7 +963,8 @@ Each item in the list contains (in this order):
   3) A function which takes the menu name as its only argument and returns a cons cell whose car is the new name or list
      of names for the menus, and whose cdr is a menu alist, a symbol whose value is a menu alist, or a list of symbols
      and/or menu alists. The number of names returned in the car should be equal to the number of menu alists/symbols
-     returned in the cdr.
+     returned in the cdr. Alternatively this can be a cons cell whose car is the name/names and whose cdr is the menu
+     alist/alists.
 
   4) An function that takes no arguments and returns a title string for the `one-key' menu in the same form as
      `one-key-default-title-format-string'. The function will be evaluated in the context of the `one-key-highlight-menu'
@@ -1755,15 +1773,15 @@ If OKM-FILTER-REGEX is non-nil then only menu items whose descriptions match OKM
                                                                     (eval okm-special-keybindings-var)
                                                                   okm-special-keybindings-var)))
          ;; following function is used for recursively calling itself when needed
-         (self (function (lambda () (one-key-menu okm-menu-names okm-menu-alists
-                                                  :okm-menu-number okm-menu-number
-                                                  :okm-keep-window-p okm-keep-window-p
-                                                  :okm-execute-when-miss-match-p okm-execute-when-miss-match-p
-                                                  :okm-miss-match-recursion-p okm-miss-match-recursion-p
-                                                  :okm-match-recursion-p okm-match-recursion-p
-                                                  :okm-protect-function okm-protect-function
-                                                  :okm-alternate-function okm-alternate-function
-                                                  :okm-filter-regex okm-filter-regex)))))
+         (self (function (lambda nil (one-key-menu okm-menu-names okm-menu-alists
+                                                   :okm-menu-number okm-menu-number
+                                                   :okm-keep-window-p okm-keep-window-p
+                                                   :okm-execute-when-miss-match-p okm-execute-when-miss-match-p
+                                                   :okm-miss-match-recursion-p okm-miss-match-recursion-p
+                                                   :okm-match-recursion-p okm-match-recursion-p
+                                                   :okm-protect-function okm-protect-function
+                                                   :okm-alternate-function okm-alternate-function
+                                                   :okm-filter-regex okm-filter-regex)))))
     (unwind-protect
         ;; read a key and get the key description
         (let* ((namelist (if (listp okm-menu-names) okm-menu-names nil))
