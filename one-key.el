@@ -61,7 +61,7 @@
 
 ;;; The *One-Key* buffer:
 ;;
-;; Running the command `one-key-open-default-menu-set' or `one-key-open-menu-set' opens the *One-Key* buffer.
+;; Running the command `one-key-open-associated-menu-set' or `one-key-open-menu-set' opens the *One-Key* buffer.
 ;; (these commands may be bound to keys - see "Installation" below).
 ;;
 ;; Within the *One-Key* buffer you will see a list of command descriptions each with a corresponding key in square
@@ -161,9 +161,11 @@
 
 ;;; Menu sets:
 
-;; A menu set is a collection of menu names. When you open the *One-Key* buffer with `one-key-open-default-menu-set'
-;; it opens the default set of menus `one-key-default-menu-set'. You can define other sets of menus by customizing
-;; `one-key-sets-of-menus-alist'. Each menu set consists of a name for the menu set, and a list of menu names.
+;; A menu set is a collection of menu names. When you open the *One-Key* buffer with `one-key-open-associated-menu-set'
+;; it opens a collection of menus associated with the current major-mode or buffer. By default this is the set of menus
+;; in `one-key-default-menu-set'. You can define other menu sets by customizing `one-key-sets-of-menus-alist', and
+;; associate them with different major-modes or buffers by customizing `one-key-associations-for-menu-sets'.
+;; Each menu set consists of a name for the menu set, and a list of menu names.
 ;; one-key reconstructs a menu from its name by searching `one-key-types-of-menu' for a matching entry, and applying
 ;; the associated function to create the menu.
 ;; With the "menu-sets" menu you can see what menu sets are currently defined, switch menu sets, and save the current
@@ -227,12 +229,7 @@
 ;; want to use to open the *One-Key* buffer.
 ;;
 ;; (require 'one-key)
-;; (global-set-key (kbd "<menu>") 'one-key-open-default-menu-set)
-;;
-;; You can define new menu sets by customizing `one-key-sets-of-menus-alist', and change the default
-;; menu set by customizing `one-key-default-menu-set'.
-;; You can try out new menus by pressing the special key for "Add a menu" from the *One-Key* buffer
-;; (press f1 in the *One-Key* buffer to see a list of all special keybindings).
+;; (global-set-key (kbd "<menu>") 'one-key-open-associated-menu-set)
 ;;
 ;; Because this library uses a special implementation,
 ;; sometimes a `max-lisp-eval-depth' or `max-specpdl-size' error can occur.
@@ -274,6 +271,8 @@
 ;; `one-key-sets-of-menus-alist' : Saved menu sets (sets of menus).
 ;; `one-key-default-menu-set' : The default menu set. It's value should be the car of one of the items in 
 ;;                              `one-key-sets-of-menus-alist'.
+;; `one-key-associations-for-menu-sets' : An alist indicating which menu sets should be used with which 
+;;                                        buffers/major-modes.
 ;; `one-key-default-sort-method-alist' : An alist of sorting methods to use on the `one-key' menu items.
 ;; `one-key-special-keybindings' : An list of special keys; labels, keybindings, descriptions and associated functions.
 ;; `one-key-default-special-keybindings' : List of special keys to be used if no other set of special keys is defined for 
@@ -458,6 +457,10 @@
 (defgroup one-key nil
   "One key - easy access, refactorable menus."
   :group 'editing)
+
+(defgroup one-key-menu-sets nil
+  "One key menu sets - sets of one-key menus."
+  :group 'one-key)
 
 (defcustom one-key-default-menu-keys
   (let (letters-and-numbers)
@@ -669,11 +672,11 @@ Each element in this list is a cons cell whose car is a name or description for 
 of menus which make up the set. Each menu name must correspond to a type in `one-key-types-of-menu' (which see),
 and `one-key' must be able to reconstruct the menu from the name (which it will be able to if the corresponding entry
 in `one-key-types-of-menu' is complete.
-These menu sets may be opened from the `one-key-menu-set' menu, and you may want to create different sets for different
+These menu sets may be opened from the \"menu-sets\" menu, and you may want to create different sets for different
 projects."
   :type '(alist :key-type (string :tag "Set description/name" :help-echo "A name or description for this collection of menus")
                 :value-type (repeat (string :tag "Menu" :help-echo "The name of the menu. Must correspond to a type in `one-key-types-of-menu'.")))
-  :group 'one-key)
+  :group 'one-key-menu-sets)
 
 (defcustom one-key-default-menu-set "Major mode, top-level & menu sets"
   "The default menu set. It's value should be the car of one of the items in `one-key-sets-of-menus-alist'.
@@ -681,7 +684,18 @@ It may be changed by the user from the menu-sets `one-key' menu.
 This is only meaningful if it is used with `one-key-open-menu-set' bound to a key so that the key can open a different
 menu set if the user has altered its value."
   :type 'string
-  :group 'one-key)
+  :group 'one-key-menu-sets)
+
+(defcustom one-key-associations-for-menu-sets nil
+  "An alist indicating which menu sets should be used with which buffers/major-modes.
+Each element is a cons cell whose car is either the symbol for a major-mode or a regular expression, and whose cdr is the
+name of a menu set (i.e. the car of an element of `one-key-sets-of-menus-alist').
+The `one-key-open-associated-menu-set' command uses this alist to determine which menu set to open.
+It will open the first menu set in the list whose car matches either the current major-mode or the name of the current
+buffer."
+  :type '(alist :key-type (choice (symbol :tag "Major mode") (regexp :tag "Regular expression"))
+                :value-type (string :tag "Name of menu set"))
+  :group 'one-key-menu-sets)
 
 (defcustom one-key-default-sort-method-alist
   '((key . (lambda (a b) (string< (caar a) (caar b))))
@@ -838,7 +852,7 @@ the first item should come before the second in the menu."
                         (lambda nil
                           (setq one-key-menu-window-configuration nil)
                           (with-selected-window (previous-window)
-                            (customize-variable 'one-key-sets-of-menus-alist)) nil))
+                            (customize-group 'one-key-menu-sets)) nil))
     (change-default-menuset "<f5>" "Change default menu set"
                             (lambda nil
                               (let* ((key (read-event "Press the key of item to set as default"))
@@ -855,19 +869,37 @@ the first item should come before the second in the menu."
                   (lambda nil
                     (let* ((names (mapcar 'car one-key-sets-of-menus-alist)) 
                            (newname (read-string "Name for menu set: "))
+                           (validnames (remove nil
+                                               (mapcar
+                                                (lambda (name) (if (one-key-get-menu-type name) name))
+                                                okm-menu-names)))
                            newset oldsets)
                       (unless (and (member newname names)
                                    (not (y-or-n-p
                                          "A menu set with that name already exists, overwrite it?")))
                         (setq newset (if (y-or-n-p "Include \"menu-sets\" menu?")
-                                         (append (list newname) okm-menu-names)
-                                       (remove "menu-sets" (append (list newname) okm-menu-names))))
+                                         (append (list newname) validnames)
+                                       (remove "menu-sets" (append (list newname) validnames))))
                         (setq oldsets (remove-if (lambda (item) (string= (car item) newname))
                                                  one-key-sets-of-menus-alist))
+                        (if (y-or-n-p "Associate menu set with current major-mode?")
+                            (let ((mode (with-selected-window (previous-window) major-mode)))
+                              (eval `(customize-save-variable 'one-key-associations-for-menu-sets
+                                                              ',(one-key-add-to-alist
+                                                                 'one-key-associations-for-menu-sets
+                                                                 (cons mode newname)))))
+                          (if (y-or-n-p "Associate menu set with current buffer?")
+                              (let ((regex (with-selected-window (previous-window)
+                                             (concat "^" (regexp-quote (buffer-name)) "$"))))
+                                (eval `(customize-save-variable 'one-key-associations-for-menu-sets
+                                                                ',(one-key-add-to-alist
+                                                                   'one-key-associations-for-menu-sets
+                                                                   (cons regex newname)))))))
                         (eval `(customize-save-variable 'one-key-sets-of-menus-alist
                                                         ',(append oldsets (list newset))))))
                     (setq one-key-menu-call-first-time t)
-                    (one-key-menu-window-close))))
+                    (one-key-menu-window-close))
+                  ))
   "An list of special keys; labels, keybindings, descriptions and associated functions.
 Each item in the list contains (in this order):
 
@@ -961,7 +993,8 @@ Each item in the list contains (in this order):
   1) The name for this menu type.
 
   2) A function which takes a string as its only argument and returns non-nil if that string corresponds to the name of
-     a menu of this type, otherwise it returns nil.
+     a menu of this type, otherwise it returns nil. Note: this function should only return non-nil if a menu can be
+     reconstructed from the name using the next item in this list.
 
   3) A function which takes the menu name as its only argument and returns a cons cell whose car is the new name or list
      of names for the menus, and whose cdr is a menu alist, a symbol whose value is a menu alist, or a list of symbols
@@ -1274,7 +1307,7 @@ The test for presence of the car of ELT-CONS is done with `equal'."
   (let ((existing-element (assoc (car elt-cons) (symbol-value alist-var))))
     (if existing-element
         (or no-replace
-            (rplacd existing-element (cdr elt-cons)))
+            (setcdr existing-element (cdr elt-cons)))
       (set alist-var (cons elt-cons (symbol-value alist-var)))))
   (symbol-value alist-var))
 
@@ -1663,6 +1696,20 @@ If called interactively, MENUSET will be prompted for."
   (one-key-open-menu-set one-key-default-menu-set
                          (if one-key-persistent-menu-number
                              one-key-default-menu-number nil)))
+
+(defun one-key-open-associated-menu-set nil
+  "Open the menu set associated with the current buffer according to `one-key-associations-for-menu-sets'.
+If no menu set matches then open `one-key-default-menu-set'."
+  (interactive)
+  (let* ((allmenusets (mapcar 'car one-key-sets-of-menus-alist))
+         (assocmenu (cdr (assoc-if (lambda (item) (or (eql item major-mode)
+                                                      (and (stringp item)
+                                                           (string-match item (buffer-name)))))
+                                   one-key-associations-for-menu-sets)))
+         (menuset (if (member assocmenu allmenusets) assocmenu one-key-default-menu-set)))
+    (one-key-open-menu-set menuset
+                           (if one-key-persistent-menu-number
+                               one-key-default-menu-number nil))))
 
 (defun one-key-highlight (msg msg-regexp msg-face)
   "Highlight text in string `MSG' that matches regular expression `MSG-REGEXP' with face `MSG-FACE'."
