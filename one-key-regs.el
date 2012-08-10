@@ -58,12 +58,12 @@
 ;; For further information on how to use one-key see `one-key.el'.
 
 
-;; Executing registers:
+;;; Executing registers:
 
 ;; To executed a stored register either use the `one-key-registers' menu or, if defined (see "Installation" section),
 ;; press the associated quick key (in combination with the modifier keys).
 
-;; Creating registers:
+;;; Creating registers:
 ;;
 ;; To create a new register you can either press the keybinding for "Add a register" in the `one-key-registers'
 ;; menu, or press C-u followed by a quick keybinding (with modifier keys) for a register (see "Installation" below).
@@ -73,7 +73,7 @@
 ;; a register of type `one-key-regs-default-register-type' will be created if no region is defined or
 ;; `one-key-regs-default-region-register-type' if region is defined.
 
-;; The following register types (and associated creation actions) are available:
+;;; The following register types (and associated creation actions) are available:
 
 ;; buffer-marker : current cursor position and buffer (can only be executed if the buffer is available)
 ;; file-marker : current cursor position and file (file will be opened if not already open)
@@ -95,7 +95,7 @@
 ;; eval-sexp : prompts for an sexp.
 ;; info-file : prompts for an info file.
 
-;; You may also create your own register types. See `one-key-regs-custom-register-types' for details.
+;;; You may also create your own register types. See `one-key-regs-custom-register-types' for details.
 
 ;;
 ;; TIP: when creating registers its a good idea to reserve different sets of keys for major-mode
@@ -104,7 +104,7 @@
 ;; for general registers. Then you can merge in a new register set when you change buffer
 ;; without affecting the project or general registers, and similarly when you change project.
 
-;; Saving/loading/merging register sets:
+;;; Saving/loading/merging register sets:
 
 ;; When one-key-regs starts it will load the registers and menu stored in `one-key-regs-default-file'
 ;; (along with other options defined in `one-key-regs-save-items').
@@ -112,7 +112,6 @@
 ;; `one-key-registers' menu. You may then load them at a later time by pressing C-l or M-l in the `one-key-registers'
 ;; menu. C-l will completely remove all current registers before loading the new ones, and M-l will merge the
 ;; new registers with the old ones according to the value of `one-key-regs-merge-conflicts'.
-;; You can use `one-key-regs-file-associations' to set how the default file is chosen when loading register sets.
 ;; The default directory for storing register sets is `one-key-regs-default-directory'.
 
 ;;; Installation:
@@ -167,8 +166,6 @@
 ;;                                          in the `one-key' menu.
 ;;  `one-key-regs-default-directory' : The default directory in which to store one-key-regs sets.
 ;;  `one-key-regs-default-file' : The default registers file to load on startup.
-;;  `one-key-regs-file-associations' : An alist of (CONDITION . FILE) pairs indicating which registers files to load
-;;                                     in which buffers.
 ;;  `one-key-regs-merge-conflicts' : What method to use to handle conflicts when loading new registers.
 ;;  `one-key-regs-quick-keys' : List of keys to use with `one-key-regs-define-keybindings'.
 ;;  `one-key-regs-key-queues' : List of register key queues. 
@@ -193,8 +190,8 @@
 
 ;;; TODO
 ;; 
-;; 
-;; Code for viewing saved registers set as one-key menu without setting registers to keys?
+;; Update documentation.
+
 
 ;;; Require
 (require 'one-key)
@@ -586,17 +583,6 @@ Should end with a \"/\"."
   "The default registers file to load on startup."
   :group 'one-key-regs
   :type '(file))
-
-(defcustom one-key-regs-file-associations nil
-  "An alist of (CONDITION . FILE) pairs indicating which registers files to load in which buffers.
-CONDITION should be an elisp expression that returns non-nil in buffers for which the registers saved in FILE should be loaded.
-FILE may be the full path to a file, or just the file name in which case it is assumed to be in `one-key-regs-default-directory'.
-The `one-key-regs-get-associated-file' function can be used to return the file associated with the current buffer."
-  :group 'one-key-regs
-  :type '(alist :key-type (sexp :tag "Condition"
-                                :help-echo "An elisp form which returns non-nil in buffers for which the corresponding registers file should be loaded.")
-                :value-type (file :tag "Registers file"
-                                  :help-echo "The registers file that will be loaded if the condition is satisfied.")))
 
 (defvar one-key-regs-currently-loaded-file nil
   "The currently loaded registers file, or nil if none have been loaded.
@@ -1048,29 +1034,23 @@ item will load the corresponding register set."
   (let* ((pair (one-key-get-menus-for-type (concat "register sets (merge=" mergetype ")"))))
     (one-key-open-submenu (car pair) (cdr pair))))
 
-(defun one-key-regs-get-associated-file nil
-  "Return the path to the one-key registers file associated with the current buffer."
-  (let ((file (loop for (c . f) in one-key-regs-file-associations
-                    if (eval c) return f)))
-    (if file
-        (if (file-name-directory file) file
-          (concat (file-name-as-directory one-key-regs-default-directory) file)))))
-
 (defun one-key-regs-prompt-for-file nil
   "Prompt the user for a file.
-The default file is set to the one associated with the current buffer (using `one-key-regs-get-associated-file'),
-or `one-key-regs-currently-loaded-file' if that is nil."
-  (let* ((assocfile (one-key-regs-get-associated-file))
-         (defaultfile (or assocfile one-key-regs-currently-loaded-file)))
-    (if (featurep 'ido)
-        (ido-read-file-name "one-key-regs file: "
-                            (file-name-directory defaultfile)
-                            defaultfile t
-                            (file-name-nondirectory defaultfile))
-      (read-file-name "one-key-regs file: "
-                      (file-name-directory defaultfile)
-                      defaultfile t
-                      (file-name-nondirectory defaultfile)))))
+The default file is `one-key-regs-currently-loaded-file' if that is non-nil."
+  (if (featurep 'ido)
+      (ido-read-file-name "one-key-regs file: "
+                          (and one-key-regs-currently-loaded-file
+                               (file-name-directory one-key-regs-currently-loaded-file))
+                          defaultfile t
+                          (and one-key-regs-currently-loaded-file
+                               (file-name-nondirectory one-key-regs-currently-loaded-file)))
+    (read-file-name "one-key-regs file: "
+                    (and one-key-regs-currently-loaded-file
+                         (file-name-directory one-key-regs-currently-loaded-file))
+                    defaultfile t
+                    (and one-key-regs-currently-loaded-file
+                         (file-name-nondirectory one-key-regs-currently-loaded-file)))))
+
 
 (defun one-key-regs-clear-registers (&optional noprompt)
   "Delete all registers from memory.
@@ -1175,7 +1155,7 @@ Unless NOPROMPT is non-nil the user will be prompted to check if they want to co
                                          (setq one-key-regs-currently-loaded-file file)
                                          (let ((old-val one-key-submenus-replace-parents)
                                                (one-key-submenus-replace-parents t))
-                                           (one-key-open-submenu "one-key-registers" 'one-key-menu-one-key-registers-alist)
+                                           (one-key-open-submenu "registers" 'one-key-menu-one-key-registers-alist)
                                            (setq one-key-submenus-replace-parents old-val))))
                                      (menu-alists (one-key-dir-build-menu-alist
                                                    one-key-regs-default-directory
@@ -1193,9 +1173,19 @@ Unless NOPROMPT is non-nil the user will be prompted to check if they want to co
 
 ;; Set the menu-alist, title string format and special keybindings for `one-key-regs' menus
 (one-key-add-to-alist 'one-key-types-of-menu
-                      (list "one-key-registers"
-                            (lambda (name) (equal name "one-key-registers"))
-                            (cons "one-key-registers" 'one-key-menu-one-key-registers-alist)
+                      (list "registers"
+                            (lambda (name) (string-match "^registers:?" name))
+                            (lambda (name) (if (equal name "registers")
+                                               (cons "registers" 'one-key-menu-one-key-registers-alist)
+                                             (let* ((filename (and (string-match "^registers:\\(.*\\)" name)
+                                                                   (match-string 1 name)))
+                                                    (filedir (file-name-directory filename))
+                                                    (filepath (if filedir filename
+                                                                (concat one-key-regs-default-directory filename))))
+                                               (if (and (file-readable-p filepath)
+                                                        (not (file-directory-p filepath)))
+                                                   (progn (one-key-regs-merge-registers filepath 'replace)
+                                                          (cons name 'one-key-menu-one-key-registers-alist))))))
                             (lambda nil
                               (if one-key-regs-show-legend
                                   (format "Currently loaded registers file: %s\n%s\n"
@@ -1209,7 +1199,7 @@ Unless NOPROMPT is non-nil the user will be prompted to check if they want to co
                                             "Unsaved registers"))))
                               'one-key-regs-special-keybindings) t)
 
-(add-to-list 'one-key-exclude-from-save "one-key-registers")
+(add-to-list 'one-key-exclude-from-save "registers")
 ;; Load the default register set
 (if (file-readable-p one-key-regs-default-file)
     (progn (load one-key-regs-default-file)
