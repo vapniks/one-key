@@ -1155,7 +1155,9 @@ Unless NOPROMPT is non-nil the user will be prompted to check if they want to co
                                          (setq one-key-regs-currently-loaded-file file)
                                          (let ((old-val one-key-submenus-replace-parents)
                                                (one-key-submenus-replace-parents t))
-                                           (one-key-open-submenu "registers" 'one-key-menu-one-key-registers-alist)
+                                           (one-key-open-submenu
+                                            (concat "registers:" (file-name-nondirectory file))
+                                            'one-key-menu-one-key-registers-alist)
                                            (setq one-key-submenus-replace-parents old-val))))
                                      (menu-alists (one-key-dir-build-menu-alist
                                                    one-key-regs-default-directory
@@ -1174,7 +1176,7 @@ Unless NOPROMPT is non-nil the user will be prompted to check if they want to co
 ;; Set the menu-alist, title string format and special keybindings for `one-key-regs' menus
 (one-key-add-to-alist 'one-key-types-of-menu
                       (list "registers"
-                            (lambda (name) (string-match "^registers:?" name))
+                            (lambda (name) (and name (string-match "^registers:?" name)))
                             (lambda (name) (if (equal name "registers")
                                                (cons "registers" 'one-key-menu-one-key-registers-alist)
                                              (let* ((filename (and (string-match "^registers:\\(.*\\)" name)
