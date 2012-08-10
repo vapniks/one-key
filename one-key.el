@@ -1598,11 +1598,11 @@ If no such menu or menu type exists, return nil."
   (let* ((listname (concat "one-key-menu-" name "-alist"))
          (type (one-key-get-menu-type name))
          (func (or (third type)
-                   (loop for sym being the symbols
-                         for symname = (symbol-name sym)
-                         when (equal listname symname)
-                         return (cons name sym))
-                   (error "Invalid menu name: \"%s\"" name))))
+                   (and (not type)
+                        (loop for sym being the symbols
+                              for symname = (symbol-name sym)
+                              when (equal listname symname)
+                              return (cons name sym))))))
     (if (functionp func) (funcall func name) func)))
 
 (defun one-key-prompt-for-menu nil
@@ -1671,7 +1671,7 @@ binding of the okm-menu-alists, okm-menu-number and okm-menu-names variables."
 NAMES should be the name of a single `one-key' menu or menu type, or a list of such names.
 If called interactively a single name will be prompted for."
   (let* ((names (if (stringp names) (list names) names))
-         (pairs (mapcar 'one-key-get-menus-for-type names))
+         (pairs (remove nil (mapcar 'one-key-get-menus-for-type names)))
          (names (mapcan (lambda (x) (let ((y (car x))) (if (stringp y) (list y) y))) pairs))
          (alists (mapcan (lambda (x) (let ((a (car x)) (b (cdr x)))
                                        (if (stringp a) (list b) b))) pairs)))
