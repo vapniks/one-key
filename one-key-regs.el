@@ -449,7 +449,7 @@ and COLOUR is the name of the associated colour to use in the `one-key' menu."
                            (edit-register edit-item "Edit a register"
                                           (lambda nil (one-key-regs-edit-menu-item okm-info-alist okm-full-list) t))
                            (delete-register delete-item "Delete a register"
-                                            (lambda nil (one-key-regs-delete-menu-item okm-info-alist) t))
+                                            (lambda nil (one-key-regs-delete-menu-item okm-info-alist okm-full-list) t))
                            (swap-register-keys swap-keys "Swap register keys"
                                                (lambda nil (one-key-regs-swap-menu-items okm-full-list) t))
                            (add-register add-item "Add a register"
@@ -1155,9 +1155,7 @@ Unless NOPROMPT is non-nil the user will be prompted to check if they want to co
                                          (setq one-key-regs-currently-loaded-file file)
                                          (let ((old-val one-key-submenus-replace-parents)
                                                (one-key-submenus-replace-parents t))
-                                           (one-key-open-submenu
-                                            (concat "registers:" (file-name-nondirectory file))
-                                            'one-key-menu-one-key-registers-alist)
+                                           (one-key-open-submenu "registers" 'one-key-menu-one-key-registers-alist)
                                            (setq one-key-submenus-replace-parents old-val))))
                                      (menu-alists (one-key-dir-build-menu-alist
                                                    one-key-regs-default-directory
@@ -1176,7 +1174,7 @@ Unless NOPROMPT is non-nil the user will be prompted to check if they want to co
 ;; Set the menu-alist, title string format and special keybindings for `one-key-regs' menus
 (one-key-add-to-alist 'one-key-types-of-menu
                       (list "registers"
-                            (lambda (name) (and name (string-match "^registers:?" name)))
+                            (lambda (name) (string-match "^registers:?" name))
                             (lambda (name) (if (equal name "registers")
                                                (cons "registers" 'one-key-menu-one-key-registers-alist)
                                              (let* ((filename (and (string-match "^registers:\\(.*\\)" name)
