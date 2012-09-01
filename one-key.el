@@ -666,7 +666,7 @@ The key should be entered in the same format as that returned by `describe-key'.
   :type '(alist :key-type (cons string string) :value-type function)
   :group 'one-key)
 
-(defcustom one-key-sets-of-menus-alist (list '("Major mode, top-level & menu sets" "major-mode" "top-level" "menu-sets"))
+(defcustom one-key-sets-of-menus-alist (list '("default" "major-mode" "top-level" "menu-sets"))
   "Saved menu sets (sets of menus).
 Each element in this list is a cons cell whose car is a name or description for the set, and whose cdr is a list of names
 of menus which make up the set. Each menu name must correspond to a type in `one-key-types-of-menu' (which see),
@@ -678,7 +678,7 @@ projects."
                 :value-type (repeat (string :tag "Menu" :help-echo "The name of the menu. Must correspond to a type in `one-key-types-of-menu'.")))
   :group 'one-key-menu-sets)
 
-(defcustom one-key-default-menu-set "Major mode, top-level & menu sets"
+(defcustom one-key-default-menu-set "default"
   "The default menu set. It's value should be the car of one of the items in `one-key-sets-of-menus-alist'.
 It may be changed by the user from the menu-sets `one-key' menu.
 This is only meaningful if it is used with `one-key-open-menu-set' bound to a key so that the key can open a different
