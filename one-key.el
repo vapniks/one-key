@@ -783,7 +783,7 @@ the first item should come before the second in the menu."
             (let ((key (read-event "Enter the key for the item that you want help on")))
               (one-key-show-item-help key okm-full-list)
               (setq okm-match-recursion-p t)) t))
-    (documentation "C-S-h" "Show one-key documentation"
+    (documentation "<S-f1>" "Show one-key documentation"
                    (lambda nil (finder-commentary (locate-library "one-key"))
                      (setq one-key-menu-window-configuration nil)
                      nil))
