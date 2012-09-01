@@ -462,7 +462,7 @@ and COLOUR is the name of the associated colour to use in the `one-key' menu."
                                               (lambda nil (one-key-regs-open-register-sets-menu "replace") t))
                            (merge-registers "M-l" "Load registers (merge)"
                                             (lambda nil (one-key-regs-open-register-sets-menu "prompt") t))
-                           (regs-documentation documentation "Show one-key documentation"
+                           (regs-documentation documentation "Show one-key-regs documentation"
                                                (lambda nil (finder-commentary (locate-library "one-key-regs"))
                                                  (setq one-key-menu-window-configuration nil)
                                                  nil))
