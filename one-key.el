@@ -783,6 +783,10 @@ the first item should come before the second in the menu."
             (let ((key (read-event "Enter the key for the item that you want help on")))
               (one-key-show-item-help key okm-full-list)
               (setq okm-match-recursion-p t)) t))
+    (documentation "C-S-h" "Show one-key documentation"
+                   (lambda nil (finder-commentary (locate-library "one-key"))
+                     (setq one-key-menu-window-configuration nil)
+                     nil))
     (save-menu "C-s" "Save current state of menu"
                (lambda nil (one-key-save-menu okm-this-name okm-info-alist okm-full-list) t))
     (toggle-help "<f1>" "Toggle this help buffer"
@@ -926,7 +930,7 @@ types. See `one-key-default-special-keybindings' for example."
                        (function :tag "Function" :help-echo "Function for performing action. See description below for further details."))))
 
 (defcustom one-key-default-special-keybindings
-  '(quit-close quit-open toggle-persistence toggle-display next-menu prev-menu up down scroll-down scroll-up help
+  '(quit-close quit-open toggle-persistence toggle-display next-menu prev-menu up down scroll-down scroll-up help documentation
                save-menu toggle-help toggle-row/column-order sort-next sort-prev reverse-order limit-items highlight-items
                edit-item delete-item kill-items yank-items swap-keys add-item add-menu remove-menu move-item
                donate report-bug)
@@ -2005,7 +2009,8 @@ The return value of RECURSION-FUNCTION will be returned by this function also."
   nil)
 
 (defun one-key-menu-window-close (&optional norestore)
-  "Close the menu window."
+  "Close the menu window and restore the window configuration to what it was before one-key was started.
+If NORESTORE is non-nil don't restore the window configuration."
   ;; Kill menu buffer.
   (when (bufferp (get-buffer one-key-buffer-name))
     (if (and (stringp one-key-current-window-state)
