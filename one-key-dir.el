@@ -217,13 +217,13 @@ This should not be a letter or number key."
                                                 (progn (widget-put w :error "That key is already used! Try another")
                                                        w))))))
 
-(defcustom one-key-dir-topdir "~/"
+(defcustom one-key-dir-topdir "/"
   "The default top level dir that can't be navigated above.
 This is the default value for the topdir arg to `one-key-dir-build-menu-alist' and `one-key-dir-visit'."
   :group 'one-key-dir
   :type 'directory)
 
-(defcustom one-key-dir-max-items-per-page 40
+(defcustom one-key-dir-max-items-per-page 60
   "The maximum number of menu items to display on each page."
   :group 'one-key-dir
   :type '(number :match (lambda (w val)
