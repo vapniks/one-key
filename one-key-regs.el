@@ -462,14 +462,18 @@ and COLOUR is the name of the associated colour to use in the `one-key' menu."
                                               (lambda nil (one-key-regs-open-register-sets-menu "replace") t))
                            (merge-registers "M-l" "Load registers (merge)"
                                             (lambda nil (one-key-regs-open-register-sets-menu "prompt") t))
+                           (regs-documentation documentation "Show one-key documentation"
+                                               (lambda nil (finder-commentary (locate-library "one-key-regs"))
+                                                 (setq one-key-menu-window-configuration nil)
+                                                 nil))
                            ) t))
 
 (defcustom one-key-regs-special-keybindings
   '(quit-close quit-open toggle-persistence toggle-display next-menu prev-menu up down scroll-down scroll-up
                show-register show-register-prefix-keys save-registers merge-registers replace-registers toggle-help
-               toggle-row/column-order sort-next sort-prev reverse-order limit-items highlight-items edit-register
-               delete-register clear-registers swap-register-keys add-register add-menu remove-menu move-item donate
-               report-bug)
+               regs-documentation toggle-row/column-order sort-next sort-prev reverse-order limit-items highlight-items
+               edit-register delete-register clear-registers swap-register-keys add-register add-menu remove-menu move-item
+               donate report-bug)
   "List of special keys to be used for one-key-registers menus (see `one-key-default-special-keybindings' for more info)."  
   :group 'one-key-regs
   :type '(repeat (symbol :tag "Name" :help-echo "The name/symbol corresponding to the keybinding.")))
