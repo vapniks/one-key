@@ -236,12 +236,17 @@ This is the default value for the topdir arg to `one-key-dir-build-menu-alist' a
                          '((sort-dir-next sort-next "Sort items by next method"
                                           (lambda nil (one-key-dir-sort-by-next-method) t))
                            (sort-dir-prev sort-prev "Sort items by previous method"
-                                          (lambda nil (one-key-dir-sort-by-next-method t) t))) t))
+                                          (lambda nil (one-key-dir-sort-by-next-method t) t))
+                           (dir-documentation documentation "Show one-key-dir documentation"
+                                               (lambda nil (finder-commentary (locate-library "one-key-dir"))
+                                                 (setq one-key-menu-window-configuration nil)
+                                                 nil))
+                           ) t))
 
 (defcustom one-key-dir-special-keybindings
   '(quit-close quit-open toggle-persistence toggle-display next-menu prev-menu up down scroll-down scroll-up
-               toggle-help toggle-row/column-order sort-dir-next sort-dir-prev reverse-order limit-items highlight-items
-               add-menu remove-menu move-item donate report-bug)
+               toggle-help dir-documentation toggle-row/column-order sort-dir-next sort-dir-prev reverse-order
+               limit-items highlight-items add-menu remove-menu move-item donate report-bug)
   "List of special keys to be used for one-key-dir menus (see `one-key-default-special-keybindings' for more info)."  
   :group 'one-key-dir
   :type '(repeat (symbol :tag "Name" :help-echo "The name/symbol corresponding to the keybinding.")))
