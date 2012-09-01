@@ -431,7 +431,7 @@ and COLOUR is the name of the associated colour to use in the `one-key' menu."
                          'one-key-special-keybindings
                          '((show-register help "Display register contents"
                                           (lambda nil
-                                            (let* ((key (read-key "Enter the key for the register to display"))
+                                            (let* ((key (read-event "Enter the key for the register to display"))
                                                    (reg (assoc key register-alist)))
                                               (if reg
                                                   (message "Register \"%c\" contains: %S" key (cdr reg))
@@ -1072,10 +1072,10 @@ Unless NOPROMPT is non-nil the user will be prompted to check if they want to co
 (defun one-key-regs-swap-menu-items (full-list)
   "Prompt user for a pair of items from FULL-LIST and swap the corresponding keys."
   (let* ((keya (read-event "Press key for first item"))
-         (keyastr (single-key-description keya))
+         (keyastr (one-key-key-description keya))
          (itema (one-key-get-menu-item keyastr full-list))
-         (keyb (read-key "Press key for second item"))
-         (keybstr (single-key-description keyb))
+         (keyb (read-event "Press key for second item"))
+         (keybstr (one-key-key-description keyb))
          (itemb (one-key-get-menu-item keybstr full-list)))
     (if (not (and itema itemb)) (message "Invalid key!")
       (setf (caar itema) keybstr (caar itemb) keyastr)
@@ -1089,11 +1089,11 @@ Unless NOPROMPT is non-nil the user will be prompted to check if they want to co
   "Prompt user for details of item in FULL-LIST to edit, make changes and then reopen `one-key' menu."
   (let* ((oldkey (read-event "Press the key of the item you want to edit"))
          (item (one-key-get-menu-item oldkey full-list))
-         (newkey (let ((key (read-key "Enter new key for the item")))
+         (newkey (let ((key (read-event "Enter new key for the item")))
                    (while (and (one-key-get-menu-item key full-list)
                                (not (eq key oldkey))
                                (not (y-or-n-p "That key is already used! Use it anyway?")))
-                     (setq key (read-key "Enter new key for the item")))
+                     (setq key (read-event "Enter new key for the item")))
                    key))
          (desc (read-string "Item description: " (cdar item) nil nil))
          (oldcontents (get-register oldkey))
