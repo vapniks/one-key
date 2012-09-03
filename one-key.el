@@ -2761,6 +2761,36 @@ To read how to make a good bug report see:
 http://www.gnu.org/software/emacs/manual/html_node/emacs/Understanding-Bug-Reporting.html
 ------------------------------------------------------------------------")))
 
+(defun one-key-completing-read (prompt collection &optional predicate)
+  "one-key replacement user for the built-in `completing-read' function.
+PROMPT is the title string for the *One-Key* buffer.
+COLLECTION can be a list of strings, an alist, an obarray or a hash table.
+If non-nil PREDICATE is a predicate function used to filter the items in COLLECTION before placing them in the menu
+ (see `try-completion' for more details)."
+  (flet ((tostring (x) (cond ((stringp x) x)
+                             ((symbolp x) (symbol-name x))
+                             ((numberp x) (number-to-string x))
+                             ((listp x) (tostring (car x))))))
+    (let* (selected-item
+           (collection2 (if (hash-table-p collection)
+                            (loop for key being the hash-keys of collection using (hash-values val)
+                                  if (or (not predicate)
+                                         (funcall predicate key val))
+                                  collect key)
+                          (if predicate (remove-if-not predicate collection) collection)))
+           (collection3 (remove nil (mapcar 'tostring collection2)))
+           (commands (mapcar (lambda (choice)
+                               `(lambda nil
+                                  (interactive)
+                                  (setq selected-item ,choice)))
+                             collection3))
+           (menu-alists (one-key-create-menu-lists commands collection3))
+           (nummenus (length menu-alists))
+           (names (if (> nummenus 1)
+                      (one-key-append-numbers-to-menu-name "Choices" nummenus)
+                    '("Choices"))))
+      (one-key-menu names menu-alists :okm-title-string prompt)
+      selected-item)))
 
 ;; Set one-key menu types
 (one-key-add-to-alist 'one-key-types-of-menu
