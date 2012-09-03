@@ -1759,7 +1759,9 @@ a single menu name."
   (let* ((name (if menu-number (nth menu-number names) names))
          (title-func (or (fourth (one-key-get-menu-type name)) one-key-default-title-func))
          (title-string2 (or title-string (and title-func (funcall title-func))))
-         (infoline (if title-string2 (one-key-highlight title-string2 "\\(<[^<>]*>\\|'[^']*'\\)" '(face one-key-name))))
+         (infoline (if title-string2 (one-key-highlight (if (equal (substring title-string2 -1) "\n") title-string2
+                                                          (concat title-string2 "\n"))
+                                                        "\\(<[^<>]*>\\|'[^']*'\\)" '(face one-key-name))))
          (keystrokelist (one-key-highlight keystroke "\\[\\([^\\[\\]\\)*?\\]" '(face one-key-keystroke))))
     (setq header-line-format (one-key-header-line-format names menu-number)
           mode-line-format one-key-mode-line-format)
