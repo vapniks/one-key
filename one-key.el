@@ -1751,16 +1751,15 @@ MENU-NUMBER should be nil if NAMES is a single name, otherwise it should index t
         (concat (make-string startpos ? ) prenames name1 postnames2)
       (concat (substring prenames (- startpos) prelen) name1 postnames2))))
 
-(defun one-key-highlight-menu (keystroke names menu-number)
+(defun one-key-highlight-menu (keystroke names menu-number &optional title-string)
   "Highlight items in KEYSTROKE (an alist of menu items), and return contents for insertion in *One-Key* buffer.
 Also create header-line from NAMES (a list of menu names), highlighting the MENU-NUMBER'th name in that list.
 MENU-NUMBER should be the number of the currently selected menu in the NAMES list, or nil if NAMES contains
 a single menu name."
   (let* ((name (if menu-number (nth menu-number names) names))
          (title-func (or (fourth (one-key-get-menu-type name)) one-key-default-title-func))
-         (infoline (if title-func (one-key-highlight (funcall title-func)
-                                                     "\\(<[^<>]*>\\|'[^']*'\\)" '(face one-key-name))
-                     nil))
+         (title-string2 (or title-string (and title-func (funcall title-func))))
+         (infoline (if title-string2 (one-key-highlight title-string2 "\\(<[^<>]*>\\|'[^']*'\\)" '(face one-key-name))))
          (keystrokelist (one-key-highlight keystroke "\\[\\([^\\[\\]\\)*?\\]" '(face one-key-keystroke))))
     (setq header-line-format (one-key-header-line-format names menu-number)
           mode-line-format one-key-mode-line-format)
@@ -1781,7 +1780,8 @@ a single menu name."
                       okm-match-recursion-p
                       okm-protect-function
                       okm-alternate-function
-                      okm-filter-regex)
+                      okm-filter-regex
+                      okm-title-string)
   "Function to open `one-key' menu of commands. The commands are executed by pressing the associated keys.
 If global variable `one-key-popup-window' is t (default) then a menu window will be displayed showing the keybindings.
 The argument names to this function are all prefixed with \"okm-\" to distinguish them from other variables since
@@ -1800,7 +1800,10 @@ a matching or non-matching key are pressed (and corresponding commands executed)
 OKM-PROTECT-FUNCTION, if non-nil, is a function that is called within an `unwind-protect' statement at the end
 of `one-key-menu'.
 OKM-ALTERNATE-FUNCTION if non-nil is a function that is called after each key press while the menu is active.
-If OKM-FILTER-REGEX is non-nil then only menu items whose descriptions match OKM-FILTER-REGEX will be displayed."
+If OKM-FILTER-REGEX is non-nil then only menu items whose descriptions match OKM-FILTER-REGEX will be displayed.
+OKM-TITLE-STRING is a string to display above the menu items. If OKM-TITLE-STRING is nil then the title string will be obtained
+from the fourth element of the associated menu type in `one-key-types-of-menu' or using `one-key-default-title-func' if that
+doesn't exist."
   (let* ((okm-menu-number (or (and okm-menu-number ; make sure menu number is set properly
                                    (min okm-menu-number (1- (length okm-menu-alists))))
                               (if (and (listp okm-menu-alists)
@@ -1838,7 +1841,8 @@ If OKM-FILTER-REGEX is non-nil then only menu items whose descriptions match OKM
                                                    :okm-match-recursion-p okm-match-recursion-p
                                                    :okm-protect-function okm-protect-function
                                                    :okm-alternate-function okm-alternate-function
-                                                   :okm-filter-regex okm-filter-regex)))))
+                                                   :okm-filter-regex okm-filter-regex
+                                                   :okm-title-string okm-title-string)))))
     (unwind-protect
         ;; read a key and get the key description
         (let* ((namelist (if (listp okm-menu-names) okm-menu-names nil))
@@ -1846,7 +1850,7 @@ If OKM-FILTER-REGEX is non-nil then only menu items whose descriptions match OKM
                                       ;; just show the menu buffer when first called
                                       (progn (setq one-key-menu-call-first-time nil)
                                              (if one-key-popup-window
-                                                 (one-key-menu-window-open))))))
+                                                 (one-key-menu-window-open okm-title-string))))))
                (key (one-key-key-description event)))
           (cond (
                  ;; HANDLE KEYSTROKES MATCHING MENU ITEMS
@@ -1877,7 +1881,7 @@ If OKM-FILTER-REGEX is non-nil then only menu items whose descriptions match OKM
                                   (call-interactively command) ; call the items command
                                   ;; reopen the `one-key' window if necessary
                                   (if (and one-key-popup-window (or okm-keep-window-p okm-match-recursion-p))
-                                      (one-key-menu-window-open))
+                                      (one-key-menu-window-open okm-title-string))
                                   (setq one-key-popup-window old-one-key-popup-window))
                                 (setq one-key-menu-call-first-time nil)
                                 ;; throw t if the key matched so that this clause's body is executed, otherwise return nil
@@ -1910,7 +1914,7 @@ If OKM-FILTER-REGEX is non-nil then only menu items whose descriptions match OKM
                      (one-key-execute-binding-command key)
                      ;; reopen the `one-key' window if necessary
                      (if (and one-key-popup-window (or okm-keep-window-p okm-miss-match-recursion-p))
-                         (one-key-menu-window-open))
+                         (one-key-menu-window-open okm-title-string))
                      (setq one-key-popup-window old-one-key-popup-window)))
                  ;; call the `okm-alternate-function' and if `okm-miss-match-recursion-p' is non-nil wait for next keypress
                  (let ((temp (one-key-handle-last okm-alternate-function self okm-miss-match-recursion-p)))
@@ -1979,8 +1983,11 @@ The return value of RECURSION-FUNCTION will be returned by this function also."
                               one-key-menu-window-max-height))
     (one-key-menu-window-open)))
 
-(defun one-key-menu-window-open nil
-  "Open the `one-key' menu window."
+(defun one-key-menu-window-open (&optional title-string)
+  "Open the `one-key' menu window.
+TITLE-STRING is an optional argument to set the title string for the *One-Key* buffer.
+If TITLE-STRING is nil then the title string will be obtained from the fourth element of the associated menu type
+in `one-key-types-of-menu' or using `one-key-default-title-func' if that doesn't exist."
   ;; Save current window configuration.
   (or one-key-menu-window-configuration
       (setq one-key-menu-window-configuration
@@ -1993,7 +2000,7 @@ The return value of RECURSION-FUNCTION will be returned by this function also."
     (erase-buffer)
     (goto-char (point-min))
     (save-excursion
-      (insert (one-key-highlight-menu (one-key-menu-format okm-filtered-list) okm-menu-names okm-menu-number))))
+      (insert (one-key-highlight-menu (one-key-menu-format okm-filtered-list) okm-menu-names okm-menu-number title-string))))
   ;; Pop `one-key' buffer.
   (pop-to-buffer one-key-buffer-name)
   (set-buffer one-key-buffer-name)
