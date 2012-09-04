@@ -1203,7 +1203,7 @@ Unless NOPROMPT is non-nil the user will be prompted to check if they want to co
                                             "Unsaved registers"))))
                               'one-key-regs-special-keybindings) t)
 
-(add-to-list 'one-key-exclude-from-save "registers")
+(add-to-list 'one-key-exclude-from-save "^registers")
 ;; Load the default register set
 (if (file-readable-p one-key-regs-default-file)
     (progn (load one-key-regs-default-file)
