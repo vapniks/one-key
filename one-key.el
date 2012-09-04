@@ -1783,6 +1783,7 @@ a single menu name."
                       okm-protect-function
                       okm-alternate-function
                       okm-filter-regex
+                      okm-special-keybinding-symbols
                       okm-title-string)
   "Function to open `one-key' menu of commands. The commands are executed by pressing the associated keys.
 If global variable `one-key-popup-window' is t (default) then a menu window will be displayed showing the keybindings.
@@ -1803,6 +1804,8 @@ OKM-PROTECT-FUNCTION, if non-nil, is a function that is called within an `unwind
 of `one-key-menu'.
 OKM-ALTERNATE-FUNCTION if non-nil is a function that is called after each key press while the menu is active.
 If OKM-FILTER-REGEX is non-nil then only menu items whose descriptions match OKM-FILTER-REGEX will be displayed.
+If OKM-SPECIAL-KEYBINDING-SYMBOLS is non-nil then it should be a list of symbols corresponding to items in `one-key-special-keybindings', and defines the special keys to use for this menu. Otherwise the special keys will be determined from the menu type,
+or `one-key-default-special-keybindings' will be used.
 OKM-TITLE-STRING is a string to display above the menu items. If OKM-TITLE-STRING is nil then the title string will be obtained
 from the fourth element of the associated menu type in `one-key-types-of-menu' or using `one-key-default-title-func' if that
 doesn't exist."
@@ -1829,11 +1832,13 @@ doesn't exist."
                                  okm-full-list)
                               okm-full-list))
          ;; the special keybindings for this menu
-         (okm-special-keybindings-var (or (fifth (one-key-get-menu-type okm-this-name))
-                                          one-key-default-special-keybindings))
-         (okm-special-keybindings (one-key-get-special-key-contents (if (symbolp okm-special-keybindings-var)
-                                                                        (eval okm-special-keybindings-var)
-                                                                      okm-special-keybindings-var)))
+         (okm-special-keybindings-var (and (not okm-special-keybinding-symbols)
+                                           (or (fifth (one-key-get-menu-type okm-this-name))
+                                               one-key-default-special-keybindings)))
+         (okm-special-keybindings (one-key-get-special-key-contents (or okm-special-keybinding-symbols
+                                                                        (if (symbolp okm-special-keybindings-var)
+                                                                            (eval okm-special-keybindings-var)
+                                                                          okm-special-keybindings-var))))
          ;; following function is used for recursively calling itself when needed
          (self (function (lambda nil (one-key-menu okm-menu-names okm-menu-alists
                                                    :okm-menu-number okm-menu-number
@@ -1844,6 +1849,7 @@ doesn't exist."
                                                    :okm-protect-function okm-protect-function
                                                    :okm-alternate-function okm-alternate-function
                                                    :okm-filter-regex okm-filter-regex
+                                                   :okm-special-keybinding-symbols okm-special-keybinding-symbols
                                                    :okm-title-string okm-title-string)))))
     (unwind-protect
         ;; read a key and get the key description
@@ -1854,75 +1860,84 @@ doesn't exist."
                                              (if one-key-popup-window
                                                  (one-key-menu-window-open okm-title-string))))))
                (key (one-key-key-description event)))
-          (cond (
-                 ;; HANDLE KEYSTROKES MATCHING MENU ITEMS
-                 ;; (unless the help window is open)
-                 (and (not (get-buffer-window (help-buffer)))
-                      (catch 'match
-                        (loop for item in okm-filtered-list
-                              for match-key = (one-key-remap-key-description (caar item))
-                              for desc = (cdar item)
-                              for rest = (cdr item)
-                              for command = (if (commandp rest) rest
-                                              (if (one-key-list-longer-than-1-p rest)
-                                                  (car rest)
-                                                (lambda nil (interactive) (message "Invalid command %S" rest))))
-                              do
-                              (when (equal key match-key)
-                                ;; Update key usage statistics if necessary
-                                (if one-key-auto-brighten-used-keys
-                                    (progn (one-key-menu-increment-key-usage item)
-                                           (if okm-issymbol
-                                               (add-to-list 'one-key-altered-menus (symbol-name okm-info-alist)))))
-                                ;; We need to close the `one-key' menu window before running the items command.
-                                ;; Save previous state of the `one-key' window before doing this.
-                                (let* ((old-one-key-popup-window one-key-popup-window)
-                                       (one-key-popup-window (one-key-menu-window-exist-p)))
-                                  (one-key-menu-window-close)
-                                  (setq one-key-menu-call-first-time t) ; allow recursive execution of `one-key-menu'
-                                  (call-interactively command) ; call the items command
-                                  ;; reopen the `one-key' window if necessary
-                                  (if (and one-key-popup-window (or okm-keep-window-p okm-match-recursion-p))
-                                      (one-key-menu-window-open okm-title-string))
-                                  (setq one-key-popup-window old-one-key-popup-window))
-                                (setq one-key-menu-call-first-time nil)
-                                ;; throw t if the key matched so that this clause's body is executed, otherwise return nil
-                                (throw 'match t))) nil))
-                 ;; call the `okm-alternate-function' and if `okm-match-recursion-p' is non-nil wait for next keypress
-                 (let ((temp (one-key-handle-last okm-alternate-function self okm-match-recursion-p)))
-                   ;; if necessary, propagate the value of `okm-keep-window-p' back up
-                   (if okm-match-recursion-p
-                       (setq okm-keep-window-p temp))))
-                ;; HANDLE SPECIAL KEYS:
-                ((assoc* key okm-special-keybindings :test (lambda (x y) (equal x (one-key-remap-key-description y))))
-                 ;; call the `okm-alternate-function' and the function associated with the special key
-                 ;; if this function returns non-nil then wait for the next keypress
-                 (let* ((again (funcall
-                                (caddr
-                                 (assoc* key okm-special-keybindings
-                                         :test (lambda (x y) (equal x (one-key-remap-key-description y)))))))
-                        (temp (one-key-handle-last okm-alternate-function self again)))
-                   ;; if necessary, propagate the value of `okm-keep-window-p' back up
-                   (if again (setq okm-keep-window-p temp))))
-                ;; HANDLE ALL OTHER KEYS:
-                (t
-                 (when okm-execute-when-miss-match-p
-                   ;; If `okm-execute-when-miss-match-p' is non-nil then execute the normal command for this key
-                   ;; Need to close the `one-key' menu window before running the command.
-                   ;; Save the previous state of the `one-key' window before doing this.
-                   (let* ((old-one-key-popup-window one-key-popup-window)
-                          (one-key-popup-window (one-key-menu-window-exist-p)))
-                     (one-key-menu-window-close)
-                     (one-key-execute-binding-command key)
-                     ;; reopen the `one-key' window if necessary
-                     (if (and one-key-popup-window (or okm-keep-window-p okm-miss-match-recursion-p))
-                         (one-key-menu-window-open okm-title-string))
-                     (setq one-key-popup-window old-one-key-popup-window)))
-                 ;; call the `okm-alternate-function' and if `okm-miss-match-recursion-p' is non-nil wait for next keypress
-                 (let ((temp (one-key-handle-last okm-alternate-function self okm-miss-match-recursion-p)))
-                   ;; if necessary, copy the value of `okm-keep-window-p' from recursive call
-                   (if okm-miss-match-recursion-p
-                       (setq okm-keep-window-p temp))))))
+          (cond ; If the *Help* buffer is showing then the special keybindings get priority
+           ((and (get-buffer-window (help-buffer))
+                 (assoc* key okm-special-keybindings :test (lambda (x y) (equal x (one-key-remap-key-description y)))))
+            ;; call the `okm-alternate-function' and the function associated with the special key
+            ;; if this function returns non-nil then wait for the next keypress
+            (let* ((again (funcall
+                           (caddr
+                            (assoc* key okm-special-keybindings
+                                    :test (lambda (x y) (equal x (one-key-remap-key-description y)))))))
+                   (temp (one-key-handle-last okm-alternate-function self again)))
+              ;; if necessary, propagate the value of `okm-keep-window-p' back up
+              (if again (setq okm-keep-window-p temp))))
+           ;; Handle keystrokes matching menu items
+           ((catch 'match
+              (loop for item in okm-filtered-list
+                    for match-key = (one-key-remap-key-description (caar item))
+                    for desc = (cdar item)
+                    for rest = (cdr item)
+                    for command = (if (commandp rest) rest
+                                    (if (one-key-list-longer-than-1-p rest)
+                                        (car rest)
+                                      (lambda nil (interactive) (message "Invalid command %S" rest))))
+                    do
+                    (when (equal key match-key)
+                      ;; Update key usage statistics if necessary
+                      (if one-key-auto-brighten-used-keys
+                          (progn (one-key-menu-increment-key-usage item)
+                                 (if okm-issymbol
+                                     (add-to-list 'one-key-altered-menus (symbol-name okm-info-alist)))))
+                      ;; We need to close the `one-key' menu window before running the items command.
+                      ;; Save previous state of the `one-key' window before doing this.
+                      (let* ((old-one-key-popup-window one-key-popup-window)
+                             (one-key-popup-window (one-key-menu-window-exist-p)))
+                        (one-key-menu-window-close)
+                        (setq one-key-menu-call-first-time t) ; allow recursive execution of `one-key-menu'
+                        (call-interactively command) ; call the items command
+                        ;; reopen the `one-key' window if necessary
+                        (if (and one-key-popup-window (or okm-keep-window-p okm-match-recursion-p))
+                            (one-key-menu-window-open okm-title-string))
+                        (setq one-key-popup-window old-one-key-popup-window))
+                      (setq one-key-menu-call-first-time nil)
+                      ;; throw t if the key matched so that this clause's body is executed, otherwise return nil
+                      (throw 'match t))) nil)
+            ;; call the `okm-alternate-function' and if `okm-match-recursion-p' is non-nil wait for next keypress
+            (let ((temp (one-key-handle-last okm-alternate-function self okm-match-recursion-p)))
+              ;; if necessary, propagate the value of `okm-keep-window-p' back up
+              (if okm-match-recursion-p
+                  (setq okm-keep-window-p temp))))
+           ;; Handle special keys
+           ((assoc* key okm-special-keybindings :test (lambda (x y) (equal x (one-key-remap-key-description y))))
+            ;; call the `okm-alternate-function' and the function associated with the special key
+            ;; if this function returns non-nil then wait for the next keypress
+            (let* ((again (funcall
+                           (caddr
+                            (assoc* key okm-special-keybindings
+                                    :test (lambda (x y) (equal x (one-key-remap-key-description y)))))))
+                   (temp (one-key-handle-last okm-alternate-function self again)))
+              ;; if necessary, propagate the value of `okm-keep-window-p' back up
+              (if again (setq okm-keep-window-p temp))))
+           ;; Handle all other keys
+           (t
+            (when okm-execute-when-miss-match-p
+              ;; If `okm-execute-when-miss-match-p' is non-nil then execute the normal command for this key
+              ;; Need to close the `one-key' menu window before running the command.
+              ;; Save the previous state of the `one-key' window before doing this.
+              (let* ((old-one-key-popup-window one-key-popup-window)
+                     (one-key-popup-window (one-key-menu-window-exist-p)))
+                (one-key-menu-window-close)
+                (one-key-execute-binding-command key)
+                ;; reopen the `one-key' window if necessary
+                (if (and one-key-popup-window (or okm-keep-window-p okm-miss-match-recursion-p))
+                    (one-key-menu-window-open okm-title-string))
+                (setq one-key-popup-window old-one-key-popup-window)))
+            ;; call the `okm-alternate-function' and if `okm-miss-match-recursion-p' is non-nil wait for next keypress
+            (let ((temp (one-key-handle-last okm-alternate-function self okm-miss-match-recursion-p)))
+              ;; if necessary, copy the value of `okm-keep-window-p' from recursive call
+              (if okm-miss-match-recursion-p
+                  (setq okm-keep-window-p temp))))))
       ;; all keypresses have now been handled so reset global variables ready for next time
       (setq one-key-menu-call-first-time t)
       (setq one-key-menu-show-key-help nil)
@@ -2761,12 +2776,16 @@ To read how to make a good bug report see:
 http://www.gnu.org/software/emacs/manual/html_node/emacs/Understanding-Bug-Reporting.html
 ------------------------------------------------------------------------")))
 
-(defun one-key-completing-read (prompt collection &optional predicate)
+(defun one-key-completing-read (prompt collection &optional predicate require-match def)
   "one-key replacement user for the built-in `completing-read' function.
 PROMPT is the title string for the *One-Key* buffer.
 COLLECTION can be a list of strings, an alist, an obarray or a hash table.
 If non-nil PREDICATE is a predicate function used to filter the items in COLLECTION before placing them in the menu
- (see `try-completion' for more details)."
+ (see `try-completion' for more details).
+If REQUIRE-MATCH is non-nil then the *One-Key* window will not disappear until an item key is pressed or the menu is quit
+using the appropriate special key.
+If REQUIRE-MATCH is nil then the *One-Key* window will close if a key is pressed which doesn't correspond to a menu item
+or a special key, and the value of DEF will be returned."
   (flet ((tostring (x) (cond ((stringp x) x)
                              ((symbolp x) (symbol-name x))
                              ((numberp x) (number-to-string x))
@@ -2787,10 +2806,16 @@ If non-nil PREDICATE is a predicate function used to filter the items in COLLECT
            (menu-alists (one-key-create-menu-lists commands collection3))
            (nummenus (length menu-alists))
            (names (if (> nummenus 1)
-                      (one-key-append-numbers-to-menu-name "Choices" nummenus)
-                    '("Choices"))))
-      (one-key-menu names menu-alists :okm-title-string prompt)
-      selected-item)))
+                      (one-key-append-numbers-to-menu-name "Select an item" nummenus)
+                    '("Select an item"))))
+      (one-key-menu names menu-alists
+                    :okm-miss-match-recursion-p require-match
+                    :okm-title-string prompt
+                    :okm-special-keybinding-symbols
+                    '(quit-close quit-open toggle-display next-menu prev-menu up down scroll-down scroll-up
+                                 toggle-help documentation toggle-row/column-order sort-next sort-prev
+                                 reverse-order limit-items donate report-bug))
+      (or selected-item def))))
 
 ;; Set one-key menu types
 (one-key-add-to-alist 'one-key-types-of-menu
