@@ -446,6 +446,7 @@
 ;; Prompt to save submenus when saving menu. Special keybinding to save all altered menus?
 ;; Autohighlighting of menu items using regexp associations?
 ;; Add to marmalade and elpa repos
+;; Add special key for major-mode and prefix key menus to recreate the menu.
 ;; 
 ;;; Require
 (eval-when-compile (require 'cl))
@@ -532,7 +533,7 @@ number of columns can be created."
   :type 'boolean
   :group 'one-key)
 
-(defcustom one-key-exclude-from-save '("Prefix-Key:")
+(defcustom one-key-exclude-from-save '("^Prefix-Key" "^Major-mode")
   "List of regular expressions matching names of menus which should not be autosaved."
   :type '(repeat (regexp :tag "Regexp" :help-echo "Regular expression matching menu names to exclude from autosave." ))
   :group 'one-key)
@@ -2613,17 +2614,18 @@ If there is an element of `one-key-major-mode-remap-alist' associated with the c
 otherwise the name of the current major mode will be used.
 In both cases if the variable `one-key-menu-<menu-name>-alist' (where <menu-name> is the menu name associated with this
 major mode) exists then it will be used, otherwise it will be created."
-  (let* ((menuname (or (cdr (assoc major-mode one-key-major-mode-remap-alist))
+  (let* ((modename (or (cdr (assoc major-mode one-key-major-mode-remap-alist))
                        (with-selected-window
                            (previous-window)
                          (symbol-name major-mode))))
-         (symname (concat "one-key-menu-" menuname "-alist"))
+         (menuname (concat "Major-mode:" (replace-regexp-in-string "-mode$" "" modename)))
+         (symname (concat "one-key-menu-" modename "-alist"))
          (menusym (intern-soft symname)))
     (if (or (not menusym) (not (boundp menusym)))
-        (let* ((mapname (concat menuname "-map"))
+        (let* ((mapname (concat modename "-map"))
                (mapsym (intern-soft mapname)))
           (if (and mapsym (boundp mapsym))
-              (progn (one-key-create-menus-from-keymap mapsym menuname)
+              (progn (one-key-create-menus-from-keymap mapsym modename)
                      (setq menusym (intern-soft symname)))
             (message "Can't create menu for %S" major-mode)
             (setq menusym nil))))
@@ -2817,6 +2819,11 @@ or a special key, and the value of DEF will be returned."
                                  reverse-order limit-items donate report-bug))
       (or selected-item def))))
 
+;; TODO!!
+;; (defun one-key-completing-read-multiple ???
+
+;;   )
+
 ;; Set one-key menu types
 (one-key-add-to-alist 'one-key-types-of-menu
                       (list "top-level"
@@ -2829,8 +2836,8 @@ or a special key, and the value of DEF will be returned."
                             'one-key-create-blank-menu
                             one-key-default-title-func nil) t)
 (one-key-add-to-alist 'one-key-types-of-menu
-                      (list "major-mode"
-                            (lambda (name) (string-match "-mode$" name))
+                      (list "Major-mode"
+                            (lambda (name) (string-match "^Major-mode" name))
                             'one-key-get-major-mode-menu
                             one-key-default-title-func nil) t)
 (one-key-add-to-alist 'one-key-types-of-menu
