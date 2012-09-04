@@ -533,7 +533,7 @@ number of columns can be created."
   :type 'boolean
   :group 'one-key)
 
-(defcustom one-key-exclude-from-save '("^Prefix-Key" "^Major-mode")
+(defcustom one-key-exclude-from-save '("^prefix-key" "^major-mode")
   "List of regular expressions matching names of menus which should not be autosaved."
   :type '(repeat (regexp :tag "Regexp" :help-echo "Regular expression matching menu names to exclude from autosave." ))
   :group 'one-key)
@@ -596,67 +596,67 @@ current major mode) will be used (and created if necessary)."
                                           (lambda nil (interactive)
                                             (one-key-open-submenu "Window commands"
                                                                   one-key-menu-window-commands-alist)))
-                                         (("C-h" . "Prefix-Key:C-h (help commands)") .
+                                         (("C-h" . "prefix-key:C-h (help commands)") .
                                           (lambda nil (interactive)
                                             (funcall 'one-key-prefix-key-menu-command "C-h" t)))
-                                         (("<C-escape>" . "Prefix-Key:ESC (all meta key keybindings)") .
+                                         (("<C-escape>" . "prefix-key:ESC (all meta key keybindings)") .
                                           (lambda nil (interactive)
                                             (funcall 'one-key-prefix-key-menu-command "ESC" t)))
-                                         (("M-g" . "Prefix-Key:M-g (error commands)") .
+                                         (("M-g" . "prefix-key:M-g (error commands)") .
                                           (lambda nil (interactive)
                                             (funcall 'one-key-prefix-key-menu-command "M-g" t)))
-                                         (("M-o" . "Prefix-Key:M-o (font-lock/centering commands)") .
+                                         (("M-o" . "prefix-key:M-o (font-lock/centering commands)") .
                                           (lambda nil (interactive)
                                             (funcall 'one-key-prefix-key-menu-command "M-o" t)))
-                                         (("M-s" . "Prefix-Key:M-s (occur/highlight commands)") .
+                                         (("M-s" . "prefix-key:M-s (occur/highlight commands)") .
                                           (lambda nil (interactive)
                                             (funcall 'one-key-prefix-key-menu-command "M-s" t)))
-                                         (("C-x" . "Prefix-Key:C-x (all C-x keybindings)") .
+                                         (("C-x" . "prefix-key:C-x (all C-x keybindings)") .
                                           (lambda nil (interactive)
                                             (funcall 'one-key-prefix-key-menu-command "C-x" t)))
-                                         (("r" . "Prefix-Key:C-x r (bookmark, rectangle and register commands)") .
+                                         (("r" . "prefix-key:C-x r (bookmark, rectangle and register commands)") .
                                           (lambda nil (interactive)
                                             (funcall 'one-key-prefix-key-menu-command "C-x r" t)))
-                                         (("v" . "Prefix-Key:C-x v (version control commands)") .
+                                         (("v" . "prefix-key:C-x v (version control commands)") .
                                           (lambda nil (interactive)
                                             (funcall 'one-key-prefix-key-menu-command "C-x v" t)))
-                                         (("a" . "Prefix-Key:C-x a (abbrev commands)") .
+                                         (("a" . "prefix-key:C-x a (abbrev commands)") .
                                           (lambda nil (interactive)
                                             (funcall 'one-key-prefix-key-menu-command "C-x a" t)))
-                                         (("n" . "Prefix-Key:C-x n (narrow/widen commands)") .
+                                         (("n" . "prefix-key:C-x n (narrow/widen commands)") .
                                           (lambda nil (interactive)
                                             (funcall 'one-key-prefix-key-menu-command "C-x n" t)))
-                                         (("C-k" . "Prefix-Key:C-x C-k (keyboard macro commands)") .
+                                         (("C-k" . "prefix-key:C-x C-k (keyboard macro commands)") .
                                           (lambda nil (interactive)
                                             (funcall 'one-key-prefix-key-menu-command "C-x C-k" t)))
-                                         (("w" . "Prefix-Key:C-x w (highlight commands)") .
+                                         (("w" . "prefix-key:C-x w (highlight commands)") .
                                           (lambda nil (interactive)
                                             (funcall 'one-key-prefix-key-menu-command "C-x w" t)))
-                                         (("RET" . "Prefix-Key:C-x RET (input/coding commands)") .
+                                         (("RET" . "prefix-key:C-x RET (input/coding commands)") .
                                           (lambda nil (interactive)
                                             (funcall 'one-key-prefix-key-menu-command "C-x RET" t)))
-                                         (("4" . "Prefix-Key:C-x 4 (other-window commands)") .
+                                         (("4" . "prefix-key:C-x 4 (other-window commands)") .
                                           (lambda nil (interactive)
                                             (funcall 'one-key-prefix-key-menu-command "C-x 4" t)))
-                                         (("5" . "Prefix-Key:C-x 5 (other-frame commands)") .
+                                         (("5" . "prefix-key:C-x 5 (other-frame commands)") .
                                           (lambda nil (interactive)
                                             (funcall 'one-key-prefix-key-menu-command "C-x 5" t)))
-                                         (("6" . "Prefix-Key:C-x 6 (2 column mode commands)") .
+                                         (("6" . "prefix-key:C-x 6 (2 column mode commands)") .
                                           (lambda nil (interactive)
                                             (funcall 'one-key-prefix-key-menu-command "C-x 6" t)))
-                                         (("C-c" . "Prefix-Key:C-c (mode specific bindings)") .
+                                         (("C-c" . "prefix-key:C-c (mode specific bindings)") .
                                           (lambda nil (interactive)
                                             (funcall 'one-key-prefix-key-menu-command "C-c" t)))
-                                         (("@" . "Prefix-Key:C-c @ (outline commands)") .
+                                         (("@" . "prefix-key:C-c @ (outline commands)") .
                                           (lambda nil (interactive)
                                             (funcall 'one-key-prefix-key-menu-command "C-c @" t)))
-                                         (("," . "Prefix-Key:C-c , (senator/semantic commands)") .
+                                         (("," . "prefix-key:C-c , (senator/semantic commands)") .
                                           (lambda nil (interactive)
                                             (funcall 'one-key-prefix-key-menu-command "C-c ," t)))
-                                         (("." . "Prefix-Key:C-c . (Ede commands)") .
+                                         (("." . "prefix-key:C-c . (Ede commands)") .
                                           (lambda nil (interactive)
                                             (funcall 'one-key-prefix-key-menu-command "C-c ." t)))
-                                         (("/" . "Prefix-Key:C-c / (Srecode commands)") .
+                                         (("/" . "prefix-key:C-c / (Srecode commands)") .
                                           (lambda nil (interactive)
                                             (funcall 'one-key-prefix-key-menu-command "C-c /" t)))
                                          )
@@ -2618,7 +2618,7 @@ major mode) exists then it will be used, otherwise it will be created."
                        (with-selected-window
                            (previous-window)
                          (symbol-name major-mode))))
-         (menuname (concat "Major-mode:" (replace-regexp-in-string "-mode$" "" modename)))
+         (menuname (concat "major-mode:" (replace-regexp-in-string "-mode$" "" modename)))
          (symname (concat "one-key-menu-" modename "-alist"))
          (menusym (intern-soft symname)))
     (if (or (not menusym) (not (boundp menusym)))
@@ -2687,7 +2687,7 @@ major mode) exists then it will be used, otherwise it will be created."
                         (if (symbolp kmap) (eval kmap) kmap)))
                (desc1 (replace-regexp-in-string " " "_" keystr))
                (desc2 (replace-regexp-in-string "#" "\\\\#" desc1))
-               (desc3 (concat "Prefix-Key:" desc2)))
+               (desc3 (concat "prefix-key:" desc2)))
           (cons desc3 (one-key-create-menus-from-keymap kmap2 desc3 desc2)))
       (error "No keymap is currently associated with that prefix key!"))))
 
@@ -2836,8 +2836,8 @@ or a special key, and the value of DEF will be returned."
                             'one-key-create-blank-menu
                             one-key-default-title-func nil) t)
 (one-key-add-to-alist 'one-key-types-of-menu
-                      (list "Major-mode"
-                            (lambda (name) (string-match "^Major-mode" name))
+                      (list "major-mode"
+                            (lambda (name) (string-match "^major-mode" name))
                             'one-key-get-major-mode-menu
                             one-key-default-title-func nil) t)
 (one-key-add-to-alist 'one-key-types-of-menu
@@ -2851,8 +2851,8 @@ or a special key, and the value of DEF will be returned."
                             'one-key-create-menu-from-existing-keymap
                             one-key-default-title-func nil) t)
 (one-key-add-to-alist 'one-key-types-of-menu
-                      (list "Prefix-Key"
-                            (lambda (name) (string-match "Prefix-Key" name))
+                      (list "prefix-key"
+                            (lambda (name) (string-match "^prefix-key" name))
                             (lambda (name)
                               (let* ((keystr1 (if (> (length name) 11) (substring name 11) nil))
                                      (keystr2 (if keystr1 (replace-regexp-in-string "_" "" keystr1))))
