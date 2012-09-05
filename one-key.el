@@ -446,8 +446,10 @@
 ;; Prompt to save submenus when saving menu. Special keybinding to save all altered menus?
 ;; Autohighlighting of menu items using regexp associations?
 ;; Add to marmalade and elpa repos
-;; Add special key for major-mode and prefix key menus to recreate the menu.
-;; 
+;; Eliminate need for dynamic binding of one-key-menu args by having consistent arglist for all special key functions?
+;; Could create macro "one-key-special-defun" for special key functions which takes args consistent with required args
+;; from one-key-menu function. Then add those args when funcall is used to execute the special key function.
+;;
 ;;; Require
 (eval-when-compile (require 'cl))
 (require 'dired)
@@ -903,8 +905,10 @@ the first item should come before the second in the menu."
                         (eval `(customize-save-variable 'one-key-sets-of-menus-alist
                                                         ',(append oldsets (list newset))))))
                     (setq one-key-menu-call-first-time t)
-                    (one-key-menu-window-close))
-                  ))
+                    (one-key-menu-window-close)))
+    (rebuild-menu "<M-f11>" "Rebuild the menu"
+                  one-key-rebuild-menu)
+    )
   "An list of special keys; labels, keybindings, descriptions and associated functions.
 Each item in the list contains (in this order):
 
@@ -929,6 +933,7 @@ types. See `one-key-default-special-keybindings' for example."
                        (string :tag "Keybinding" :help-echo "String representation of the keybinding for this action")
                        (string :tag "Description" :help-echo "Description to display in help buffer")
                        (function :tag "Function" :help-echo "Function for performing action. See description below for further details."))))
+
 
 (defcustom one-key-default-special-keybindings
   '(quit-close quit-open toggle-persistence toggle-display next-menu prev-menu up down scroll-down scroll-up help documentation
@@ -1697,6 +1702,19 @@ If called interactively, MENUSET will be prompted for."
     (if item
         (one-key-open-menus names menu-number protect-function)
       (message "Invalid menu set name!"))))
+
+(defun one-key-rebuild-menu nil
+  "Rebuild the currently displayed one-key menu according to it's name.
+This should only be used with menus that can be rebuilt using `one-key-get-menus-for-type'."
+  (unless (not okm-issymbol)
+    (unintern okm-info-alist)
+    (if (get-buffer-window (help-buffer))
+        (kill-buffer (help-buffer)))
+    (let ((newlist (cdr (one-key-get-menus-for-type okm-this-name))))
+      (setq okm-info-alist newlist)
+      (setf (nth okm-menu-number okm-menu-alists) newlist)
+      (setq one-key-menu-call-first-time t)
+      (one-key-menu-window-close t) t)))
 
 (defun one-key-open-default-menu-set nil
   "Open the menu set defined by `one-key-default-menu-set'."
@@ -2839,7 +2857,8 @@ or a special key, and the value of DEF will be returned."
                       (list "major-mode"
                             (lambda (name) (string-match "^major-mode" name))
                             'one-key-get-major-mode-menu
-                            one-key-default-title-func nil) t)
+                            one-key-default-title-func
+                            (append one-key-default-special-keybindings '(rebuild-menu))) t)
 (one-key-add-to-alist 'one-key-types-of-menu
                       (list "existing menu"
                             (lambda (name) (equal name "existing menu"))
@@ -2859,7 +2878,8 @@ or a special key, and the value of DEF will be returned."
                                 (if keystr2
                                     (one-key-create-menu-from-prefix-key-keymap keystr2)
                                   (call-interactively 'one-key-create-menu-from-prefix-key-keymap))))
-                            one-key-default-title-func nil) t)
+                            one-key-default-title-func
+                            (append one-key-default-special-keybindings '(rebuild-menu))) t)
 (one-key-add-to-alist 'one-key-types-of-menu
                       (list "menu-sets"
                             (lambda (name) (equal name "menu-sets"))
