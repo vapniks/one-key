@@ -939,7 +939,7 @@ types. See `one-key-default-special-keybindings' for example."
   '(quit-close quit-open toggle-persistence toggle-display next-menu prev-menu up down scroll-down scroll-up help documentation
                save-menu toggle-help toggle-row/column-order sort-next sort-prev reverse-order limit-items highlight-items
                edit-item delete-item kill-items yank-items swap-keys add-item add-menu remove-menu move-item
-               donate report-bug)
+               donate report-bug rebuild-menu)
   "List of special keys to be used if no other set of special keys is defined for a given one-key menu type.
 These keys are for performing general tasks on the menu such as sorting items, deleting items, etc.
 Each element of this list is a reference to one of the keybindings defined in `one-key-special-keybindings'.
@@ -1707,14 +1707,15 @@ If called interactively, MENUSET will be prompted for."
   "Rebuild the currently displayed one-key menu according to it's name.
 This should only be used with menus that can be rebuilt using `one-key-get-menus-for-type'."
   (unless (not okm-issymbol)
-    (unintern okm-info-alist)
-    (if (get-buffer-window (help-buffer))
-        (kill-buffer (help-buffer)))
     (let ((newlist (cdr (one-key-get-menus-for-type okm-this-name))))
-      (setq okm-info-alist newlist)
-      (setf (nth okm-menu-number okm-menu-alists) newlist)
-      (setq one-key-menu-call-first-time t)
-      (one-key-menu-window-close t) t)))
+      (if newlist
+          (unintern okm-info-alist)
+        (if (get-buffer-window (help-buffer))
+            (kill-buffer (help-buffer)))
+        (setq okm-info-alist newlist)
+        (setf (nth okm-menu-number okm-menu-alists) newlist)
+        (setq one-key-menu-call-first-time t)
+        (one-key-menu-window-close t) t))))
 
 (defun one-key-open-default-menu-set nil
   "Open the menu set defined by `one-key-default-menu-set'."
@@ -2858,7 +2859,7 @@ or a special key, and the value of DEF will be returned."
                             (lambda (name) (string-match "^major-mode" name))
                             'one-key-get-major-mode-menu
                             one-key-default-title-func
-                            (append one-key-default-special-keybindings '(rebuild-menu))) t)
+                            'one-key-default-special-keybindings) t)
 (one-key-add-to-alist 'one-key-types-of-menu
                       (list "existing menu"
                             (lambda (name) (equal name "existing menu"))
@@ -2879,7 +2880,7 @@ or a special key, and the value of DEF will be returned."
                                     (one-key-create-menu-from-prefix-key-keymap keystr2)
                                   (call-interactively 'one-key-create-menu-from-prefix-key-keymap))))
                             one-key-default-title-func
-                            (append one-key-default-special-keybindings '(rebuild-menu))) t)
+                            'one-key-default-special-keybindings) t)
 (one-key-add-to-alist 'one-key-types-of-menu
                       (list "menu-sets"
                             (lambda (name) (equal name "menu-sets"))
