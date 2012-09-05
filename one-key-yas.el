@@ -152,7 +152,7 @@ This function is used in calls to `one-key-dir-build-menu-alist'."
                             (lambda (name) (string-match "^yas\\(:\|nippet\\)" name))
                             'one-key-yas-get-menu
                             one-key-default-title-func
-                            (append one-key-default-special-keybindings '(rebuild-menu))) t)
+                            'one-key-default-special-keybindings) t)
 
 (add-to-list 'one-key-exclude-from-save "^yas:")
 
