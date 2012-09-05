@@ -1779,7 +1779,7 @@ a single menu name."
   (let* ((name (if menu-number (nth menu-number names) names))
          (title-func (or (fourth (one-key-get-menu-type name)) one-key-default-title-func))
          (title-string2 (or title-string (and title-func (funcall title-func))))
-         (infoline (if title-string2 (one-key-highlight (if (equal (substring title-string2 -1) "\n") title-string2
+         (infoline (if (> (length title-string2) 0) (one-key-highlight (if (equal (substring title-string2 -1) "\n") title-string2
                                                           (concat title-string2 "\n"))
                                                         "\\(<[^<>]*>\\|'[^']*'\\)" '(face one-key-name))))
          (keystrokelist (one-key-highlight keystroke "\\[\\([^\\[\\]\\)*?\\]" '(face one-key-keystroke))))
@@ -2797,6 +2797,16 @@ To read how to make a good bug report see:
 http://www.gnu.org/software/emacs/manual/html_node/emacs/Understanding-Bug-Reporting.html
 ------------------------------------------------------------------------")))
 
+(defun one-key-center-string (string width)
+  "Center STRING in space padded string of length WIDTH, and return padded string.
+If length of STRING is greater than WIDTH, then return middle section of STRING of length WIDTH."
+  (let* ((strlen (length string))
+         (lpadlen (/ (- width strlen) 2))
+         (rpadlen (- width strlen lpadlen)))
+    (if (> width strlen)
+        (concat (make-string lpadlen ? ) string (make-string rpadlen ? ))
+      (substring string (- lpadlen) rpadlen))))
+
 (defun one-key-completing-read (prompt collection &optional predicate require-match def)
   "one-key replacement user for the built-in `completing-read' function.
 PROMPT is the title string for the *One-Key* buffer.
@@ -2827,11 +2837,11 @@ or a special key, and the value of DEF will be returned."
            (menu-alists (one-key-create-menu-lists commands collection3))
            (nummenus (length menu-alists))
            (names (if (> nummenus 1)
-                      (one-key-append-numbers-to-menu-name "Select an item" nummenus)
-                    '("Select an item"))))
+                      (one-key-append-numbers-to-menu-name prompt nummenus)
+                    (list prompt))))
       (one-key-menu names menu-alists
                     :okm-miss-match-recursion-p require-match
-                    :okm-title-string prompt
+                    :okm-title-string ""
                     :okm-special-keybinding-symbols
                     '(quit-close quit-open toggle-display next-menu prev-menu up down scroll-down scroll-up
                                  toggle-help documentation toggle-row/column-order sort-next sort-prev
