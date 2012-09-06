@@ -908,6 +908,10 @@ the first item should come before the second in the menu."
                     (one-key-menu-window-close)))
     (rebuild-menu "<M-f11>" "Rebuild the menu"
                   one-key-rebuild-menu)
+    (multicompleting-read-up "RET" "Finish completions at this level"
+                             (lambda nil (setq selected-item 'goup) nil))
+    (multicompleting-read-down "SPC" "Call recursively at next level down"
+                               (lambda nil (setq selected-item 'godown) nil))
     )
   "An list of special keys; labels, keybindings, descriptions and associated functions.
 Each item in the list contains (in this order):
@@ -2807,8 +2811,13 @@ If length of STRING is greater than WIDTH, then return middle section of STRING 
         (concat (make-string lpadlen ? ) string (make-string rpadlen ? ))
       (substring string (- lpadlen) rpadlen))))
 
-(defun one-key-completing-read (prompt collection &optional predicate require-match def)
-  "one-key replacement user for the built-in `completing-read' function.
+(defun* one-key-completing-read (prompt collection
+                                        &optional predicate require-match def title-string
+                                        (special-keys '(quit-close quit-open toggle-display next-menu prev-menu up down
+                                                                   scroll-down scroll-up toggle-help documentation
+                                                                   toggle-row/column-order sort-next sort-prev
+                                                                   reverse-order limit-items donate report-bug)))
+  "one-key replacement for the built-in `completing-read' function.
 PROMPT is the title string for the *One-Key* buffer.
 COLLECTION can be a list of strings, an alist, an obarray or a hash table.
 If non-nil PREDICATE is a predicate function used to filter the items in COLLECTION before placing them in the menu
@@ -2816,7 +2825,10 @@ If non-nil PREDICATE is a predicate function used to filter the items in COLLECT
 If REQUIRE-MATCH is non-nil then the *One-Key* window will not disappear until an item key is pressed or the menu is quit
 using the appropriate special key.
 If REQUIRE-MATCH is nil then the *One-Key* window will close if a key is pressed which doesn't correspond to a menu item
-or a special key, and the value of DEF will be returned."
+or a special key, and the value of DEF will be returned.
+The optional argument SPECIAL-KEYS is a list of symbols refering to the special keys to use for this menu,
+and they must be defined in `one-key-special-keybindings'. You can usually leave the SPECIAL-KEYS argument alone as it uses
+sensible defaults."
   (flet ((tostring (x) (cond ((stringp x) x)
                              ((symbolp x) (symbol-name x))
                              ((numberp x) (number-to-string x))
@@ -2841,17 +2853,33 @@ or a special key, and the value of DEF will be returned."
                     (list prompt))))
       (one-key-menu names menu-alists
                     :okm-miss-match-recursion-p require-match
-                    :okm-title-string ""
-                    :okm-special-keybinding-symbols
-                    '(quit-close quit-open toggle-display next-menu prev-menu up down scroll-down scroll-up
-                                 toggle-help documentation toggle-row/column-order sort-next sort-prev
-                                 reverse-order limit-items donate report-bug))
+                    :okm-title-string (or title-string "")
+                    :okm-special-keybinding-symbols special-keys)
       (or selected-item def))))
 
-;; TODO!!
-;; (defun one-key-completing-read-multiple ???
-
-;;   )
+;; FIXME : this function needs more polishing.
+(defun* one-key-completing-read-multiple (prompt collection &optional maxdepth (depth 0))
+  "one-key replacement for the built-in `completing-read-multiple' function."
+  (let* ((special-keys
+          '(quit-close quit-open toggle-display next-menu prev-menu up down scroll-down scroll-up toggle-help documentation
+                       toggle-row/column-order sort-next sort-prev reverse-order limit-items donate report-bug
+                       multicompleting-read-down multicompleting-read-up))
+         (choice t)
+         (title-prefix "Press RET to complete current level, SPC to go down a level.
+Current selection: ")
+         (title-string title-prefix)
+         this-choice tree)
+    (while choice
+      (setq choice (one-key-completing-read prompt collection nil nil nil title-string special-keys))
+      (case choice
+        ('godown (if (and maxdepth (>= depth maxdepth))
+                     (message "Can't go down any further!")
+                   (setq tree (append tree (list (one-key-completing-read-multiple
+                                                  prompt collection maxdepth (1+ depth)))))))
+        ('goup (setq choice nil))
+        (t (setq tree (append tree (list choice)))))
+      (setq title-string (concat title-prefix (prin1-to-string tree))))
+    tree))
 
 ;; Set one-key menu types
 (one-key-add-to-alist 'one-key-types-of-menu
