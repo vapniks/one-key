@@ -2801,15 +2801,16 @@ To read how to make a good bug report see:
 http://www.gnu.org/software/emacs/manual/html_node/emacs/Understanding-Bug-Reporting.html
 ------------------------------------------------------------------------")))
 
-(defun one-key-center-string (string width)
+(defun* one-key-center-string (string &optional (width (window-width)) shorten)
   "Center STRING in space padded string of length WIDTH, and return padded string.
-If length of STRING is greater than WIDTH, then return middle section of STRING of length WIDTH."
+If length of STRING is greater than WIDTH, and shorten is non-nil then return middle section of STRING of length WIDTH.
+By default WIDTH is set to the current window width (as returned by the `window-width' function)."
   (let* ((strlen (length string))
          (lpadlen (/ (- width strlen) 2))
          (rpadlen (- width strlen lpadlen)))
     (if (> width strlen)
         (concat (make-string lpadlen ? ) string (make-string rpadlen ? ))
-      (substring string (- lpadlen) rpadlen))))
+      (if shorten (substring string (- lpadlen) rpadlen) string))))
 
 (defun* one-key-completing-read (prompt collection
                                         &optional predicate require-match def title-string
@@ -2857,30 +2858,46 @@ sensible defaults."
                     :okm-special-keybinding-symbols special-keys)
       (or selected-item def))))
 
-;; FIXME : this function needs more polishing.
-(defun* one-key-completing-read-multiple (prompt collection &optional maxdepth (depth 0))
-  "one-key replacement for the built-in `completing-read-multiple' function."
+(defun one-key-completing-read-display-func (info-string tree depth)
+  "Default function used for displaying tree selected so far with one-key-completing-read"
+  (if tree
+       (concat info-string
+               (concat (substring
+                        (replace-string-regexp (prin1-to-string tree) "\"" "")
+                        0 -1) " "))
+     (concat info-string "(")))
+
+(defun* one-key-completing-read-tree-1 (prompt collection &optional
+                                               maxdepth (depth 0) info-string (displayfunc 'one-key-completing-read-display-func))
   (let* ((special-keys
-          '(quit-close quit-open toggle-display next-menu prev-menu up down scroll-down scroll-up toggle-help documentation
-                       toggle-row/column-order sort-next sort-prev reverse-order limit-items donate report-bug
-                       multicompleting-read-down multicompleting-read-up))
+          '(quit-close quit-open toggle-display next-menu prev-menu up down scroll-down scroll-up toggle-help
+                       documentation toggle-row/column-order sort-next sort-prev reverse-order limit-items donate
+                       report-bug multicompleting-read-down multicompleting-read-up))
          (choice t)
-         (title-prefix "Press RET to complete current level, SPC to go down a level.
-Current selection: ")
-         (title-string title-prefix)
-         this-choice tree)
+         (title-prefix (concat (one-key-center-string "Press RET to complete current level, SPC to go down a level.")
+                               (one-key-center-string "Current selection: ")))
+         (title-string (concat title-prefix "\n"
+                               (one-key-center-string (funcall displayfunc info-string nil depth))))
+         tree)
     (while choice
       (setq choice (one-key-completing-read prompt collection nil nil nil title-string special-keys))
       (case choice
         ('godown (if (and maxdepth (>= depth maxdepth))
                      (message "Can't go down any further!")
-                   (setq tree (append tree (list (one-key-completing-read-multiple
-                                                  prompt collection maxdepth (1+ depth)))))))
+                   (setq tree (append tree (list (one-key-completing-read-tree-1
+                                                  prompt collection maxdepth (1+ depth)
+                                                  (funcall displayfunc info-string tree depth)
+                                                  displayfunc))))))
         ('goup (setq choice nil))
-        (t (setq tree (append tree (list choice)))))
-      (setq title-string (concat title-prefix (prin1-to-string tree))))
+        (t (if choice (setq tree (append tree (list choice))))))
+      (setq title-string (concat title-prefix "\n"
+                                 (one-key-center-string (funcall displayfunc info-string tree depth)))))
     tree))
 
+(defun* one-key-completing-read-tree (prompt collection &optional maxdepth displayfunc)
+  "one-key replacement for the built-in `completing-read-multiple' function."
+  (one-key-completing-read-tree-1 prompt collection maxdepth 0 displayfunc))
+  
 ;; Set one-key menu types
 (one-key-add-to-alist 'one-key-types-of-menu
                       (list "top-level"
