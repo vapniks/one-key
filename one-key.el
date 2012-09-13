@@ -908,10 +908,12 @@ the first item should come before the second in the menu."
                     (one-key-menu-window-close)))
     (rebuild-menu "<M-f11>" "Rebuild the menu"
                   one-key-rebuild-menu)
-    (multicompleting-read-up "RET" "Finish completions at this level"
+    (read-tree-up "RET" "Complete current list"
                              (lambda nil (setq selected-item 'goup) nil))
-    (multicompleting-read-down "SPC" "Call recursively at next level down"
+    (read-tree-down "SPC" "Start new list recursively"
                                (lambda nil (setq selected-item 'godown) nil))
+    (read-tree-delete "<backspace>" "Remove last item from list"
+                      (lambda nil (setq selected-item 'del) nil))
     )
   "An list of special keys; labels, keybindings, descriptions and associated functions.
 Each item in the list contains (in this order):
@@ -2858,29 +2860,58 @@ sensible defaults."
                     :okm-special-keybinding-symbols special-keys)
       (or selected-item def))))
 
-(defun one-key-completing-read-display-func (info-string tree depth)
-  "Default function used for displaying tree selected so far with one-key-completing-read"
-  (if tree
-       (concat info-string
-               (concat (substring
-                        (replace-string-regexp (prin1-to-string tree) "\"" "")
-                        0 -1) " "))
-     (concat info-string "(")))
+(defun one-key-completing-read-display-func (info-string tree depth title-string)
+  (let* ((depthstr (concat "Current depth=" (number-to-string depth) ", Current selection:"))
+         (regex (replace-regexp-in-string "[0-9]+" "[0-9]+" depthstr))
+         (infostring (if (= (length info-string) 0)
+                         (concat (one-key-center-string
+                                  title-string) "\n"
+                                  (one-key-center-string depthstr) "\n")
+                       (replace-regexp-in-string regex depthstr info-string)))
+         (infostring2 (if tree
+                          (concat infostring
+                                  (concat (substring
+                                           (replace-string-regexp (prin1-to-string tree) "\"" "")
+                                           0 -1) " "))
+                        (concat infostring "("))))
+    (string-match (concat "\\(.*\n\\)\\( *" depthstr " *\\)\n *\\((\\|(.*[^ ]\\) *$") infostring2)
+    (concat (match-string 1 infostring2)
+            (match-string 2 infostring2) "\n"
+            (replace-regexp-in-string " *$" " "
+                                      (one-key-center-string (match-string 3 infostring2))))))
 
-(defun* one-key-completing-read-tree-1 (prompt collection &optional
-                                               maxdepth (depth 0) info-string (displayfunc 'one-key-completing-read-display-func))
+(defun one-key-completing-read-tree-display-func (info-string tree depth)
+  "Default function used for displaying information in calls to `one-key-completing-read-tree'."
+  (one-key-completing-read-display-func info-string tree depth
+                                        (concat
+                                         "Press "
+                                         (caar (one-key-get-special-key-contents 'read-tree-up))
+                                         " to complete a list, "
+                                         (caar (one-key-get-special-key-contents 'read-tree-down))
+                                         " to start a new list, and "
+                                         (caar (one-key-get-special-key-contents 'read-tree-delete))
+                                         " to remove the last element.")))
+
+(defun one-key-completing-read-multiple-display-func (info-string tree depth)
+  "Default function used for displaying information in calls to `one-key-completing-read-multiple'."
+  (one-key-completing-read-display-func info-string tree depth
+                                        (concat
+                                         "Press "
+                                         (caar (one-key-get-special-key-contents 'read-tree-up))
+                                         " to complete the list, and "
+                                         (caar (one-key-get-special-key-contents 'read-tree-delete))
+                                         " to remove the last element.")))
+
+(defun* one-key-completing-read-tree-1 (prompt collection &optional maxdepth (depth 0) info-string displayfunc)
   (let* ((special-keys
           '(quit-close quit-open toggle-display next-menu prev-menu up down scroll-down scroll-up toggle-help
                        documentation toggle-row/column-order sort-next sort-prev reverse-order limit-items donate
-                       report-bug multicompleting-read-down multicompleting-read-up))
-         (choice t)
-         (title-prefix (concat (one-key-center-string "Press RET to complete current level, SPC to go down a level.")
-                               (one-key-center-string "Current selection: ")))
-         (title-string (concat title-prefix "\n"
-                               (one-key-center-string (funcall displayfunc info-string nil depth))))
-         tree)
+                       report-bug read-tree-down read-tree-up read-tree-delete))
+         (choice t) tree)
     (while choice
-      (setq choice (one-key-completing-read prompt collection nil nil nil title-string special-keys))
+      (setq choice (one-key-completing-read prompt collection nil nil nil
+                                            (funcall displayfunc info-string tree depth)
+                                            special-keys))
       (case choice
         ('godown (if (and maxdepth (>= depth maxdepth))
                      (message "Can't go down any further!")
@@ -2889,15 +2920,25 @@ sensible defaults."
                                                   (funcall displayfunc info-string tree depth)
                                                   displayfunc))))))
         ('goup (setq choice nil))
-        (t (if choice (setq tree (append tree (list choice))))))
-      (setq title-string (concat title-prefix "\n"
-                                 (one-key-center-string (funcall displayfunc info-string tree depth)))))
+        ('del (setq tree (butlast tree)))
+        (t (if choice (setq tree (append tree (list choice)))))))
     tree))
 
-(defun* one-key-completing-read-tree (prompt collection &optional maxdepth displayfunc)
+(defun* one-key-completing-read-tree (prompt collection
+                                             &optional maxdepth (displayfunc 'one-key-completing-read-tree-display-func))
+  "Function for reading recursive lists from the user."
+  (one-key-completing-read-tree-1 prompt collection maxdepth 0 nil displayfunc))
+
+(defun* one-key-completing-read-multiple (prompt collection
+                                                 &optional (displayfunc 'one-key-completing-read-multiple-display-func))
   "one-key replacement for the built-in `completing-read-multiple' function."
-  (one-key-completing-read-tree-1 prompt collection maxdepth 0 displayfunc))
-  
+  (one-key-completing-read-tree prompt collection 0 displayfunc))
+
+(defun* one-key-completing-read-dnf (prompt collection
+                                                 &optional (displayfunc 'one-key-completing-read-multiple-display-func))
+  "one-key function for reading DNF formulae from the user. The result is returned as a list."
+  (one-key-completing-read-tree prompt collection 1 displayfunc))
+
 ;; Set one-key menu types
 (one-key-add-to-alist 'one-key-types-of-menu
                       (list "top-level"
