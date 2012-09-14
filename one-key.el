@@ -909,9 +909,14 @@ the first item should come before the second in the menu."
     (rebuild-menu "<M-f11>" "Rebuild the menu"
                   one-key-rebuild-menu)
     (read-tree-up "RET" "Complete current list"
-                             (lambda nil (setq selected-item 'goup) nil))
+                  (lambda nil (setq selected-item 'goup) nil))
+    (read-tree-up2 ")" "Complete current list"
+                   (lambda nil (setq selected-item 'goup) nil))
+
     (read-tree-down "SPC" "Start new list recursively"
-                               (lambda nil (setq selected-item 'godown) nil))
+                    (lambda nil (setq selected-item 'godown) nil))
+    (read-tree-down2 "(" "Start new list recursively"
+                     (lambda nil (setq selected-item 'godown) nil))
     (read-tree-delete "<backspace>" "Remove last item from list"
                       (lambda nil (setq selected-item 'del) nil))
     )
@@ -2877,7 +2882,7 @@ and `one-key-read-dnf-display-func' for examples of functions for DISPLAYFUNC."
   (let* ((special-keys
           '(quit-close quit-open toggle-display next-menu prev-menu up down scroll-down scroll-up toggle-help
                        documentation toggle-row/column-order sort-next sort-prev reverse-order limit-items donate
-                       report-bug read-tree-down read-tree-up read-tree-delete))
+                       report-bug read-tree-down read-tree-down2 read-tree-up read-tree-up2 read-tree-delete))
          (choice t) tree)
     (while choice
       (setq choice (one-key-read prompt collection nil nil nil okr-title-string special-keys))
@@ -2907,7 +2912,8 @@ one-key menu. The function is called each time an item is selected/deleted, or w
 The function is passed the name of an item when an item is selected, the symbol 'del when an item
 is deleted, 'goup when the user goes up a level and 'godown when the user goes down a level.
 The value returned is used by the `one-key-read-tree-display-func' function to update the title string of the one-key menu,
-and should be a string or one of the symbols 'del, 'goup or 'godown."
+and should be a string or one of the symbols 'del, 'goup or 'godown. To use the default display just return the first arg
+unchanged."
   (let ((okr-title-string (concat (one-key-center-string
                                    (concat
                                     "Press "
@@ -2941,7 +2947,7 @@ See `one-key-read-tree' for a description of the arguments."
                                    (concat
                                     "Press "
                                     (caar (one-key-get-special-key-contents 'read-tree-up))
-                                    " to finish, "
+                                    " to complete conjuction/finish, "
                                     (caar (one-key-get-special-key-contents 'read-tree-down))
                                     " to start a new conjunction, and "
                                     (caar (one-key-get-special-key-contents 'read-tree-delete))
@@ -2957,7 +2963,7 @@ See `one-key-read-tree' for a description of the arguments."
                                    (concat
                                     "Press "
                                     (caar (one-key-get-special-key-contents 'read-tree-up))
-                                    " to finish, "
+                                    " to complete conjunction/finish, "
                                     (caar (one-key-get-special-key-contents 'read-tree-down))
                                     " to start a new disjunction, and "
                                     (caar (one-key-get-special-key-contents 'read-tree-delete))
