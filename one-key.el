@@ -2900,9 +2900,11 @@ PROMPT and COLLECTION are as in `one-key-read'.
 The optional argument MAXDEPTH is the maximum depth allowed for the tree (toplevel has depth 0).
 By default no bound is placed on the maximum depth.
 
-If ACTIONFUNC is supplied it should be a function that takes the name of an item or a symbol as it's only argument,
-and returns a new name/symbol. It is called each time an item is selected/deleted, or when the user
-goes up/down a level. The function is passed the name of an item when an item is selected, the symbol 'del when an item
+If ACTIONFUNC is supplied it should be a function that takes three arguments: the name of an item or a symbol,
+ the current tree depth, and maxdepth (in that order). The function may perform some actions based on the last selected
+item, current depth and maxdepth, and should return a new name/symbol to be used for updating the title string of the
+one-key menu. The function is called each time an item is selected/deleted, or when the user goes up/down a level.
+The function is passed the name of an item when an item is selected, the symbol 'del when an item
 is deleted, 'goup when the user goes up a level and 'godown when the user goes down a level.
 The value returned is used by the `one-key-read-tree-display-func' function to update the title string of the one-key menu,
 and should be a string or one of the symbols 'del, 'goup or 'godown."
@@ -2966,7 +2968,7 @@ See `one-key-read-tree' for a description of the arguments."
 (defun one-key-read-tree-display-func (choice depth maxdepth &optional actionfunc)
   "Default function used for displaying information in calls to `one-key-read-tree' (which see).
 This function assumes dynamic binding of okr-title-string to the current title string of the one-key menu."
-  (let* ((newchoice (if actionfunc (funcall actionfunc choice) choice))
+  (let* ((newchoice (if actionfunc (funcall actionfunc choice depth maxdepth) choice))
          (newstring (replace-regexp-in-string
                      "Current depth=\\([0-9]+\\)" (number-to-string depth)
                      (case newchoice
@@ -2983,7 +2985,7 @@ This function assumes dynamic binding of okr-title-string to the current title s
 (defun one-key-read-dnf-display-func (choice depth maxdepth &optional actionfunc)
   "Default function used for displaying information in calls to `one-key-read-dnf'.
 This function assumes dynamic binding of okr-title-string to the current title string of the one-key menu."
-  (let* ((newchoice (if actionfunc (funcall actionfunc choice) choice))
+  (let* ((newchoice (if actionfunc (funcall actionfunc choice depth maxdepth) choice))
          (seperator (unless (string-match ".*\n.*\n\\(.*(\\)? *$" okr-title-string)
                       (if (= depth 0) " | " " & ")))
          (newstring (case newchoice
@@ -2998,7 +3000,7 @@ This function assumes dynamic binding of okr-title-string to the current title s
 (defun one-key-read-cnf-display-func (choice depth maxdepth &optional actionfunc)
   "Default function used for displaying information in calls to `one-key-read-cnf'.
 This function assumes dynamic binding of okr-title-string to the current title string of the one-key menu."
-  (let* ((newchoice (if actionfunc (funcall actionfunc choice) choice))
+  (let* ((newchoice (if actionfunc (funcall actionfunc choice depth maxdepth) choice))
          (seperator (unless (string-match ".*\n.*\n\\(.*(\\)? *$" okr-title-string)
                       (if (= depth 0) " & " " | ")))
          (newstring (case newchoice
