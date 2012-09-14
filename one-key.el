@@ -2814,12 +2814,12 @@ By default WIDTH is set to the current window width (as returned by the `window-
         (concat (make-string lpadlen ? ) string (make-string rpadlen ? ))
       (if shorten (substring string (- lpadlen) rpadlen) string))))
 
-(defun* one-key-completing-read (prompt collection
-                                        &optional predicate require-match def title-string
-                                        (special-keys '(quit-close quit-open toggle-display next-menu prev-menu up down
-                                                                   scroll-down scroll-up toggle-help documentation
-                                                                   toggle-row/column-order sort-next sort-prev
-                                                                   reverse-order limit-items donate report-bug)))
+(defun* one-key-read (prompt collection
+                             &optional predicate require-match def title-string
+                             (special-keys '(quit-close quit-open toggle-display next-menu prev-menu up down
+                                                        scroll-down scroll-up toggle-help documentation
+                                                        toggle-row/column-order sort-next sort-prev
+                                                        reverse-order limit-items donate report-bug)))
   "one-key replacement for the built-in `completing-read' function.
 PROMPT is the title string for the *One-Key* buffer.
 COLLECTION can be a list of strings, an alist, an obarray or a hash table.
@@ -2860,84 +2860,112 @@ sensible defaults."
                     :okm-special-keybinding-symbols special-keys)
       (or selected-item def))))
 
-(defun one-key-completing-read-display-func (info-string tree depth title-string)
-  (let* ((depthstr (concat "Current depth=" (number-to-string depth) ", Current selection:"))
-         (regex (replace-regexp-in-string "[0-9]+" "[0-9]+" depthstr))
-         (infostring (if (= (length info-string) 0)
-                         (concat (one-key-center-string
-                                  title-string) "\n"
-                                  (one-key-center-string depthstr) "\n")
-                       (replace-regexp-in-string regex depthstr info-string)))
-         (infostring2 (if tree
-                          (concat infostring
-                                  (concat (substring
-                                           (replace-string-regexp (prin1-to-string tree) "\"" "")
-                                           0 -1) " "))
-                        (concat infostring "("))))
-    (string-match (concat "\\(.*\n\\)\\( *" depthstr " *\\)\n *\\((\\|(.*[^ ]\\) *$") infostring2)
-    (concat (match-string 1 infostring2)
-            (match-string 2 infostring2) "\n"
-            (replace-regexp-in-string " *$" " "
-                                      (one-key-center-string (match-string 3 infostring2))))))
+(defun* one-key-read-tree-1 (prompt collection
+                                    &optional maxdepth (depth 0)
+                                    (displayfunc 'one-key-read-tree-display-func))
+  "Recursive function for reading trees/recursive lists from the user.
+NOTE: This function is called by `one-key-read-tree', `one-key-read-multiple', and `one-key-read-dnf'.
+It assumes dynamic binding of okr-title-string which is used by displayfunc to set the title string for the one-key menu.
 
-(defun one-key-completing-read-tree-display-func (info-string tree depth)
-  "Default function used for displaying information in calls to `one-key-completing-read-tree'."
-  (one-key-completing-read-display-func info-string tree depth
-                                        (concat
-                                         "Press "
-                                         (caar (one-key-get-special-key-contents 'read-tree-up))
-                                         " to complete a list, "
-                                         (caar (one-key-get-special-key-contents 'read-tree-down))
-                                         " to start a new list, and "
-                                         (caar (one-key-get-special-key-contents 'read-tree-delete))
-                                         " to remove the last element.")))
+The PROMPT and COLLECTION arguments are as in `one-key-read'.
+MAXDEPTH is the maximum depth allowed for the tree (toplevel has depth 0), and DEPTH is the current depth of the tree.
 
-(defun one-key-completing-read-multiple-display-func (info-string tree depth)
-  "Default function used for displaying information in calls to `one-key-completing-read-multiple'."
-  (one-key-completing-read-display-func info-string tree depth
-                                        (concat
-                                         "Press "
-                                         (caar (one-key-get-special-key-contents 'read-tree-up))
-                                         " to complete the list, and "
-                                         (caar (one-key-get-special-key-contents 'read-tree-delete))
-                                         " to remove the last element.")))
-
-(defun* one-key-completing-read-tree-1 (prompt collection &optional maxdepth (depth 0) info-string displayfunc)
+DISPLAYFUNC should be a function that returns a title string for the one-key menu and is called each time an element is
+added to the list/tree. It should take three arguments, choice, depth and maxdepth, where choice is the last item chosen,
+and depth and maxdepth are the previously mentioned arguments of the same name. Have a look at `one-key-read-tree-display-func'
+and `one-key-read-dnf-display-func' for examples of functions for DISPLAYFUNC."
   (let* ((special-keys
           '(quit-close quit-open toggle-display next-menu prev-menu up down scroll-down scroll-up toggle-help
                        documentation toggle-row/column-order sort-next sort-prev reverse-order limit-items donate
                        report-bug read-tree-down read-tree-up read-tree-delete))
          (choice t) tree)
     (while choice
-      (setq choice (one-key-completing-read prompt collection nil nil nil
-                                            (funcall displayfunc info-string tree depth)
-                                            special-keys))
+      (setq choice (one-key-read prompt collection nil nil nil okr-title-string special-keys))
+      (setq okr-title-string (funcall displayfunc choice depth maxdepth))
       (case choice
         ('godown (if (and maxdepth (>= depth maxdepth))
                      (message "Can't go down any further!")
-                   (setq tree (append tree (list (one-key-completing-read-tree-1
-                                                  prompt collection maxdepth (1+ depth)
-                                                  (funcall displayfunc info-string tree depth)
-                                                  displayfunc))))))
+                   (setq tree (append tree (list (one-key-read-tree-1 prompt collection maxdepth
+                                                                      (1+ depth) displayfunc))))))
         ('goup (setq choice nil))
         ('del (setq tree (butlast tree)))
-        (t (if choice (setq tree (append tree (list choice)))))))
+        (t (if choice (setq tree (append tree (list choice)))
+             (setq choice t)
+             (message "Invalid choice")))))
     tree))
 
-(defun* one-key-completing-read-tree (prompt collection
-                                             &optional maxdepth (displayfunc 'one-key-completing-read-tree-display-func))
-  "Function for reading recursive lists from the user."
-  (one-key-completing-read-tree-1 prompt collection maxdepth 0 nil displayfunc))
+(defun* one-key-read-tree (prompt collection &optional maxdepth)
+  "Function for reading recursive lists from the user with a one-key menu.
+PROMPT and COLLECTION are as in `one-key-read', MAXDEPTH is the maximum depth allowed for the tree (toplevel has depth 0)."
+  (let ((okr-title-string (concat (one-key-center-string
+                                   (concat
+                                    "Press "
+                                    (caar (one-key-get-special-key-contents 'read-tree-up))
+                                    " to complete a list, "
+                                    (caar (one-key-get-special-key-contents 'read-tree-down))
+                                    " to start a new list, and "
+                                    (caar (one-key-get-special-key-contents 'read-tree-delete))
+                                    " to remove the last element.")) "\n"
+                                    (one-key-center-string "Current depth=0, Current selection:") "\n")))
+    (one-key-read-tree-1 prompt collection maxdepth 0 'one-key-read-tree-display-func)))
 
-(defun* one-key-completing-read-multiple (prompt collection
-                                                 &optional (displayfunc 'one-key-completing-read-multiple-display-func))
-  "one-key replacement for the built-in `completing-read-multiple' function."
-  (one-key-completing-read-tree prompt collection 0 displayfunc))
+(defun* one-key-read-list (prompt collection)
+  "one-key replacement for the built-in `completing-read-multiple' function.
+PROMPT and COLLECTION are as in `one-key-read'."
+  (let ((okr-title-string (concat (one-key-center-string
+                                   (concat
+                                    "Press "
+                                    (caar (one-key-get-special-key-contents 'read-tree-up))
+                                    " to finish selecting, and "
+                                    (caar (one-key-get-special-key-contents 'read-tree-delete))
+                                    " to remove the last element.")) "\n"
+                                    (one-key-center-string "Current selection:") "\n")))
+    (one-key-read-tree-1 prompt collection 0 0 'one-key-read-tree-display-func)))
 
-(defun* one-key-completing-read-dnf (prompt collection
-                                                 &optional (displayfunc 'one-key-completing-read-multiple-display-func))
-  "one-key function for reading DNF formulae from the user. The result is returned as a list."
-  (one-key-completing-read-tree prompt collection 1 displayfunc))
+(defun* one-key-read-dnf (prompt collection)
+  "Function for reading DNF formulae from the user with a one-key menu.
+The result is returned as a recursive list of depth 2.
+PROMPT and COLLECTION are as in `one-key-read'."
+  (let ((okr-title-string (concat (one-key-center-string
+                                   (concat
+                                    "Press "
+                                    (caar (one-key-get-special-key-contents 'read-tree-up))
+                                    " to finish, "
+                                    (caar (one-key-get-special-key-contents 'read-tree-down))
+                                    " to start a new conjunction, and "
+                                    (caar (one-key-get-special-key-contents 'read-tree-delete))
+                                    " to remove the last element.")) "\n"
+                                    (one-key-center-string "Current selection:") "\n")))
+    (one-key-read-tree-1 prompt collection 1 0 'one-key-read-dnf-display-func)))
+
+(defun one-key-read-tree-display-func (choice depth maxdepth)
+  "Default function used for displaying information in calls to `one-key-read-tree' (which see).
+This function assumes dynamic binding of okr-title-string to the current title string of the one-key menu."
+  (let ((newstring (replace-regexp-in-string
+                    "Current depth=\\([0-9]+\\)" (number-to-string depth)
+                    (case choice
+                      ('goup (concat okr-title-string " )"))
+                      ('godown (if (or (not maxdepth) (< depth maxdepth)) (concat okr-title-string " (") okr-title-string))
+                      ('del (replace-regexp-in-string ".*\n.*\n.*\\(([^()]*) *$\\|[^ ()]+ *$\\)" "" okr-title-string nil nil 1))
+                      (t (if choice (concat okr-title-string " " choice) okr-title-string)))
+                    nil nil 1)))
+    (string-match "\\(.*\n.*\n\\) *\\(.*[^ ]+\\)" newstring)
+    (concat (match-string 1 newstring)
+            (replace-regexp-in-string " *$" "" (one-key-center-string (match-string 2 newstring))))))
+
+(defun one-key-read-dnf-display-func (choice depth maxdepth)
+  "Default function used for displaying information in calls to `one-key-read-dnf'.
+This function assumes dynamic binding of okr-title-string to the current title string of the one-key menu."
+  (let* ((seperator (unless (string-match ".*\n.*\n\\(.*(\\)? *$" okr-title-string)
+                      (if (= depth 0) " | " " & ")))
+         (newstring (case choice
+                      ('goup (concat okr-title-string ")"))
+                      ('godown (if (= depth 0) (concat okr-title-string seperator "(") okr-title-string))
+                      ('del (replace-regexp-in-string ".*\n.*\n.*\\(([^()]*) *$\\|[^ ()]+ *$\\)" "" okr-title-string nil nil 1))
+                      (t (if choice (concat okr-title-string seperator choice) okr-title-string)))))
+    (string-match "\\(.*\n.*\n\\) *\\(.*[^ ]+\\)" newstring)
+    (concat (match-string 1 newstring)
+            (replace-regexp-in-string " *$" "" (one-key-center-string (match-string 2 newstring))))))
 
 ;; Set one-key menu types
 (one-key-add-to-alist 'one-key-types-of-menu
