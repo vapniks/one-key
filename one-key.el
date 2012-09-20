@@ -1509,8 +1509,8 @@ INFO-ALIST and FULL-LIST are as in the `one-key-menu' function."
   (setq one-key-menu-call-first-time t)
   (one-key-menu-window-close))
 
-(defun one-key-colourize-string (string colour)
-  "Change background colour of STRING to colour, and foreground colour to `one-key-item-foreground-colour'."
+(defun one-key-colourize-string (colour string)
+  "Change background colour of STRING to COLOUR, and foreground colour to `one-key-item-foreground-colour'."
   (propertize string 'face (list :background colour :foreground one-key-item-foreground-colour)))
 
 (defun one-key-highlight-matching-items (info-alist full-list colour pred)
@@ -1523,7 +1523,7 @@ If COLOUR is \"\" then all highlighting (and more generally any text properties)
         if (funcall pred item) do
         (if (equal colour "")
             (setf (cdar item) (substring-no-properties str))
-          (setf (cdar item) (one-key-colourize-string str colour))))
+          (setf (cdar item) (one-key-colourize-string colour str))))
   (if (symbolp info-alist)
       (add-to-list 'one-key-altered-menus (symbol-name info-alist)))
   (setq one-key-menu-call-first-time t)
@@ -2146,7 +2146,7 @@ Argument INFO-ALIST is the alist of keys and associated decriptions and function
                     for (h s v) = (one-key-get-item-colour item nil 'hsv)
                     ;; update value of background colour
                     for newbgcol = (hexrgb-hsv-to-hex h s vval) do
-                    (setf (cdar item) (one-key-colourize-string desc newbgcol))))))))
+                    (setf (cdar item) (one-key-colourize-string newbgcol desc))))))))
 
 (defun one-key-optimize-col-widths (lengths maxlength)
   "Given a list of the lengths of the menu items, work out the maximum possible number of columns and return their widths.
@@ -2321,7 +2321,7 @@ These keys will only be excluded from the toplevel menu, not the submenus."
 						(replace-regexp-in-string "-" " " (symbol-name itemcmd)))
 					     "unknown"))))
 			     ;; if the item is a submenu highlight it, otherwise don't
-			     (cond (itemkeymap (one-key-colourize-string str "cyan"))
+			     (cond (itemkeymap (one-key-colourize-string "cyan" str))
 				   (t str)))))
           ;; get a unique key for the item
           for keystr = (if itemislist (one-key-generate-key desc usedkeys))
@@ -2433,7 +2433,7 @@ created for them."
                            ;; create an appropriate name and description for the submenu
                            (submenuname (concat name "_" keystr))
                            (desc2 (concat "Prefix key (" keydesc ")"))
-                           (desc3 (one-key-colourize-string desc2 "cyan"))
+                           (desc3 (one-key-colourize-string "cyan" desc2))
                            ;; if the key is invalid, generate a new one
                            (keystr2 (if (member keystr one-key-disallowed-keymap-menu-keys)
                                         (one-key-generate-key desc2 usedkeys)
@@ -2609,7 +2609,7 @@ and KEYFUNC is set to `one-key-generate-key' (which selects keys from `one-key-d
   (let* ((descriptions (mapcar (lambda (item)
                                  (let ((str (car item)))
                                    (if (equal str one-key-default-menu-set)
-                                       (one-key-colourize-string str "red")
+                                       (one-key-colourize-string "red" str)
                                      str))) one-key-sets-of-menus-alist))
          (commands (mapcar (lambda (item)
                              `(lambda nil (interactive)
@@ -2736,8 +2736,8 @@ If SUBMENUP is non-nil then the `one-key-open-submenu' command is used to add/re
          (hsv2 (hexrgb-hex-to-hsv col2))
          (col2a (hexrgb-hsv-to-hex (first hsv2) (second hsv2) 0.5))
          (col2b (if one-key-auto-brighten-used-keys col2a col2))
-         (keystr1 (one-key-colourize-string "default menu set" col1))
-         (keystr2 (one-key-colourize-string "normal menu set" col2b)))
+         (keystr1 (one-key-colourize-string col1 "default menu set"))
+         (keystr2 (one-key-colourize-string col2b "normal menu set")))
     (concat keystr1 keystr2 "\n"
             (format "Sorted by %s (%s first). Press <f1> for help.\n"
                     one-key-current-sort-method
