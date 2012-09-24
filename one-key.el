@@ -919,6 +919,7 @@ the first item should come before the second in the menu."
                      (lambda nil (setq selected-item 'godown) nil))
     (read-tree-delete "<backspace>" "Remove last item from list"
                       (lambda nil (setq selected-item 'del) nil))
+    (read-logical-negate "!" "Negate previous item" (lambda nil (setq selected-item 'not) nil))
     )
   "An list of special keys; labels, keybindings, descriptions and associated functions.
 Each item in the list contains (in this order):
@@ -2870,11 +2871,11 @@ It assumes dynamic binding of okr-title-string which is used by displayfunc to s
 The PROMPT and COLLECTION arguments are as in `one-key-read'.
 MAXDEPTH is the maximum depth allowed for the tree (toplevel has depth 0), and DEPTH is the current depth of the tree.
 
-DISPLAYFUNC should be a function that takes three arguments, choice, depth and maxdepth, where choice is the last item chosen,
-and depth and maxdepth are the previously mentioned arguments of the same name. It is called every time a choice is selected
-from the one-key menu and should return a value to be added to the tree (the return value of `one-key-read-tree-1').
-It may also make alterations to the dynamically bound variable okr-title-string, a string which is displayed at the top of the
-one-key menu.
+DISPLAYFUNC should be a function that takes four arguments, choice, depth, maxdepth and tree, where choice is the last item chosen,
+depth and maxdepth are the previously mentioned arguments of the same name, and tree is the current subtree. It is called every
+time a choice is selected from the one-key menu and should return a value to be added to the tree (the return value of
+`one-key-read-tree-1'). It may also make alterations to the dynamically bound variable okr-title-string, a string which is
+displayed at the top of the one-key menu.
 If the user presses a special key to complete a sublist, start a new sublist, or delete the previous item in the list then the
 DISPLAYFUNC function will be called with the choice arg set to the symbol 'goup, 'godown or 'del respectively, and the return
 value will not be used. The DISPLAYFUNC function will also be called when a sublist is completed, with the choice arg set to
@@ -2883,14 +2884,14 @@ string. See `one-key-read-tree-display-func' and `one-key-read-dnf-display-func'
   (let* ((choice t) tree)
     (while choice
       (setq choice (one-key-read prompt collection nil nil nil okr-title-string special-keys))
-      (setq newchoice (funcall displayfunc choice depth maxdepth))
+      (setq newchoice (funcall displayfunc choice depth maxdepth tree))
       (case choice
         ('godown (if (and maxdepth (>= depth maxdepth))
                      (message "Can't go down any further!")
                    (setq tree (append tree (list (funcall displayfunc 
                                                           (one-key-read-tree-1 prompt collection maxdepth
-                                                                               (1+ depth) displayfunc)
-                                                          depth maxdepth))))))
+                                                                               (1+ depth) displayfunc special-keys)
+                                                          depth maxdepth tree))))))
         ('goup (setq choice nil))
         ('del (setq tree (butlast tree)))
         (t (if choice (setq tree (append tree (list newchoice)))
@@ -2945,7 +2946,7 @@ See `one-key-read-tree' for a description of the arguments."
 
 (defun* one-key-read-logical-formula (prompt collection &optional actionfunc returntitle)
   "Function for reading logical formula from the user with a one-key menu.
-The result is returned as a recursive list of maximum depth 2.
+The result is returned as a recursive list, with 'and' or 'or' symbols as the first element of each list depending on the depth.
 See `one-key-read-tree' for a description of the arguments."
   (let* ((okr-title-string (concat (one-key-center-string
                                     (concat
@@ -2957,12 +2958,18 @@ See `one-key-read-tree' for a description of the arguments."
                                      (caar (one-key-get-special-key-contents 'read-tree-delete))
                                      " to remove the last element.")) "\n"
                                      (one-key-center-string "Current selection:") "\n"))
-         (dnf (cons 'or (one-key-read-tree-1 prompt collection nil 0
-                                             (apply-partially 'one-key-read-logical-formula-display-func actionfunc)))))
+         (form1 (one-key-read-tree-1 prompt collection nil 0
+                                     (apply-partially 'one-key-read-logical-formula-display-func actionfunc)
+                                     '(quit-close quit-open toggle-display next-menu prev-menu up down scroll-down
+                                                  scroll-up toggle-help documentation toggle-row/column-order
+                                                  sort-next sort-prev reverse-order limit-items donate
+                                                  report-bug read-tree-down read-tree-down2 read-tree-up read-tree-up2
+                                                  read-logical-negate read-tree-delete)))
+         (form2 (if form1 (cons 'or form1))))
     (string-match ".*\n.*\n *\\(.*[^ ]\\) *) *$" okr-title-string)
-    (if returntitle (cons (match-string 1 okr-title-string) dnf) dnf)))
+    (if returntitle (cons (match-string 1 okr-title-string) form2) form2)))
 
-(defun one-key-read-tree-display-func (actionfunc choice depth maxdepth)
+(defun one-key-read-tree-display-func (actionfunc choice depth maxdepth tree)
   "Default function used for displaying information in calls to `one-key-read-tree' (which see).
 This function assumes dynamic binding of okr-title-string to the current title string of the one-key menu."
   (let* ((newstring (replace-regexp-in-string
@@ -2971,6 +2978,7 @@ This function assumes dynamic binding of okr-title-string to the current title s
                        ('goup (concat okr-title-string " )"))
                        ('godown (if (or (not maxdepth) (< depth maxdepth)) (concat okr-title-string " (") okr-title-string))
                        ('del (replace-regexp-in-string ".*\n.*\n.*\\(([^()]*) *$\\|[^ ()]+ *$\\)" "" okr-title-string nil nil 1))
+                       ;; if choice is a list then it has already been displayed in a recursive call
                        (t (if (and choice (not (listp choice)))
                               (concat okr-title-string " " choice) okr-title-string)))
                      nil nil 1)))
@@ -2980,24 +2988,47 @@ This function assumes dynamic binding of okr-title-string to the current title s
                                                              (one-key-center-string (match-string 2 newstring))))))
   (if actionfunc (funcall actionfunc choice depth maxdepth) choice))
 
-(defun one-key-read-logical-formula-display-func (actionfunc choice depth maxdepth)
-  "Default function used for displaying information in calls to `one-key-read-dnf'.
+(defun one-key-read-logical-formula-display-func (actionfunc choice depth maxdepth tree)
+  "Default function used for displaying information in calls to `one-key-read-logical-formula'.
 This function assumes dynamic binding of okr-title-string to the current title string of the one-key menu."
   (let* ((isor (= (% depth 2) 0))
-         (seperator (unless (string-match ".*\n.*\n\\(.*(\\)? *$" okr-title-string)
+         (negated (eq (car (last tree)) 'not))
+         (seperator (unless (string-match ".*\n.*\n\\(.*(\\|.*!\\)? *$" okr-title-string)
                       (if isor " | " " & ")))
          (newstring (case choice
                       ('goup (concat okr-title-string ")"))
                       ('godown (concat okr-title-string seperator "("))
-                      ('del (replace-regexp-in-string ".*\n.*\n.*\\(([^()]*) *$\\|[^ ()]+ *$\\)" "" okr-title-string nil nil 1))
+                      ;; lots of regexp trickery required here
+                      ('del (with-temp-buffer
+                              (insert okr-title-string)
+                              (if (= (char-before) 41)
+                                  (backward-sexp))
+                              (if (string-match "^.*\n.*\n *$" (buffer-substring-no-properties 1 (point)))
+                                  okr-title-string
+                                (re-search-backward "\n *\\| *|\\| *&\\|(")
+                                (if (or (= (char-after) 40)
+                                        (= (char-after) 10))
+                                    (forward-char) (backward-char))
+                                (buffer-substring 1 (point)))))
+                      ('not (concat okr-title-string seperator "!"))
+                      ;; if choice is a list then it has already been displayed in a recursive call                      
                       (t (if (and choice (not (listp choice)))
-                             (concat okr-title-string seperator choice) okr-title-string)))))
+                             (concat okr-title-string seperator choice) okr-title-string))))
+         (retchoice (if (not choice) (if isor nil t)
+                      (if (listp choice)
+                          (cons (if isor 'and 'or) choice)
+                        (if actionfunc (funcall actionfunc choice depth maxdepth) choice)))))
     (string-match "\\(.*\n.*\n\\) *\\(.*[^ ]+\\)" newstring)
-    (setq okr-title-string (concat (match-string 1 newstring)
-                                   (replace-regexp-in-string " *$" "" (one-key-center-string (match-string 2 newstring)))))
-    (if (listp choice)
-        (cons (if isor 'and 'or) choice)
-      (if actionfunc (funcall actionfunc choice depth maxdepth) choice))))
+    (setq okr-title-string (if (match-string 2 newstring)
+                               (concat (match-string 1 newstring)
+                                       (replace-regexp-in-string
+                                        " *$" "" (one-key-center-string (match-string 2 newstring))))
+                             newstring))
+    (if (not negated) retchoice
+      (unless (eq choice 'godown)
+        (if (equal (length tree) 1) (setcar tree (if isor nil t))
+          (setf (nthcdr (1- (length tree)) tree) nil)))
+      (list 'not retchoice))))
 
 ;; Set one-key menu types
 (one-key-add-to-alist 'one-key-types-of-menu
