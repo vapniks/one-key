@@ -1690,6 +1690,13 @@ binding of the okm-menu-alists, okm-menu-number and okm-menu-names variables."
               one-key-menu-call-first-time t))
     (one-key-menu-close)))
 
+(defun one-key-delete-menus (regexp)
+  "Remove all menus from the current list of menus with names matching regular expression REGEXP.
+This function assumes dynamic binding of the variable okm-menu-names defined in the `one-key-menu' function."
+  (dolist (name okm-menu-names)
+    (if (string-match regexp name)
+        (one-key-delete-menu name))))
+
 (defun one-key-open-menus (names &optional menu-number protect-function)
   "Invoke `one-key-menu' with names and corresponding menu-alists.
 NAMES should be the name of a single `one-key' menu or menu type, or a list of such names.
@@ -2967,7 +2974,9 @@ See `one-key-read-tree' for a description of the arguments."
                                                   read-logical-negate read-tree-delete)))
          (form2 (if form1 (cons 'or form1))))
     (string-match ".*\n.*\n *\\(.*[^ ]\\) *) *$" okr-title-string)
-    (if returntitle (cons (match-string 1 okr-title-string) form2) form2)))
+    (if returntitle
+        (cons (substring-no-properties (match-string 1 okr-title-string)) form2)
+      form2)))
 
 (defun one-key-read-tree-display-func (actionfunc choice depth maxdepth tree)
   "Default function used for displaying information in calls to `one-key-read-tree' (which see).
