@@ -1654,12 +1654,12 @@ This function assumes dynamic binding of the `okm-menu-alists', `okm-menu-number
           (setq okm-menu-names
                 (concatenate 'list
                              (subseq okm-menu-names 0 (1+ titnum))
-                             (if multi newnames (list newnames))
+                             (if (and multi newnames) newnames (list newnames))
                              (subseq okm-menu-names (1+ titnum) namen))
                 okm-menu-alists
                 (concatenate 'list
                              (subseq okm-menu-alists 0 (1+ okm-menu-number))
-                             (if multi newlists (list newlists))
+                             (if (and multi newlists) newlists (list newlists))
                              (subseq okm-menu-alists (1+ okm-menu-number) listlen))
                 okm-menu-number (1+ okm-menu-number)))
       (setq okm-menu-number 1
