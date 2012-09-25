@@ -2689,6 +2689,19 @@ major mode) exists then it will be used, otherwise it will be created."
                  (completing-read "Menu: " names))))
     (cons name (intern-soft (concat "one-key-menu-" name "-alist")))))
 
+(defun one-key-return-matching-menus (regexp menunames menulists)
+  "Return cons cell containing names in MENUNAMES matching REGEXP, and corresponding menu lists in MENULISTS.
+The names are returned in a list in the car of the result, and the menu lists are returned in a list in the cdr.
+Note: menulists should contain the same number of items as menunames."
+  (let (names lists)
+    (loop for i from 0 to (1- (length menunames))
+          for name = (nth i menunames)
+          for list = (nth i menulists)
+          if (string-match regexp name)
+          collect into names name
+          and collect into lists list
+          finally return (cons names lists))))
+
 (defun one-key-create-menu-from-existing-keymap (name)
   "Prompt the user for a keymap and return a one-key menu for it along with it's name, in a cons cell."
   (let* ((names (loop for sym being the symbols
