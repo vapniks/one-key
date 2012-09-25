@@ -1640,8 +1640,7 @@ If no such menu or menu type exists, return nil."
 
 (defun one-key-add-menus (&optional newnames newlists)
   "Add a menu/menus to the current list of menus in the `one-key' menu function call.
-This function assumes dynamic binding of the `okm-menu-alists', `okm-menu-number' and `okm-menu-names' arguments to the `one-key-menu'
-function, and is called within that function."
+This function assumes dynamic binding of the `okm-menu-alists', `okm-menu-number' and `okm-menu-names' arguments to the `one-key-menu' function, and is called within that function."
   (let* ((both (if (and newnames newlists)
                    (cons newnames newlists)
                  (one-key-prompt-for-menu)))
@@ -1688,14 +1687,14 @@ binding of the okm-menu-alists, okm-menu-number and okm-menu-names variables."
                            (subseq okm-menu-alists (1+ pos) listlen))
               okm-menu-number (min pos (- listlen 2))
               one-key-menu-call-first-time t))
-    (one-key-menu-close)))
+    (one-key-menu-window-close)))
 
 (defun one-key-delete-menus (regexp)
   "Remove all menus from the current list of menus with names matching regular expression REGEXP.
 This function assumes dynamic binding of the variable okm-menu-names defined in the `one-key-menu' function."
   (dolist (name okm-menu-names)
-    (if (string-match regexp name)
-        (one-key-delete-menu name))))
+    (unless (not (string-match regexp name))
+      (one-key-delete-menu name))))
 
 (defun one-key-open-menus (names &optional menu-number protect-function)
   "Invoke `one-key-menu' with names and corresponding menu-alists.
