@@ -823,10 +823,10 @@ the first item should come before the second in the menu."
     (delete-item "<f6>" "Delete a menu item"
                  (lambda nil (one-key-delete-menu-item okm-info-alist okm-full-list) t))
     (kill-items "<f7>" "Copy/kill coloured items"
-                (lambda nil (one-key-copy/kill-items okm-info-alist okm-full-list filtered-list)
+                (lambda nil (one-key-copy/kill-items okm-info-alist okm-full-list okm-filtered-list)
                   (setq one-key-menu-call-first-time t) t))
     (yank-items "<C-f7>" "Yank copied items"
-                (lambda nil (one-key-yank-items okm-info-alist okm-full-list filtered-list)
+                (lambda nil (one-key-yank-items okm-info-alist okm-full-list okm-filtered-list)
                   (setq one-key-menu-call-first-time t) t))
     (swap-keys "<f8>" "Swap menu item keys"
                (lambda nil (one-key-swap-menu-items okm-info-alist okm-full-list) t))
@@ -2698,8 +2698,8 @@ Note: menulists should contain the same number of items as menunames."
           for name = (nth i menunames)
           for list = (nth i menulists)
           if (string-match regexp name)
-          collect into names name
-          and collect into lists list
+          collect name into names
+          and collect list into lists
           finally return (cons names lists))))
 
 (defun one-key-create-menu-from-existing-keymap (name)
