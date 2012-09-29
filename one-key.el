@@ -705,8 +705,8 @@ buffer."
     (description . (lambda (a b) (string< (cdar a) (cdar b))))
     (command . (lambda (a b) (string< (prin1-to-string (cdr a))
                                       (prin1-to-string (cdr b)))))
-    (colour_name . (lambda (a b) (string< (cadr (get-text-property 0 'face (cdar a)))
-                                          (cadr (get-text-property 0 'face (cdar b))))))
+    ;; (colour_name . (lambda (a b) (string< (cadr (get-text-property 0 'face (cdar a)))
+    ;;                                       (cadr (get-text-property 0 'face (cdar b))))))
     (colour_hue . (lambda (a b)
                     (let* ((bg (cdr (assq 'background-color (frame-parameters))))
                            (cola (or (cadr (get-text-property 0 'face (cdar a))) bg))
@@ -729,19 +729,19 @@ buffer."
                                             (color-values colb)
                                           (hexrgb-rgb-to-hsv r g b))))
                              (> (third hsva) (third hsvb)))))
-    (colour_saturation . (lambda (a b)
-                           (let* ((bg (cdr (assq 'background-color (frame-parameters))))
-                                  (cola
-                                   (or (cadr (get-text-property 0 'face (cdar a))) bg))
-                                  (colb
-                                   (or (cadr (get-text-property 0 'face (cdar b))) bg))
-                                  (hsva (destructuring-bind (r g b)
-                                            (color-values cola)
-                                          (hexrgb-rgb-to-hsv r g b)))
-                                  (hsvb (destructuring-bind (r g b)
-                                            (color-values colb)
-                                          (hexrgb-rgb-to-hsv r g b))))
-                             (> (second hsva) (second hsvb)))))
+    ;; (colour_saturation . (lambda (a b)
+    ;;                        (let* ((bg (cdr (assq 'background-color (frame-parameters))))
+    ;;                               (cola
+    ;;                                (or (cadr (get-text-property 0 'face (cdar a))) bg))
+    ;;                               (colb
+    ;;                                (or (cadr (get-text-property 0 'face (cdar b))) bg))
+    ;;                               (hsva (destructuring-bind (r g b)
+    ;;                                         (color-values cola)
+    ;;                                       (hexrgb-rgb-to-hsv r g b)))
+    ;;                               (hsvb (destructuring-bind (r g b)
+    ;;                                         (color-values colb)
+    ;;                                       (hexrgb-rgb-to-hsv r g b))))
+    ;;                          (> (second hsva) (second hsvb)))))
     (length . (lambda (a b) (> (length (cdar a)) (length (cdar b))))))
   "An alist of default sorting methods to use on the `one-key' menu items.
 Each element is a cons cell of the form (NAME . PREDICATE) where NAME is a symbol for the name of the sort method,
@@ -752,7 +752,7 @@ the first item should come before the second in the menu."
   :group 'one-key)
 
 (defcustom one-key-special-keybindings
-  '((quit-close "ESC" "Quit and close menu window" (lambda nil (keyboard-quit) nil))
+  `((quit-close "ESC" "Quit and close menu window" (lambda nil (keyboard-quit) nil))
     (quit-open"C-ESC" "Quit, but keep menu window open"
               (lambda nil (setq okm-keep-window-p t) nil))
     (toggle-persistence "<C-menu>" "Toggle menu persistence"
@@ -802,9 +802,9 @@ the first item should come before the second in the menu."
                                            (setq one-key-column-major-order t))
                                (setq one-key-menu-call-first-time t) t))
     (sort-next "<f3>" "Sort items by next method"
-               (lambda nil (one-key-sort-items-by-next-method) t))
+               ,(apply-partially 'one-key-sort-items-by-next-method t))
     (sort-prev "<C-f3>" "Sort items by previous method"
-               (lambda nil (one-key-sort-items-by-next-method t) t))
+               ,(apply-partially 'one-key-sort-items-by-next-method t t))
     (reverse-order "<f4>" "Reverse order of items"
                    (lambda nil (one-key-reverse-item-order okm-menu-alists okm-full-list okm-menu-number) t))
     (limit-items "/" "Limit items to those matching regexp"
