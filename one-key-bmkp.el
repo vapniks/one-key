@@ -38,11 +38,30 @@
 
 ;;; Commentary: 
 ;; 
-;; one-key menus for bookmarks
-;; 
+;; This library defines a `one-key' menu type for bookmarks.
+;; See the documentation for `one-key' for how to add a new menu to a menu-set.
+
+;; From the *One-Key* buffer you can add a menu of type "bookmarks+" which will prompt you for a logical expression
+;; defining a filter for selecting which bookmarks to display. The logical expression is created by selecting filters
+;; from the one-key menu which are then OR/AND'ed together depending on the depth of bracketing. You can open/close
+;; brackets in the logical expression using the bracket keys or SPACE/RET keys, and you can negate items by pressing !
+;; followed by the item. If you make a mistake you can delete the previous item by pressing <backspace>.
+;; The logical expression is displayed above the filter items.
+;; To complete the filter press RET or ) at the top level of the logical expression. You will then be prompted to save
+;; the filter and name it. If you save the filter, e.g. under the name "filter1", you can then add it to a menu set
+;; by customizing `one-key-sets-of-menus-alist' and adding "bmkp:filter1" to the menu set.
+;; Any saved filters may also be used for new filters, and made a part of the logical expression defining the filter.
+
+;; After defining a filter, or on loading a saved filter, the one-key menu will contain all bookmarks matching the
+;; corresponding filter. Pressing a menu item key visits the associated bookmark.
+;; Press <F1> to see the special keys associated with the menu which allow you to add/remove tags, and edit bookmarks,
+;; aswell as visit the *Bookmark List* buffer, and save the current state of all bookmarks (don't forget to do this after
+;; making alterations).
 
 ;;; Installation:
 ;;
+;; Make sure you've already installed one-key (http://www.emacswiki.org/emacs/OneKey),
+;; and bookmarks+ (http://www.emacswiki.org/emacs/BookmarkPlus).
 ;; Put one-key-bmkp.el in a directory in your load-path, e.g. ~/.emacs.d/
 ;; You can add a directory to your load-path with the following line in ~/.emacs
 ;; (add-to-list 'load-path (expand-file-name "~/elisp"))
@@ -55,8 +74,9 @@
 
 ;;; Customize:
 ;;
-;; To automatically insert descriptions of customizable variables defined in this buffer
-;; place point at the beginning of the next line and do: M-x insert-customizable-variable-descriptions
+;; `one-key-bmkp-filter-alist' : Alist of filters for one-key bookmark menus.
+;; `one-key-bmkp-special-keybindings' : List of special keys to be used for one-key-bmkp menus (see 
+;;                                      `one-key-default-special-keybindings' for more info).
 
 ;;
 ;; All of the above can customized by:
@@ -84,10 +104,6 @@
 (require 'bookmark+)
 
 ;;; Code:
-
-
-;; Applications of one-key-read-logical-formula: bookmark/music filtering, org-mode tag filtering, dired filtering, gnus, bbdb
-;; facebook.el, use with elnode and emms?
 
 (defgroup one-key-bmkp nil
   "Bookmark menus using `one-key'."
@@ -187,20 +203,23 @@ Should contain the car of one of the items in `one-key-bmkp-sort-method-alist'."
                                                  (tags (bmkp-read-tags-completing)))
                                              (dolist (bmk bookmarks)
                                                (bmkp-add-tags bmk tags))
-                                             ;; update tags list 
-                                             (bmkp-tags-list)) t))
+                                             ;; update tags list and save bookmarks
+                                             (bmkp-tags-list)
+                                             (bookmark-bmenu-save nil)) t))
                            (bmk-remove-tags swap-keys "Remove tags from displayed bookmarks"
                                             (lambda nil
                                               (let ((bookmarks (one-key-bmkp-extract-bookmarks-from-menus
                                                                 (list okm-filtered-list)))
                                                     (tags (bmkp-read-tags-completing)))
-                                                (dolist (bmk bookmarks)
-                                                  (bmkp-remove-tags bmk tags))
-                                                ;; update tags list 
-                                                (bmkp-tags-list)) t))
-                           (bmk-save-state save-menu "Save state of all bookmarks"
-                                           (lambda nil
-                                             (bookmark-bmenu-save nil) t)))
+                                                (unless (not (y-or-n-p
+                                                              (concat
+                                                               "The following tags will be removed from the displayed bookmarks: "
+                                                               (mapconcat 'identity tags ",") "\nAre you sure")))
+                                                  (dolist (bmk bookmarks)
+                                                    (bmkp-remove-tags bmk tags))
+                                                  ;; update tags list and save bookmarks
+                                                  (bmkp-tags-list)
+                                                  (bookmark-bmenu-save nil))) t)))
                          t))
 
 (defcustom one-key-bmkp-special-keybindings
@@ -378,7 +397,7 @@ create a new filter. This function is used in the \"bookmarks\" item in `one-key
          (commands (mapcar (lambda (bmk) `(lambda nil (interactive) (bookmark-jump ',bmk))) bookmarks))
          (menuitems (one-key-create-menu-lists commands bmknames))
          (nummenus (length menuitems))
-         (menuname (concat "bmk:" title))
+         (menuname (concat "bmkp:" title))
          (menunames (if (> nummenus 1)
                         (one-key-append-numbers-to-menu-name menuname nummenus)
                       (list menuname))))
@@ -392,14 +411,14 @@ If there are no existing filters, print a message saying so and return nil."
                             (if (featurep 'ido)
                                 (ido-completing-read "Filter name: " filternames)
                               (completing-read "Filter name: " filternames)))))
-    (if chosenfilter (one-key-bmkp-create-menu (concat "bmk:" chosenfilter))
+    (if chosenfilter (one-key-bmkp-create-menu (concat "bmkp:" chosenfilter))
       (message "No existing filters available!") nil)))
 
 ;; Add new menu types to `one-key-types-of-menu'
 (one-key-add-to-alist 'one-key-types-of-menu
-                      (list "bookmarks filter"
+                      (list "bookmarks+"
                             (lambda (name) (or (and name (string-match "^bmk:\\(.*\\)" name))
-                                               (equal name "bookmarks filter")))
+                                               (equal name "bookmarks+")))
                             'one-key-bmkp-create-menu
                             nil
                             'one-key-bmkp-special-keybindings) t)
