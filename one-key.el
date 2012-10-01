@@ -917,7 +917,7 @@ the first item should come before the second in the menu."
                      (lambda nil (setq selected-item 'godown) nil))
     (read-tree-delete "<backspace>" "Remove last item from list"
                       (lambda nil (setq selected-item 'del) nil))
-    (read-logical-negate "!" "Negate previous item" (lambda nil (setq selected-item 'not) nil))
+    (read-logical-negate "!" "Negate next item" (lambda nil (setq selected-item 'not) nil))
     )
   "An list of special keys; labels, keybindings, descriptions and associated functions.
 Each item in the list contains (in this order):
@@ -1709,9 +1709,7 @@ binding of args to that function."
 
 (defun one-key-get-associated-menu-indices (menunumber menunames)
   "Return indices of the names in MENUNAMES that are associated with the menu with index MENUNUMBER.
-Associated menus are those with the same base-name but different numbers appended to the end of the name (in brackets).
-Only indices corresponding to adjacent menus in the same sequence will be returned. This should prevent any mixups
-in the case where there are two sequences with the same basename."
+Associated menus are adjacent menus with the same base-name but different numbers appended to the end of the name (in brackets)."
   (let* ((name (nth menunumber menunames))
          (nummenus (length menunames))
          (basename (replace-regexp-in-string " ([0-9]+)$" "" name))
@@ -1728,6 +1726,25 @@ in the case where there are two sequences with the same basename."
   "Return elements of LIST corresponding to INDICES."
   `(mapcar (lambda (i) (nth i ,list)) ,indices))
 
+(defun one-key-get-menus (&optional menus)
+  "Return menu names and menu alists from the currently loaded one-key menus.
+A cons cell whose car is a list of menu names, and whose cdr is a list of corresponding menu alists is returned.
+By default menus associated with the current menu are returned.
+Associated menus are adjacent menus with the same base-name but different numbers appended to the end of the name (in brackets).
+If the optional argument MENUS is supplied it should either be a number (the index of the menu to be returned),
+a list of numbers (indices of menus), or a string (regular expression matching menu names).
+
+This function will only work if called within the context of the `one-key-menu' function since it depends on the dynamic
+binding of args to that function."
+  (let* ((indices (cond ((not menus) (one-key-get-associated-menu-indices okm-menu-number okm-menu-names))
+                        ((stringp menus) (one-key-get-indices-of-matches menus okm-menu-names))
+                        ((listp menus) menus)
+                        ((numberp menus) (list menus)))))
+    (if okm-menu-number
+        (cons (one-key-list-subset indices okm-menu-names)
+              (one-key-list-subset indices okm-menu-alists))
+      (cons (list okm-menu-names) (list okm-menu-alists)))))
+  
 (defun* one-key-delete-menus (&optional (menus okm-menu-number))
   "Remove a menu(s) from the currently loaded one-key menus. By default the current menu is deleted.
 If the optional argument MENUS is supplied it should either be a number (the index of the menu to be deleted),
