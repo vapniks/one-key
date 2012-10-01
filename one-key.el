@@ -3053,11 +3053,13 @@ See `one-key-read-tree' for a description of the arguments."
                                     (concat
                                      "Press "
                                      (caar (one-key-get-special-key-contents 'read-tree-up))
-                                     " to complete conjuction/finish, "
+                                     " to close bracket, "
                                      (caar (one-key-get-special-key-contents 'read-tree-down))
-                                     " to start a new conjunction, and "
+                                     " to open bracket, "
                                      (caar (one-key-get-special-key-contents 'read-tree-delete))
-                                     " to remove the last element.")) "\n"
+                                     " to remove last element, and "
+                                     (caar (one-key-get-special-key-contents 'read-logical-negate))
+                                     " to negate next element.")) "\n"
                                      (one-key-center-string "Current selection:") "\n"))
          (form1 (one-key-read-tree-1 prompt collection nil 0
                                      (apply-partially 'one-key-read-logical-formula-display-func actionfunc)
