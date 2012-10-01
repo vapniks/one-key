@@ -1982,104 +1982,94 @@ doesn't exist."
                                                    :okm-special-keybinding-symbols okm-special-keybinding-symbols
                                                    :okm-title-string okm-title-string)))))
     (unwind-protect
-        ;; read a key and get the key description
+        ;; Read a key and get the key description.
         (let* ((namelist (if (listp okm-menu-names) okm-menu-names nil))
                (event (read-event (if one-key-menu-call-first-time
-                                      ;; just show the menu buffer when first called
+                                      ;; Just show the menu buffer when first called.
                                       (progn (setq one-key-menu-call-first-time nil)
                                              (if one-key-popup-window
                                                  (one-key-menu-window-open okm-title-string))))))
-               (key (one-key-key-description event)))
+               (key (one-key-key-description event))
+               matchitem)
           (cond ; If the *Help* buffer is showing then the special keybindings get priority
            ((and (get-buffer-window (help-buffer))
-                 (assoc* key okm-special-keybindings :test (lambda (x y) (equal x (one-key-remap-key-description y)))))
-            ;; call the `okm-alternate-function' and the function associated with the special key
-            ;; if this function returns non-nil then wait for the next keypress
-            (let* ((again (funcall
-                           (caddr
-                            (assoc* key okm-special-keybindings
-                                    :test (lambda (x y) (equal x (one-key-remap-key-description y)))))))
+                 (setq matchitem (assoc* key okm-special-keybindings
+                                         :test (lambda (x y) (equal x (one-key-remap-key-description y))))))
+            ;; Call the okm-alternate-function and the function associated with the special key.
+            ;; If this function returns non-nil then wait for the next keypress.
+            (let* ((again (funcall (caddr matchitem)))
                    (temp (one-key-handle-last okm-alternate-function self again)))
-              ;; if necessary, propagate the value of `okm-keep-window-p' back up
+              ;; If necessary, propagate the value of okm-keep-window-p back up.
               (if again (setq okm-keep-window-p temp))))
            ;; Handle keystrokes matching menu items
-           ((catch 'match
-              (loop for item in okm-filtered-list
-                    for match-key = (one-key-remap-key-description (caar item))
-                    for desc = (cdar item)
-                    for rest = (cdr item)
-                    for command = (if (commandp rest) rest
-                                    (if (one-key-list-longer-than-1-p rest)
-                                        (car rest)
-                                      (lambda nil (interactive) (message "Invalid command %S" rest))))
-                    do
-                    (when (equal key match-key)
-                      ;; Update key usage statistics if necessary
-                      (if one-key-auto-brighten-used-keys
-                          (progn (one-key-menu-increment-key-usage item)
-                                 (if okm-issymbol
-                                     (add-to-list 'one-key-altered-menus (symbol-name okm-info-alist)))))
-                      ;; We need to close the `one-key' menu window before running the items command.
-                      ;; Save previous state of the `one-key' window before doing this.
-                      (let* ((old-one-key-popup-window one-key-popup-window)
-                             (one-key-popup-window (one-key-menu-window-exist-p)))
-                        (one-key-menu-window-close)
-                        (setq one-key-menu-call-first-time t) ; allow recursive execution of `one-key-menu'
-                        (call-interactively command) ; call the items command
-                        ;; reopen the `one-key' window if necessary
-                        (if (and one-key-popup-window (or okm-keep-window-p okm-match-recursion-p))
-                            (one-key-menu-window-open okm-title-string))
-                        (setq one-key-popup-window old-one-key-popup-window))
-                      (setq one-key-menu-call-first-time nil)
-                      ;; throw t if the key matched so that this clause's body is executed, otherwise return nil
-                      (throw 'match t))) nil)
-            ;; call the `okm-alternate-function' and if `okm-match-recursion-p' is non-nil wait for next keypress
+           ((setq matchitem (assoc* key okm-filtered-list
+                                    :test (lambda (x y) (equal x (one-key-remap-key-description (car y))))))
+            (let* ((desc (cdar matchitem))
+                   (rest (cdr matchitem))
+                   (command (if (commandp rest) rest
+                              (if (one-key-list-longer-than-1-p rest)
+                                  (car rest)
+                                (lambda nil (interactive) (message "Invalid command %S" rest)))))
+                   (old-one-key-popup-window one-key-popup-window) ;save state of one-key window
+                   (one-key-popup-window (one-key-menu-window-exist-p)))
+              ;; Update key usage statistics if necessary
+              (unless (not one-key-auto-brighten-used-keys)
+                (one-key-menu-increment-key-usage matchitem)
+                (if okm-issymbol
+                    (add-to-list 'one-key-altered-menus (symbol-name okm-info-alist))))
+              ;; Close the one-key menu window before running the items command.
+              (one-key-menu-window-close)
+              (setq one-key-menu-call-first-time t) ; allow recursive execution of one-key-menu
+              (call-interactively command) ; call the items command
+              ;; Reopen the one-key window if necessary, and restore its state.
+              (if (and one-key-popup-window (or okm-keep-window-p okm-match-recursion-p))
+                  (one-key-menu-window-open okm-title-string))
+              (setq one-key-popup-window old-one-key-popup-window))
+            (setq one-key-menu-call-first-time nil)
+            ;; Call the okm-alternate-function and if okm-match-recursion-p is non-nil wait for next keypress.
             (let ((temp (one-key-handle-last okm-alternate-function self okm-match-recursion-p)))
-              ;; if necessary, propagate the value of `okm-keep-window-p' back up
-              (if okm-match-recursion-p
-                  (setq okm-keep-window-p temp))))
+              ;; If necessary, propagate the value of okm-keep-window-p back up.
+              (if okm-match-recursion-p (setq okm-keep-window-p temp))))
            ;; Handle special keys
-           ((assoc* key okm-special-keybindings :test (lambda (x y) (equal x (one-key-remap-key-description y))))
-            ;; call the `okm-alternate-function' and the function associated with the special key
-            ;; if this function returns non-nil then wait for the next keypress
-            (let* ((again (funcall
-                           (caddr
-                            (assoc* key okm-special-keybindings
-                                    :test (lambda (x y) (equal x (one-key-remap-key-description y)))))))
+           ((setq matchitem (assoc* key okm-special-keybindings
+                                    :test (lambda (x y) (equal x (one-key-remap-key-description y)))))
+            ;; Call the okm-alternate-function and the function associated with the special key,
+            ;; if this function returns non-nil then wait for the next keypress.
+            (let* ((again (funcall (caddr matchitem)))
                    (temp (one-key-handle-last okm-alternate-function self again)))
-              ;; if necessary, propagate the value of `okm-keep-window-p' back up
+              ;; If necessary, propagate the value of okm-keep-window-p back up.
               (if again (setq okm-keep-window-p temp))))
-           ;; Handle all other keys
+           ;; Handle all other keys.
            (t
             (when okm-execute-when-miss-match-p
-              ;; If `okm-execute-when-miss-match-p' is non-nil then execute the normal command for this key
-              ;; Need to close the `one-key' menu window before running the command.
-              ;; Save the previous state of the `one-key' window before doing this.
+              ;; If okm-execute-when-miss-match-p is non-nil then execute the normal command for this key.
+              ;; Need to close the one-key menu window before running the command.
+              ;; Save the previous state of the one-key window before doing this.
               (let* ((old-one-key-popup-window one-key-popup-window)
                      (one-key-popup-window (one-key-menu-window-exist-p)))
                 (one-key-menu-window-close)
                 (one-key-execute-binding-command key)
-                ;; reopen the `one-key' window if necessary
+                ;; Reopen the one-key window if necessary.
                 (if (and one-key-popup-window (or okm-keep-window-p okm-miss-match-recursion-p))
                     (one-key-menu-window-open okm-title-string))
                 (setq one-key-popup-window old-one-key-popup-window)))
-            ;; call the `okm-alternate-function' and if `okm-miss-match-recursion-p' is non-nil wait for next keypress
+            ;; Call the okm-alternate-function and if okm-miss-match-recursion-p is non-nil wait for next keypress.
             (let ((temp (one-key-handle-last okm-alternate-function self okm-miss-match-recursion-p)))
-              ;; if necessary, copy the value of `okm-keep-window-p' from recursive call
+              ;; If necessary, copy the value of okm-keep-window-p from recursive call.
               (if okm-miss-match-recursion-p
                   (setq okm-keep-window-p temp))))))
-      ;; all keypresses have now been handled so reset global variables ready for next time
+      ;; All keypresses have now been handled so reset global variables ready for next time.
       (setq one-key-menu-call-first-time t)
       (setq one-key-menu-show-key-help nil)
-      ;; If `okm-keep-window-p' is non-nil then don't close the `one-key' window,
+      ;; If okm-keep-window-p is non-nil then don't close the one-key window,
       ;; just change the focus to the previous window.
       (if okm-keep-window-p (if (equal (buffer-name (window-buffer)) one-key-buffer-name) (other-window -1))
         (one-key-menu-window-close))
-      ;; Finally, execute `okm-protect-function' if it's a valid function.
+      ;; Finally, execute okm-protect-function if it's a valid function.
       (if (and okm-protect-function
                (commandp okm-protect-function))
           (call-interactively okm-protect-function)))
-    ;; propagate the value of `okm-keep-window-p' back down the stack
+    ;; Propagate the value of okm-keep-window-p back down the stack.
     okm-keep-window-p))
 
 (defun one-key-execute-binding-command (key)
