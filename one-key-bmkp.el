@@ -55,8 +55,7 @@
 ;; After defining a filter, or on loading a saved filter, the one-key menu will contain all bookmarks matching the
 ;; corresponding filter. Pressing a menu item key visits the associated bookmark.
 ;; Press <F1> to see the special keys associated with the menu which allow you to add/remove tags, and edit bookmarks,
-;; aswell as visit the *Bookmark List* buffer, and save the current state of all bookmarks (don't forget to do this after
-;; making alterations).
+;; aswell as visit the *Bookmark List* buffer.
 
 ;;; Installation:
 ;;
