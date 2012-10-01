@@ -1603,7 +1603,7 @@ The value CURRENT-METHOD will be set to the sort method used (using set not setq
          (keys (if (not onemenu) (mapcar (lambda (x) (caar x)) sorteditems)))
          (descs (if (not onemenu) (mapcar (lambda (x) (cdar x)) sorteditems)))
          (commands (if (not onemenu) (mapcar 'cdr sorteditems)))
-         (sortedlists (if onemenu sorteditems (one-key-create-menu-lists commands descs keys)))
+         (sortedlists (if onemenu sorteditems (one-key-create-menu-lists commands descs keys nil)))
          (basename (replace-regexp-in-string " ([0-9]+)$" "" name))
          (newnames (if onemenu name (one-key-append-numbers-to-menu-name basename (length sortedlists)))))
     (cond ((not onemenu) (one-key-delete-menus indices)
@@ -2645,9 +2645,9 @@ in the associated menu."
           collect (cons start end))))
 
 (defun* one-key-create-menu-lists (commands &optional descriptions keys
+                                            (addkeydescs t)
                                             (maxsize (length one-key-default-menu-keys))
-                                            (keyfunc 'one-key-generate-key)
-                                            (addkeydescs t))
+                                            (keyfunc 'one-key-generate-key))
   "Create list/lists of menu items for use in `one-key' menu.
 COMMANDS should be a list of commands for the menu items, and KEYS an optional corresponding list of keys.
 If any element in KEYS is nil, or is a repeat of a previously used key in the current menu, or if KEYS is nil,
