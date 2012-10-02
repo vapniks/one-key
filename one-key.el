@@ -445,11 +445,11 @@
 ;; Make functions autoloadable.
 ;; Prompt to save submenus when saving menu. Special keybinding to save all altered menus?
 ;; Autohighlighting of menu items using regexp associations?
-;; Add to marmalade and elpa repos
-;; Eliminate need for dynamic binding of one-key-menu args by having consistent arglist for all special key functions?
-;; Could create macro "one-key-special-defun" for special key functions which takes args consistent with required args
-;; from one-key-menu function. Then add those args when funcall is used to execute the special key function.
+;; Add to marmalade and elpa repos.
+;; Handle mouse clicks so that item is executed when clicked on, and clicks outside the window close it. Make these customizable.
+;; Applications of one-key-read-logical-formula : emms, org-mode header filtering, dired filtering?, gnus?, bbdb?
 ;;
+
 ;;; Require
 (eval-when-compile (require 'cl))
 (require 'dired)
@@ -1142,13 +1142,13 @@ containing the name of the buffer that was displayed when the one-key menu windo
 
 (defvar one-key-default-title-func (lambda nil
                                      (let* ((keystr (one-key-get-special-key-descriptions 'donate))
-                                            (msg (concat "If you find this useful please press " keystr " to support the author and further development.\n"))
+                                            (msg (concat "If you find this useful please press "
+                                                         keystr " to support the author and further development.\n"))
                                             (len (length msg))
-                                            (dif (- (window-width) len))
-                                            (spc (make-string (/ dif 2) ? )))
-                                       (if (> dif 0)
-                                           (concat spc msg)
-                                         msg)))
+                                            (dif (- (window-width) len)))
+                                       (if (<= dif 0)
+                                           msg
+                                         (concat (make-string (/ dif 2) ? ) msg))))
   "Function to return default message for one-key menus, prompting for donations.")
 
 (defvar one-key-maintainer-email "vapniks@yahoo.com"
@@ -1984,11 +1984,11 @@ doesn't exist."
     (unwind-protect
         ;; Read a key and get the key description.
         (let* ((namelist (if (listp okm-menu-names) okm-menu-names nil))
-               (event (read-event (if one-key-menu-call-first-time
-                                      ;; Just show the menu buffer when first called.
-                                      (progn (setq one-key-menu-call-first-time nil)
-                                             (if one-key-popup-window
-                                                 (one-key-menu-window-open okm-title-string))))))
+               (event (progn (unless (not one-key-menu-call-first-time)
+                                 ;; Just show the menu buffer when first called.
+                                 (setq one-key-menu-call-first-time nil)
+                                 (if one-key-popup-window (one-key-menu-window-open okm-title-string)))
+                             (read-event)))
                (key (one-key-key-description event))
                matchitem)
           (cond ; If the *Help* buffer is showing then the special keybindings get priority
@@ -2039,6 +2039,7 @@ doesn't exist."
                    (temp (one-key-handle-last okm-alternate-function self again)))
               ;; If necessary, propagate the value of okm-keep-window-p back up.
               (if again (setq okm-keep-window-p temp))))
+           ((and (stringp key) (string-match "mouse" key)) (one-key-handle-last okm-alternate-function self t))
            ;; Handle all other keys.
            (t
             (when okm-execute-when-miss-match-p
@@ -2120,6 +2121,20 @@ The return value of RECURSION-FUNCTION will be returned by this function also."
                               one-key-menu-window-max-height))
     (one-key-menu-window-open)))
 
+(define-derived-mode one-key-mode fundamental-mode "One-Key"
+  "The major-mode for the one-key menu buffer."
+  :group 'one-key
+  :syntax-table (let ((table (make-syntax-table)))
+                  (dolist (char '(40 41 60 62 91 93 123 125))
+                    (modify-syntax-entry char "w" table))
+                  table)
+  (setq mode-line-format one-key-mode-line-format
+        header-line-format (if (and (intern-soft "okm-menu-names")
+                                    (intern-soft "okm-menu-number"))
+                               (one-key-header-line-format okm-menu-names okm-menu-number)
+                             (one-key-header-line-format "one-key" nil))
+        cursor-type nil))
+
 (defun one-key-menu-window-open (&optional title-string)
   "Open the `one-key' menu window.
 TITLE-STRING is an optional argument to set the title string for the *One-Key* buffer.
@@ -2137,7 +2152,8 @@ in `one-key-types-of-menu' or using `one-key-default-title-func' if that doesn't
     (erase-buffer)
     (goto-char (point-min))
     (save-excursion
-      (insert (one-key-highlight-menu (one-key-menu-format okm-filtered-list) okm-menu-names okm-menu-number title-string))))
+      (insert (one-key-highlight-menu (one-key-menu-format okm-filtered-list) okm-menu-names okm-menu-number title-string)))
+    (one-key-mode))
   ;; Pop `one-key' buffer.
   (pop-to-buffer one-key-buffer-name)
   (set-buffer one-key-buffer-name)
@@ -2617,6 +2633,7 @@ If KEYSEQ is nil then nil is returned, if it is non-nil and not a string, vector
          ((stringp keyseq) (if (string-match "^C-\\|^M-\\|^RET\\|^SPC\\|^TAB\\|^<[a-z0-9-]+>\\|^[a-zA-Z0-9]" keyseq)
                                keyseq
                              (key-description keyseq)))
+         ((listp keyseq) (single-key-description (car keyseq))) 
          (t (error "Invalid key sequence: %S" keyseq)))))
 
 (defun one-key-append-keys-to-descriptions (descriptions keys)
