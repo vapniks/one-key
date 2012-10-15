@@ -83,9 +83,9 @@
 ;;; Code:
 
 (defcustom one-key-apropos-special-keybindings
-  '(quit-close quit-open toggle-persistence toggle-display next-menu prev-menu up down scroll-down scroll-up
-               toggle-help toggle-row/column-order sort-next sort-prev reverse-order apropos limit-items
-               highlight-items edit-item delete-item swap-keys add-menu remove-menu donate report-bug)
+  (one-key-add-elements-to-list
+   'one-key-general-special-keybindings
+   '(apropos limit-items highlight-items edit-item delete-item swap-keys add-menu remove-menu donate report-bug))
   "List of special keys to be used for apropos-command menus (see `one-key-default-special-keybindings' for more info)."
   :group 'one-key
   :type '(repeat (symbol :tag "Name" :help-echo "The name/symbol corresponding to the keybinding.")))
