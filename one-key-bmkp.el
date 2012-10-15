@@ -117,25 +117,21 @@
 The car of each element is a name for the filter, and the cdr is a lisp form which returns non-nil when a bookmark bmk should
 be included in the menu. The variable bmk will be set to the bookmark being tested, and bmk-tags will be set to the list of tags
 of that bookmark."
-  :type '(alist :key-type (string :tag "Filter name") :value-type (function :tag "Filter function"))
+  :type '(alist :key-type (string :tag "Filter name") :value-type (sexp :tag "Filter function"))
   :group 'one-key-bmkp)
 
 (defvar one-key-bmkp-sort-method-alist
-  '((key . (lambda (itema itemb) (string< (caar itema) (caar itemb))))
-    (length . (lambda (itema itemb) (> (length (cdar itema)) (length (cdar itemb)))))
-    (name . (lambda (itema itemb) (string< (cdar itema) (cdar itemb))))
-    (type . (lambda (itema itemb)
-              (let* ((bmka (bookmark-get-bookmark (one-key-bmkp-extract-bookmark-from-item itema)))
-                     (bmkb (bookmark-get-bookmark (one-key-bmkp-extract-bookmark-from-item itemb)))
-                     (typea (one-key-bmkp-get-bookmark-type bmka))
-                     (typeb (one-key-bmkp-get-bookmark-type bmkb)))
-                (string< (car typea) (car typeb))))))
+  '(("key" . (lambda (itema itemb) (string< (caar itema) (caar itemb))))
+    ("length" . (lambda (itema itemb) (> (length (cdar itema)) (length (cdar itemb)))))
+    ("name" . (lambda (itema itemb) (string< (cdar itema) (cdar itemb))))
+    ("type" . (lambda (itema itemb)
+                (let* ((bmka (bookmark-get-bookmark (one-key-bmkp-extract-bookmark-from-item itema)))
+                       (bmkb (bookmark-get-bookmark (one-key-bmkp-extract-bookmark-from-item itemb)))
+                       (typea (one-key-bmkp-get-bookmark-type bmka))
+                       (typeb (one-key-bmkp-get-bookmark-type bmkb)))
+                  (string< (car typea) (car typeb))))))
   "An alist of sort predicates to use for sorting bookmarks.
 See `one-key-default-sort-method-alist' for the format of this variable.")
-
-(defvar one-key-bmkp-current-sort-method 'name
-  "The current method used to sort the items in the bookmarks menu.
-Should contain the car of one of the items in `one-key-bmkp-sort-method-alist'.")
 
 (customize-set-variable 'one-key-special-keybindings
                         (one-key-add-elements-to-alist
@@ -144,16 +140,6 @@ Should contain the car of one of the items in `one-key-bmkp-sort-method-alist'."
                                               (lambda nil (finder-commentary (locate-library "one-key-bmkp"))
                                                 (setq one-key-menu-window-configuration nil)
                                                 nil))
-                           (bmk-sort-next sort-next "Sort items by next method"
-                                          ,(apply-partially 'one-key-sort-items-by-next-method
-                                                            nil t
-                                                            'one-key-bmkp-current-sort-method
-                                                            'one-key-bmkp-sort-method-alist))
-                           (bmk-sort-prev sort-prev "Sort items by previous method"
-                                          ,(apply-partially 'one-key-sort-items-by-next-method
-                                                            t t
-                                                            'one-key-bmkp-current-sort-method
-                                                            'one-key-bmkp-sort-method-alist))
                            (bmk-new-filter highlight-items "Create new bookmarks filter"
                                            (lambda nil
                                              (let* ((pair (one-key-bmkp-create-menu "new bookmarks filter"))
@@ -185,7 +171,7 @@ Should contain the car of one of the items in `one-key-bmkp-sort-method-alist'."
                                                                             (cdr (one-key-get-menus)))))
                                                        (setq bmkp-latest-bookmark-alist  bookmark-alist)
                                                        (bookmark-bmenu-list)
-                                                       (one-key-menu-window-close)
+                                                       (one-key-set-window-state 'close)
                                                        (switch-to-buffer "*Bookmark List*")) nil))
                            (bmk-edit-bookmark edit-item "Edit a bookmark"
                                               (lambda nil
@@ -199,7 +185,7 @@ Should contain the car of one of the items in `one-key-bmkp-sort-method-alist'."
                                          (lambda nil
                                            (let ((bookmarks (one-key-bmkp-extract-bookmarks-from-menus
                                                              (list okm-filtered-list)))
-                                                 (tags (bmkp-read-tags-completing)))
+                                                 (tags (one-key-bmkp-read-tags)))
                                              (dolist (bmk bookmarks)
                                                (bmkp-add-tags bmk tags))
                                              ;; update tags list and save bookmarks
@@ -209,7 +195,7 @@ Should contain the car of one of the items in `one-key-bmkp-sort-method-alist'."
                                             (lambda nil
                                               (let ((bookmarks (one-key-bmkp-extract-bookmarks-from-menus
                                                                 (list okm-filtered-list)))
-                                                    (tags (bmkp-read-tags-completing)))
+                                                    (tags (one-key-bmkp-read-tags)))
                                                 (unless (not (y-or-n-p
                                                               (concat
                                                                "The following tags will be removed from the displayed bookmarks: "
@@ -222,13 +208,32 @@ Should contain the car of one of the items in `one-key-bmkp-sort-method-alist'."
                          t))
 
 (defcustom one-key-bmkp-special-keybindings
-  '(quit-close quit-open toggle-persistence toggle-display next-menu prev-menu up down scroll-down scroll-up
-               bmk-customize limit-items bmk-new-filter bmk-load-filter bmk-goto-bookmark-list bmk-save-state toggle-help
-               bmk-documentation toggle-row/column-order bmk-sort-next bmk-sort-prev reverse-order bmk-edit-bookmark
-               bmk-add-tags bmk-remove-tags add-menu remove-menu move-item donate report-bug)
+  (one-key-add-elements-to-list
+   'one-key-general-special-keybindings
+   '(bmk-customize limit-items bmk-new-filter bmk-load-filter bmk-goto-bookmark-list bmk-save-state bmk-documentation
+                   bmk-edit-bookmark bmk-add-tags bmk-remove-tags add-menu remove-menu move-item donate report-bug))
   "List of special keys to be used for one-key-bmkp menus (see `one-key-default-special-keybindings' for more info)."  
   :group 'one-key-bmkp
   :type '(repeat (symbol :tag "Name" :help-echo "The name/symbol corresponding to the keybinding.")))
+
+(defun one-key-bmkp-read-tags nil
+  "Read multiple bookmark tags with ido-completing-read. Reading stops
+  when the user enters \"*done*\"."
+  (let ((sentinel "*done*")
+        (choices (bmkp-tags-list t))
+        done-reading result)
+    ;; uniquify the SENTINEL value
+    (while (find sentinel choices)
+      (setq sentinel (concat sentinel "_")))
+    (setq choices (cons sentinel choices))
+    ;; read some choices
+    (while (not done-reading)
+      (setq this-choice (ido-completing-read (concat "Tags (RET for each, " sentinel " to finish): ") choices)
+            done-reading (equal this-choice sentinel)
+            result (cons this-choice result)
+            choices (remove this-choice choices)))
+    ;; return the result
+      result))
 
 (defun one-key-bmkp-convert-item-to-condition (item)
   (string-match "^\\([^=]+\\):\\(.*\\)" item)
@@ -377,7 +382,7 @@ create a new filter. This function is used in the \"bookmarks\" item in `one-key
   (let* ((filtername (and name
                           (string-match "^bmkp:\\(.*\\)" name)
                           (match-string 1 name)))
-         (one-key-menu-window-close t)
+         (one-key-set-window-state 'close)
          (pair (one-key-bmkp-get-filter filtername))
          (predfunc `(lambda (bmk) (let ((bmk-tags (mapcar 'bmkp-tag-name (bmkp-get-tags bmk))))
                                     ,(if filtername pair (cdr pair)))))
@@ -388,7 +393,8 @@ create a new filter. This function is used in the \"bookmarks\" item in `one-key
                         (while (and (setq newname (read-string "Filter name: "))
                                     (assoc newname one-key-bmkp-filter-alist)
                                     (not (y-or-n-p "Filter with that name already exists, overwrite?"))))
-                        (one-key-add-to-alist 'one-key-bmkp-filter-alist (cons newname predfunc))
+                        (customize-save-variable 'one-key-bmkp-filter-alist
+                                                 (one-key-add-to-alist 'one-key-bmkp-filter-alist (cons newname predfunc)))
                         newname))))
          (bookmarks (if predfunc (bmkp-remove-if-not predfunc bookmark-alist)
                       (message "Invalid filter name!")))
@@ -420,7 +426,8 @@ If there are no existing filters, print a message saying so and return nil."
                                                (equal name "bookmarks+")))
                             'one-key-bmkp-create-menu
                             nil
-                            'one-key-bmkp-special-keybindings) t)
+                            'one-key-bmkp-special-keybindings
+                            'one-key-bmkp-sort-method-alist) t)
 
 (provide 'one-key-bmkp)
 
