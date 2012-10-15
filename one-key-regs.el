@@ -469,11 +469,11 @@ and COLOUR is the name of the associated colour to use in the `one-key' menu."
                            ) t))
 
 (defcustom one-key-regs-special-keybindings
-  '(quit-close quit-open toggle-persistence toggle-display next-menu prev-menu up down scroll-down scroll-up
-               show-register show-register-prefix-keys save-registers merge-registers replace-registers toggle-help
-               regs-documentation toggle-row/column-order sort-next sort-prev reverse-order limit-items highlight-items
-               edit-register delete-register clear-registers swap-register-keys add-register add-menu remove-menu move-item
-               donate report-bug)
+  (one-key-add-elements-to-list
+   'one-key-general-special-keybindings
+   '(show-register show-register-prefix-keys save-registers merge-registers replace-registers regs-documentation limit-items
+                  highlight-items edit-register delete-register clear-registers swap-register-keys add-register add-menu
+                  remove-menu move-item donate report-bug))
   "List of special keys to be used for one-key-registers menus (see `one-key-default-special-keybindings' for more info)."  
   :group 'one-key-regs
   :type '(repeat (symbol :tag "Name" :help-echo "The name/symbol corresponding to the keybinding.")))
@@ -735,7 +735,7 @@ If COLOUR is \"\" then all highlighting (and more generally any text properties)
           (setf (cdar item)
                 (propertize str 'face (list :background colour :foreground one-key-item-foreground-colour)))))
   (setq one-key-menu-call-first-time t)
-  (one-key-menu-window-close))
+  (one-key-set-window-state 'close))
 
 (defun one-key-regs-shift-key-queue (char)
   "If CHAR is a member of a key queue in `one-key-regs-key-queues' then shift registers in keys after it in the queue.
@@ -1071,7 +1071,7 @@ Unless NOPROMPT is non-nil the user will be prompted to check if they want to co
     (one-key-regs-function key '(4))
     (one-key-regs-update-menu-alist)
     (setq one-key-menu-call-first-time t)
-    (one-key-menu-window-close)))
+    (one-key-set-window-state 'close)))
 
 (defun one-key-regs-swap-menu-items (full-list)
   "Prompt user for a pair of items from FULL-LIST and swap the corresponding keys."
@@ -1087,7 +1087,7 @@ Unless NOPROMPT is non-nil the user will be prompted to check if they want to co
             (regb (assq keyb register-alist)))
         (setf (car rega) keyb (car regb) keya)))
     (setq one-key-menu-call-first-time t)
-    (one-key-menu-window-close)))
+    (one-key-set-window-state 'close)))
 
 (defun one-key-regs-edit-menu-item (info-alist full-list)
   "Prompt user for details of item in FULL-LIST to edit, make changes and then reopen `one-key' menu."
@@ -1116,7 +1116,7 @@ Unless NOPROMPT is non-nil the user will be prompted to check if they want to co
     (setq register-alist (assq-delete-all oldkey register-alist))
     (set-register newkey contents))
     (setq one-key-menu-call-first-time t)
-    (one-key-menu-window-close))
+    (one-key-set-window-state 'close))
 
 (defun one-key-regs-delete-menu-item (info-alist full-list)
   "Prompt the user for an item to delete from FULL-LIST, delete it, and then redisplay the `one-key' menu."
@@ -1128,7 +1128,7 @@ Unless NOPROMPT is non-nil the user will be prompted to check if they want to co
           (setq info-alist (delete item full-list))))
     (setq register-alist (assq-delete-all key register-alist))
     (setq one-key-menu-call-first-time t)
-    (one-key-menu-window-close)))
+    (one-key-set-window-state 'close)))
 
 ;; Set the value of `one-key-regs-legend-string' to match the current value of `one-key-regs-colours-alist'
 (setq one-key-regs-legend-string
