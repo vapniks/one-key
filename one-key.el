@@ -847,9 +847,9 @@ sort methods for different menus."
                                           (mod (+ one-key-buffer-menu-number skipnum) nummenus)
                                           one-key-default-menu-number one-key-buffer-menu-number)
                                     (one-key-update-buffer-contents))))
-    (up "<up>" "Scroll/move up one line" previous-line)
-    (down "<down>" "Scroll/move down one line" next-line)
-    (scroll-down "<prior>" "Scroll menu down one page" (apply-partially 'one-key-menu-window-scroll-up t))
+    (up "<up>" "Scroll/move up one line" one-key-menu-window-scroll-up-line)
+    (down "<down>" "Scroll/move down one line" ,(apply-partially 'one-key-menu-window-scroll-up-line t))
+    (scroll-down "<prior>" "Scroll menu down one page" ,(apply-partially 'one-key-menu-window-scroll-up t))
     (scroll-up "<next>" "Scroll menu up one page" one-key-menu-window-scroll-up)
     (documentation "<S-f1>" "Show one-key documentation"
                    (lambda nil (finder-commentary (locate-library "one-key"))))
