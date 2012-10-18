@@ -818,8 +818,8 @@ sort methods for different menus."
                         (lambda nil (if one-key-buffer-match-action
                                         (setq one-key-buffer-match-action nil
                                               one-key-buffer-miss-match-action nil)
-                                      (setq one-key-buffer-match-action t
-                                            one-key-buffer-miss-match-action t))))
+                                      (setq one-key-buffer-match-action 'close
+                                            one-key-buffer-miss-match-action 'close))))
     (toggle-display "<menu>" "Toggle menu display" one-key-menu-window-toggle)
     (next-menu "<left>" "Change to left menu"
                (lambda nil (setq one-key-buffer-menu-number
@@ -1949,8 +1949,10 @@ from the associated menu type in `one-key-types-of-menu' or using `one-key-defau
            (key (one-key-key-description last-input-event))
            matchitem)
       (cond
-       ;; Ignore mouse and frame switch events.
-       ((and (string-match "mouse\\|switch-frame" key)) t)
+       ;; Ignore mouse events.
+       ((and (string-match "mouse" key)) t)
+       ;; make sure frame switching works
+       ((and (string= "<switch-frame>" key)) (select-frame (previous-frame)))
        ;; If the help buffer is showing then the special keybindings get priority
        ((and (get-buffer-window one-key-help-buffer-name)
              (setq matchitem (assoc* key one-key-buffer-special-keybindings
@@ -2189,10 +2191,12 @@ The one-key window will be selected after calling this function unless optional 
          ;; Use following let bindings instead of symbol-macrolets to allow debugging
          (resizeframe '(progn (set-frame-height dedicatedframe newlines)
                               (unless noselect
-                                (select-frame-set-input-focus dedicatedframe))))
+                                (select-frame-set-input-focus dedicatedframe))
+                              (one-key-update-buffer-contents)))
          (resizewindow '(let ((win (or onekeywin (display-buffer onekeybuf))))
                           (fit-window-to-buffer win newlines)
-                          (unless noselect (select-window win)))))
+                          (unless noselect (select-window win))
+                          (one-key-update-buffer-contents))))
     (cond ((not onekeybuf) (error "No one-key buffer found"))
           ((integerp state)
            (setq newlines (max (min state maxlines onekeybuflines) 5))
@@ -2209,7 +2213,8 @@ The one-key window will be selected after calling this function unless optional 
              (with-current-buffer onekeybuf (setq one-key-buffer-dedicated-frame (selected-frame)
                                                   dedicatedframe one-key-buffer-dedicated-frame))
              (set-frame-size dedicatedframe cols newlines)
-             (if noselect (select-frame-set-input-focus (previous-frame dedicatedframe)))))
+             (if noselect (select-frame-set-input-focus (previous-frame dedicatedframe)))
+             (one-key-update-buffer-contents)))
           ((eq state 'deselect) (if dedicatedframe
                                     (select-frame-set-input-focus (previous-frame dedicatedframe))
                                   (select-window (if onekeywin (previous-window onekeywin)
