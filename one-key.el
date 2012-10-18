@@ -927,7 +927,7 @@ sort methods for different menus."
                     (let* ((names (mapcar 'car one-key-sets-of-menus-alist)) 
                            (newname (read-string "Name for menu set: "))
                            (validnames
-                            (remove nil
+                            (remq nil
                                     (mapcar
                                      (lambda (name) (if (one-key-get-menu-type name) name))
                                      one-key-buffer-menu-names)))
@@ -1712,7 +1712,7 @@ If no such menu or menu type exists, return nil."
 
 (defun one-key-prompt-for-menu nil
   "Prompt the user for a `one-key' menu type, and return menu name(s) and menu alist(s)."
-  (let* ((alltypes (remove nil (mapcar 'car one-key-types-of-menu)))
+  (let* ((alltypes (remq nil (mapcar 'car one-key-types-of-menu)))
          (type (if (featurep 'ido)
                    (ido-completing-read "Menu type: " alltypes)
                  (completing-read "Menu type: " alltypes))))
@@ -1842,7 +1842,7 @@ binding of args to that function."
 NAMES should be the name of a single `one-key' menu or menu type, or a list of such names.
 If called interactively a single name will be prompted for."
   (let* ((names (if (stringp names) (list names) names))
-         (pairs (remove nil (mapcar 'one-key-get-menus-for-type names)))
+         (pairs (remq nil (mapcar 'one-key-get-menus-for-type names)))
          (names (mapcan (lambda (x) (let ((y (car x))) (if (stringp y) (list y) y))) pairs))
          (alists (mapcan (lambda (x) (let ((a (car x)) (b (cdr x)))
                                        (if (stringp a) (list b) b))) pairs)))
@@ -2119,7 +2119,7 @@ will be tried (in accordance with normal emacs behaviour)."
          (mods (event-modifiers rawkey))
          (basic (event-basic-type rawkey))
          (func (key-binding (vector rawkey)))
-         (keynoshift (append (remove 'shift mods) (list basic)))
+         (keynoshift (append (remq 'shift mods) (list basic)))
          (func2 (or func
                     (key-binding (vector (event-convert-list keynoshift))))))
     (when (and (not (eq func2 'keyboard-quit))
@@ -2172,7 +2172,8 @@ will be tried (in accordance with normal emacs behaviour)."
     (if onekeywin (with-selected-window onekeywin
                     (goto-char (point-min)) (recenter 0)))))
 
-;; WARNING: spaghetti code 
+;; WARNING: spaghetti code
+;; FIXME: look into using dedicated window for dedicated frame, and what about quit-window instead of delete-window ?
 (defun one-key-set-window-state (state &optional noselect)
   "Set the one-key window into state STATE (a number or symbol).
 For the possible values of state see `one-key-window-toggle-sequence'.
@@ -3033,7 +3034,7 @@ sensible defaults."
                                          (funcall predicate key val))
                                   collect key)
                           (if predicate (remove-if-not predicate collection) collection)))
-           (collection3 (remove nil (mapcar 'tostring collection2)))
+           (collection3 (remq nil (mapcar 'tostring collection2)))
            (commands (mapcar (lambda (choice)
                                `(lambda nil
                                   (interactive)
