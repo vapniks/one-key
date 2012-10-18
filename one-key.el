@@ -2191,11 +2191,14 @@ The one-key window will be selected after calling this function unless optional 
          ;; Use following let bindings instead of symbol-macrolets to allow debugging
          (resizeframe '(progn (set-frame-height dedicatedframe newlines)
                               (unless noselect
-                                (select-frame-set-input-focus dedicatedframe))
+                                (select-frame-set-input-focus dedicatedframe)
+                                (raise-frame dedicatedframe))
                               (one-key-update-buffer-contents)))
-         (resizewindow '(let ((win (or onekeywin (display-buffer onekeybuf))))
+         (resizewindow '(let* ((win (or onekeywin (display-buffer onekeybuf)))
+                               (frame (window-frame win)))
                           (fit-window-to-buffer win newlines)
-                          (unless noselect (select-window win))
+                          (unless noselect (select-frame-set-input-focus frame)
+                                  (select-window win))
                           (one-key-update-buffer-contents))))
     (cond ((not onekeybuf) (error "No one-key buffer found"))
           ((integerp state)
@@ -2215,10 +2218,11 @@ The one-key window will be selected after calling this function unless optional 
              (set-frame-size dedicatedframe cols newlines)
              (if noselect (select-frame-set-input-focus (previous-frame dedicatedframe)))
              (one-key-update-buffer-contents)))
-          ((eq state 'deselect) (if dedicatedframe
-                                    (select-frame-set-input-focus (previous-frame dedicatedframe))
-                                  (select-window (if onekeywin (previous-window onekeywin)
-                                                   one-key-buffer-associated-window))))
+          ((eq state 'deselect)
+           (if dedicatedframe
+               (select-frame-set-input-focus (previous-frame dedicatedframe))
+             (select-window (if onekeywin (previous-window onekeywin)
+                              one-key-buffer-associated-window))))
           ((eq state 'showhelp)
            (with-selected-window (or onekeywin (selected-window))
              (if (and helpframe (> (length (window-list helpframe)) 1))
