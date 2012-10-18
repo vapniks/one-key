@@ -1723,35 +1723,27 @@ If no such menu or menu type exists, return nil."
 If optional args NEWNAMES and NEWLISTS are supplied they should be a list of menu names and corresponding menu alists
 to add. Otherwise the user will be prompted for a menu type, and the menus will be created using the functions associated
 with that type.
-
-This function will only work if called within the context of the `one-key-menu' function since it depends on the dynamic
-binding of args to that function."
+This function only works when called within the context of the one-key buffer since it depends on buffer local variables."
   (let* ((both (if (and newnames newlists)
                    (cons newnames newlists)
                  (one-key-prompt-for-menu)))
          (newnames (car both))
          (newlists (cdr both))
          (multi (listp newnames)))
-    (if okm-menu-number
-        (let* ((listlen (length okm-menu-alists))
-               (numnames (length okm-menu-names))
-               (index (min okm-menu-number numnames)))
-          (setq okm-menu-names
-                (concatenate 'list
-                             (subseq okm-menu-names 0 (1+ index))
-                             (if (and multi newnames) newnames (list newnames))
-                             (subseq okm-menu-names (1+ index) numnames))
-                okm-menu-alists
-                (concatenate 'list
-                             (subseq okm-menu-alists 0 (1+ okm-menu-number))
-                             (if (and multi newlists) newlists (list newlists))
-                             (subseq okm-menu-alists (1+ okm-menu-number) listlen))
-                okm-menu-number (1+ okm-menu-number)))
-      (setq okm-menu-number 1
-            okm-menu-alists (if multi (concatenate 'list (list okm-menu-alists) newlists)
-                              (list okm-menu-alists newlists))
-            okm-menu-names (if multi (concatenate 'list (list okm-this-name) newnames)
-                             (list okm-this-name newnames))))))
+    (let* ((listlen (length one-key-buffer-menu-alists)))
+      (unless (= listlen (length one-key-buffer-menu-names))
+        (error "Number of menu names doesn't match number of menus"))
+      (setq one-key-buffer-menu-names
+            (concatenate 'list
+                         (subseq one-key-buffer-menu-names 0 (1+ one-key-buffer-menu-names))
+                         (if (and multi newnames) newnames (list newnames))
+                         (subseq one-key-buffer-menu-names (1+ one-key-buffer-menu-names) listlen))
+            one-key-buffer-menu-alists
+            (concatenate 'list
+                         (subseq one-key-buffer-menu-alists 0 (1+ one-key-buffer-menu-number))
+                         (if (and multi newlists) newlists (list newlists))
+                         (subseq one-key-buffer-menu-alists (1+ one-key-buffer-menu-number) listlen))
+            one-key-buffer-menu-number (1+ one-key-buffer-menu-number)))))
 
 (defun one-key-get-indices-of-matches (regexp names)
   "Return list of indices of elements of NAMES (a list of strings) that match REGEXP (a regular expression)."
@@ -1787,18 +1779,17 @@ Associated menus are adjacent menus with the same base-name but different number
 If the optional argument MENUS is supplied it should either be a number (the index of the menu to be returned),
 a list of numbers (indices of menus), or a string (regular expression matching menu names).
 
-This function will only work if called within the context of the `one-key-menu' function since it depends on the dynamic
-binding of args to that function."
-  (let* ((indices (cond ((not menus) (one-key-get-associated-menu-indices okm-menu-number okm-menu-names))
-                        ((stringp menus) (one-key-get-indices-of-matches menus okm-menu-names))
+This function only works when called within the context of the one-key buffer since it depends on buffer local variables."
+  (let* ((indices (cond ((not menus) (one-key-get-associated-menu-indices
+                                      one-key-buffer-menu-number one-key-buffer-menu-names))
+                        ((stringp menus) (one-key-get-indices-of-matches
+                                          menus one-key-buffer-menu-names))
                         ((listp menus) menus)
                         ((numberp menus) (list menus)))))
-    (if okm-menu-number
-        (cons (one-key-list-subset indices okm-menu-names)
-              (one-key-list-subset indices okm-menu-alists))
-      (cons (list okm-menu-names) (list okm-menu-alists)))))
+    (cons (one-key-list-subset indices one-key-buffer-menu-names)
+          (one-key-list-subset indices one-key-buffer-menu-alists))))
   
-(defun* one-key-delete-menus (&optional (menus okm-menu-number))
+(defun* one-key-delete-menus (&optional (menus one-key-buffer-menu-number))
   "Remove a menu(s) from the currently loaded one-key menus. By default the current menu is deleted.
 If the optional argument MENUS is supplied it should either be a number (the index of the menu to be deleted),
 a list of numbers (the indices of the menus to be deleted), or a string (a regular expression matching the names
@@ -1806,36 +1797,35 @@ of the menus to be deleted).
 If there is currently only one loaded menu, the one-key window will be closed.
 The function returns the number of menus deleted.
 
-This function will only work if called within the context of the `one-key-menu' function since it depends on the dynamic
-binding of args to that function."
-  (if okm-menu-number
-      (let* ((listlen (length okm-menu-alists))
-             (numnames (length okm-menu-names))
-             (indices (if (stringp menus)
-                          (one-key-get-indices-of-matches menus okm-menu-names)
-                        (if (listp menus) menus (list menus)))))
-        (dolist (index indices)
-          (setq okm-menu-names
-                (concatenate 'list
-                             (subseq okm-menu-names 0 index)
-                             (subseq okm-menu-names (1+ index) numnames))
-                okm-menu-alists
-                (concatenate 'list
-                             (subseq okm-menu-alists 0 index)
-                             (subseq okm-menu-alists (1+ index) listlen))
-                okm-menu-number (min index (- listlen 2))))
-        (length indices))
-    (one-key-set-window-state 'close) 1))
+This function only works when called within the context of the one-key buffer since it depends on buffer local variables."
+  (let* ((listlen (length one-key-buffer-menu-alists))
+         (indices (if (stringp menus)
+                      (one-key-get-indices-of-matches menus one-key-buffer-menu-names)
+                    (if (listp menus) menus (list menus)))))
+    (unless (= listlen (length one-key-buffer-menu-names))
+      (error "Number of menu names doesn't match number of menus"))
+    (if (= (length indices) 1)
+        (progn (one-key-set-window-state 'close) 1)
+      (dolist (index indices)
+        (setq one-key-buffer-menu-names
+              (concatenate 'list
+                           (subseq one-key-buffer-menu-names 0 index)
+                           (subseq one-key-buffer-menu-names (1+ index) listlen))
+              one-key-buffer-menu-alists
+              (concatenate 'list
+                           (subseq one-key-buffer-menu-alists 0 index)
+                           (subseq one-key-buffer-menu-alists (1+ index) listlen))
+              one-key-buffer-menu-number (min index (- listlen 2))))
+      (length indices))))
 
-(defun one-key-delete-associated-menus (&optional (menunum okm-menu-number))
+(defun one-key-delete-associated-menus (&optional (menunum one-key-buffer-menu-number))
   "Remove all menus (from the currently loaded menus) that are associated with the current menu.
 Associated menus are those with the same base-name but different numbers appended to the end of the name (in brackets).
-If MENUNUM is supplied it should be the index into `okm-menu-alists' of a menu to be deleted.
+If MENUNUM is supplied it should be the index into `one-key-buffer-menu-alists' of a menu to be deleted.
 Returns the number of menus deleted.
 
-This function will only work if called within the context of the `one-key-menu' function since it depends on the dynamic
-binding of args to that function."
-  (one-key-delete-menus (one-key-get-associated-menu-indices menunum okm-menu-names)))
+This function only works when called within the context of the one-key buffer since it depends on buffer local variables."
+  (one-key-delete-menus (one-key-get-associated-menu-indices menunum one-key-buffer-menu-names)))
 
 (defun one-key-open-menus (names &optional menu-number)
   "Invoke `one-key-menu' with names and corresponding menu-alists.
@@ -2428,11 +2418,10 @@ NAMES can be either a single string or a list of strings. VARS can be a single m
 If `one-key-submenus-replace-parents' is non-nil then the current menu will be replaced with the submenu, otherwise
 a new menu will be added to the current menu set.
 
-This function will only work if called within the context of the `one-key-menu' function since it depends on the dynamic
-binding of args to that function."
+This function only works when called within the context of the one-key buffer since it depends on buffer local variables."
   (one-key-add-menus names vars)
   (if one-key-submenus-replace-parents
-      (one-key-delete-menus (1- okm-menu-number))))
+      (one-key-delete-menus (1- one-key-buffer-menu-number))))
 
 (defun one-key-merge-menu-lists (lista listb)
   "Given two one-key menu lists, merge them and return the result.
