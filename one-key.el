@@ -2048,11 +2048,8 @@ in that window. You can change the associated window by setting the ASSOCIATED-W
 If ASSOCIATED-WINDOW is explicitely set to nil then the window that was last used with one-key will be used (if it exists).
 
 The MATCH-ACTION and MISS-MATCH-ACTION arguments indicate what to do after a matching (menu item)/non-matching key is pressed
-respectively. A value of nil for MATCH-ACTION / MISS-MATCH-ACTION indicates to do no close the one-key window, a value of t indicates
-to keep the window open, and a function value indicates to execute that function.
-For MISS-MATCH-ACTION you may also use the symbol values 'execute and 'executeclose which will execute the command associated
-with the miss-matched key, and either keep the one-key window open, or close it respectively.
-In the case of MATCH-ACTION the action will be performed after executing the menu command associated with the matching key."
+respectively. See `one-key-buffer-match-action' and `one-key-buffer-miss-match-action' for the different values these args
+can take."
   (let* ((buf (or (get-buffer one-key-buffer-name)
                   (generate-new-buffer one-key-buffer-name)))
          (menu-number (or menu-number 0)))
@@ -3035,9 +3032,9 @@ sensible defaults."
                       (one-key-append-numbers-to-menu-name prompt nummenus)
                     (list prompt))))
       (one-key-menu names menu-alists
-                    :okm-miss-match-recursion-p require-match
-                    :okm-title-string (or title-string "")
-                    :okm-special-keybinding-symbols special-keys)
+                    :miss-match-action (if require-match nil 'close)
+                    :title-string (or title-string "")
+                    :special-keybinding-symbols special-keys)
       (or selected-item def))))
 
 (defun* one-key-read-tree-1 (prompt collection
