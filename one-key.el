@@ -461,7 +461,39 @@
 (require 'hexrgb)
 ;;; Code:
 
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Utility Functions ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; (these need to go first since customizable variables depend on them) ;;;;
+
+(defun one-key-add-elements-to-list (list-var newelts)
+  "Add elements in list NEWELTS to LIST-VAR if they are not already present and return the resulting list."
+  (let ((listval (symbol-value list-var)))
+    (append listval (loop for elt in newelts
+                          unless (member elt listval)
+                          collect elt))))
+
+(defun one-key-add-to-alist (alist-var elt-cons &optional no-replace)
+  "Add to the value of ALIST-VAR an element ELT-CONS if it isn't there yet, and return the new list.
+If an element with the same car as the car of ELT-CONS is already present,
+replace it with ELT-CONS unless NO-REPLACE is non-nil; if a matching
+element is not already present, add ELT-CONS to the front of the alist.
+The test for presence of the car of ELT-CONS is done with `equal'."
+  (let ((existing-element (assoc (car elt-cons) (symbol-value alist-var))))
+    (if existing-element
+        (or no-replace
+            (setcdr existing-element (cdr elt-cons)))
+      (set alist-var (cons elt-cons (symbol-value alist-var)))))
+  (symbol-value alist-var))
+
+(defun one-key-add-elements-to-alist (alist-var newelts &optional no-replace)
+  "Use `one-key-add-to-alist' to add each element of NEWELTS to ALIST-VAR.
+NO-REPLACE has the same meaning as in `one-key-add-to-alist'."
+  (loop for elt in newelts do
+        (one-key-add-to-alist alist-var elt no-replace))
+  (symbol-value alist-var))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Customize ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 (defgroup one-key nil
   "One key - easy access, refactorable menus."
   :group 'editing
@@ -1341,32 +1373,65 @@ recognized the same way.")
 ;; Only declaring these vars here so that they are documented. They don't actually need to be declared globally,
 ;; as they are declared local to the one-key buffer when one-key-mode is run.
 (defvar one-key-buffer-menu-number nil
-  "The index of the current menu in `one-key-buffer-menu-alists'.")
+  "The index of the current menu in `one-key-buffer-menu-alists'.
+
+This variable is local to the one-key buffer.")
 
 (defvar one-key-buffer-menu-names nil
-  "The current list of menu names.")
+  "The current list of menu names.
+
+This variable is local to the one-key buffer.")
 
 (defvar one-key-buffer-menu-alists nil
-  "The current list of menu lists.")
+  "The current list of menu lists.
+
+This variable is local to the one-key buffer.")
 
 (defvar one-key-buffer-special-keybindings nil
-  "The special keybindings for the current menu.")
+  "The special keybindings for the current menu.
+
+This variable is local to the one-key buffer.")
 
 (defvar one-key-buffer-associated-window nil
   "The window associated with the one-key buffer.
-This is set to the window that was selected when the one-key menu was opened.")
+This is set to the window that was selected when the one-key menu was opened.
+
+This variable is local to the one-key buffer.")
 
 (defvar one-key-buffer-match-action 'close
   "Indicates what to do after a matching (menu item) key is pressed, and the associated command is executed.
 The value should be either nil which means do nothing and leave the window open, a function to be called with
 no arguments, or a symbol which is interpreted in the same way as the possible values for `one-key-window-toggle-sequence'.
-The default value is 'close (i.e. close the one-key window).")
+The default value is 'close (i.e. close the one-key window).
+
+This variable is local to the one-key buffer.")
 
 (defvar one-key-buffer-miss-match-action 'close
   "Indicates what to do after a miss-match (non menu item) key is pressed.
 The possible values are the same as for `one-key-buffer-match-action' or the symbols 'execute 'executeclose
 which will execute the key (in the associated window) and leave the one-key window open/closed respectively.
-The default value is 'close (i.e. close the one-key window).")
+The default value is 'close (i.e. close the one-key window).
+
+This variable is local to the one-key buffer.")
+
+(defvar one-key-buffer-dedicated-frame nil
+  "If non-nil then this var holds the frame dedicated to the one-key menu.
+
+This variable is local to the one-key buffer.")
+
+(defvar one-key-buffer-filter-regex nil
+  "A regular expression matching menu items to be diplayed in one-key menu.
+Any menu items in the current menu alist that don't match this regexp won't be displayed
+when `one-key-update-buffer-contents' is executed.
+If nil then all items are displayed.
+
+This variable is local to the one-key buffer.")
+
+(defvar one-key-buffer-filtered-list nil
+  "The list of menu items that match `one-key-buffer-filter-regex'.
+These are the items that are displayed in the one-key buffer.
+
+This variable is local to the one-key buffer.")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Interactive Functions ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -1397,40 +1462,23 @@ The default value is 'close (i.e. close the one-key window).")
                          for str2 = (format "%s%s: %s" key2a keyspc2 desc2)
                          for spc = (make-string (- width (length str1)) ? ) do
                          (push (concat str1 spc (if key2a str2) "\n") finalstr)
-                         finally return (mapconcat 'identity (nreverse finalstr) "")))))
+                         finally return (mapconcat 'identity (nreverse finalstr) ""))))
+         (onekeybuf (get-buffer one-key-buffer-name)))
     (with-help-window one-key-help-buffer-name
       (princ (concat "Press the highlighted key in the menu to perform the corresponding action written next to it.
 The following special keys may also be used:\n"
-                     keystr)))))
+                     keystr)))
+    (with-current-buffer one-key-help-buffer-name (one-key-help-mode)
+                         (setq one-key-buffer-special-keybindings special-keybindings
+                               one-key-buffer-dedicated-frame
+                               (if onekeybuf (with-current-buffer onekeybuf
+                                               one-key-buffer-dedicated-frame))
+                               one-key-buffer-associated-window
+                               (if onekeybuf (with-current-buffer onekeybuf
+                                               one-key-buffer-associated-window))))))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Utility Functions ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun one-key-add-elements-to-list (list-var newelts)
-  "Add elements in list NEWELTS to LIST-VAR if they are not already present and return the resulting list."
-  (let ((listval (symbol-value list-var)))
-    (append listval (loop for elt in newelts
-                          unless (member elt listval)
-                          collect elt))))
 
-(defun one-key-add-to-alist (alist-var elt-cons &optional no-replace)
-  "Add to the value of ALIST-VAR an element ELT-CONS if it isn't there yet, and return the new list.
-If an element with the same car as the car of ELT-CONS is already present,
-replace it with ELT-CONS unless NO-REPLACE is non-nil; if a matching
-element is not already present, add ELT-CONS to the front of the alist.
-The test for presence of the car of ELT-CONS is done with `equal'."
-  (let ((existing-element (assoc (car elt-cons) (symbol-value alist-var))))
-    (if existing-element
-        (or no-replace
-            (setcdr existing-element (cdr elt-cons)))
-      (set alist-var (cons elt-cons (symbol-value alist-var)))))
-  (symbol-value alist-var))
-
-(defun one-key-add-elements-to-alist (alist-var newelts &optional no-replace)
-  "Use `one-key-add-to-alist' to add each element of NEWELTS to ALIST-VAR.
-NO-REPLACE has the same meaning as in `one-key-add-to-alist'."
-  (loop for elt in newelts do
-        (one-key-add-to-alist alist-var elt no-replace))
-  (symbol-value alist-var))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Special-Key functions ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -1942,25 +1990,29 @@ from the associated menu type in `one-key-types-of-menu' or using `one-key-defau
 (defun one-key-command nil
   "Invoke command associated with last keypress in one-key buffer."
   (interactive)
-  (with-current-buffer one-key-buffer-name
-    (let* ((thislist (nth one-key-buffer-menu-number one-key-buffer-menu-alists))
-           (issymbol (symbolp thislist))
-           ;; The key that was pressed.
-           (key (one-key-key-description last-input-event))
-           matchitem)
+  (let ((helpbufp (string= (buffer-name) one-key-help-buffer-name))
+        (key (one-key-key-description last-input-event)) matchitem)
+    (with-current-buffer (or (get-buffer one-key-buffer-name)
+                             (get-buffer one-key-help-buffer-name))
       (cond
        ;; Ignore mouse events.
        ((and (string-match "mouse" key)) t)
-       ;; make sure frame switching works
+       ;; Make sure frame switching works.
        ((and (string= "<switch-frame>" key)) (select-frame (previous-frame)))
+       ;; If only the help buffer is available then close it.
+       ((and helpbufp (not (get-buffer one-key-buffer-name)))
+        (one-key-set-window-state 'close))
        ;; If the help buffer is showing then the special keybindings get priority
        ((and (get-buffer-window one-key-help-buffer-name)
              (setq matchitem (assoc* key one-key-buffer-special-keybindings
                                      :test (lambda (x y) (equal x (one-key-remap-key-description y))))))
-        (funcall (caddr matchitem)))
-       ;; Handle keystrokes matching menu items
-       ((setq matchitem (assoc* key one-key-buffer-filtered-list
-                                :test (lambda (x y) (equal x (one-key-remap-key-description (car y))))))
+        ;; Make sure we call the special key function in the one-key buffer (we might be in the help buffer).
+        (with-current-buffer one-key-buffer-name
+          (funcall (caddr matchitem))))
+       ;; Handle keystrokes matching menu items unless we're in the help buffer.
+       ((and (not helpbufp)
+             (setq matchitem (assoc* key one-key-buffer-filtered-list
+                                     :test (lambda (x y) (equal x (one-key-remap-key-description (car y)))))))
         (let* ((desc (cdar matchitem))
                (rest (cdr matchitem))
                (command (if (commandp rest) rest
@@ -1970,7 +2022,9 @@ from the associated menu type in `one-key-types-of-menu' or using `one-key-defau
           ;; Update key usage statistics if necessary
           (unless (not one-key-auto-brighten-used-keys)
             (one-key-menu-increment-key-usage matchitem)
-            (if issymbol (add-to-list 'one-key-altered-menus (symbol-name thislist))))
+            (let* ((thislist (nth one-key-buffer-menu-number one-key-buffer-menu-alists))
+                   (issymbol (symbolp thislist)))
+              (if issymbol (add-to-list 'one-key-altered-menus (symbol-name thislist)))))
           ;; Execute the menu command in the associated window
           (with-selected-window one-key-buffer-associated-window (call-interactively command))
           ;; Keep open/close window according to the value of one-key-buffer-match-action
@@ -1981,16 +2035,19 @@ from the associated menu type in `one-key-types-of-menu' or using `one-key-defau
        ;; Handle special keys (help buffer not open)
        ((setq matchitem (assoc* key one-key-buffer-special-keybindings
                                 :test (lambda (x y) (equal x (one-key-remap-key-description y)))))
-        (funcall (caddr matchitem)))
-       ;; Handle all other (miss-match) keys.
-       (t (if one-key-buffer-miss-match-action
-              (if (functionp one-key-buffer-miss-match-action)
-                  (funcall one-key-buffer-miss-match-action)
-                (case one-key-buffer-miss-match-action
-                  (execute (one-key-execute-binding-command key))
-                  (executeclose (one-key-execute-binding-command key)
-                                (one-key-set-window-state 'close))
-                  (t (one-key-set-window-state one-key-buffer-miss-match-action))))))))))
+        (if (get-buffer one-key-buffer-name)
+            (with-current-buffer one-key-buffer-name
+                (funcall (caddr matchitem)))
+          (one-key-set-window-state 'close)))
+       ;; Handle all other (miss-match) keys unless we're in the help buffer.
+       ((not helpbufp) (if one-key-buffer-miss-match-action
+                           (if (functionp one-key-buffer-miss-match-action)
+                               (funcall one-key-buffer-miss-match-action)
+                             (case one-key-buffer-miss-match-action
+                               (execute (one-key-execute-binding-command key))
+                               (executeclose (one-key-execute-binding-command key)
+                                             (one-key-set-window-state 'close))
+                               (t (one-key-set-window-state one-key-buffer-miss-match-action))))))))))
 
 (defun one-key-update-buffer-contents (&optional title-string)
   "Update the contents of the one-key menu buffer.
@@ -2151,9 +2208,33 @@ will be tried (in accordance with normal emacs behaviour)."
         buffer-read-only nil)
   ;; Set keymap
   (set-char-table-range (second one-key-mode-map) t 'one-key-command)
-  (define-key one-key-mode-map [t] 'one-key-command)
-  (define-key one-key-mode-map (kbd "x") 'execute-extended-command)
-  (define-key one-key-mode-map (kbd ":") 'eval-expression))
+  (define-key one-key-mode-map [t] 'one-key-command))
+
+(define-derived-mode one-key-help-mode fundamental-mode "One-Key Help"
+  "The major-mode for the one-key help buffer."
+  :group 'one-key
+  ;; Make sure brackets are not highlighted by syntax table
+  :syntax-table (let ((table (make-syntax-table)))
+                  (dolist (char '(40 41 60 62 91 93 123 125))
+                    (modify-syntax-entry char "w" table))
+                  table)
+    ;; Set buffer local variables
+  (dolist (var '(one-key-buffer-special-keybindings
+                 one-key-buffer-associated-window
+                 one-key-buffer-dedicated-frame))
+    (set (make-local-variable var) nil))
+  ;; Set mode-line and header-line
+  (setq
+   ;mode-line-format one-key-mode-line-format
+   ;     header-line-format (one-key-header-line-format
+   ;                         (or one-key-buffer-menu-names "one-key")
+   ;                         one-key-buffer-menu-number)
+        cursor-type nil
+        one-key-help-mode-map (make-keymap)
+        buffer-read-only nil)
+  ;; Set keymap
+  (set-char-table-range (second one-key-help-mode-map) t 'one-key-command)
+  (define-key one-key-help-mode-map [t] 'one-key-command))
 
 (defun one-key-reposition-window-contents nil
   "Scroll the one-key buffer contents so that the top of the buffer is shown at the top of the window."
@@ -2170,10 +2251,11 @@ The one-key window will be selected after calling this function unless optional 
   (let* ((onekeybuf (get-buffer one-key-buffer-name))
          (onekeywin (get-buffer-window one-key-buffer-name t))
          (onekeyframe (if onekeywin (window-frame onekeywin)))
-         (helpwin (get-buffer-window one-key-help-buffer-name t))
+         (helpbuf (get-buffer one-key-help-buffer-name))
+         (helpwin (get-buffer-window helpbuf t))
          (helpframe (if helpwin (window-frame helpwin)))
-         (onekeybuflines (if onekeybuf (with-current-buffer onekeybuf
-                                         (+ 5 (count-lines (point-min) (point-max))))))
+         (buflines (with-current-buffer (or onekeybuf (current-buffer))
+                           (+ 5 (count-lines (point-min) (point-max)))))
          (maxlines (if one-key-buffer-dedicated-frame
                        (let ((lines (- (/ (display-pixel-height) (frame-char-height)) 4))
                              (initsize one-key-window-ownframe-initial-size))
@@ -2200,16 +2282,20 @@ The one-key window will be selected after calling this function unless optional 
                           (unless noselect (select-frame-set-input-focus frame)
                                   (select-window win))
                           (one-key-update-buffer-contents))))
-    (cond ((not onekeybuf) (error "No one-key buffer found"))
+    (cond ((not (or onekeybuf helpbuf)) (error "No one-key buffer found"))
+          ((and (not onekeybuf) (equal (current-buffer) helpbuf))
+           (kill-buffer helpbuf))
           ((integerp state)
-           (setq newlines (max (min state maxlines onekeybuflines) 5))
-           (if dedicatedframe (eval resizeframe) (eval resizewindow)))
+           (setq newlines (max (min state maxlines buflines) 5))
+           (if onekeybuf
+               (if dedicatedframe (eval resizeframe) (eval resizewindow))))
           ((floatp state)
            (setq newlines (max (min (round (* (max (min state 1.0) 0.0) maxlines))
-                                    onekeybuflines) 5))
-           (if dedicatedframe (eval resizeframe) (eval resizewindow)))
+                                    buflines) 5))
+           (if onekeybuf
+               (if dedicatedframe (eval resizeframe) (eval resizewindow))))
           ((eq state 'ownframe)
-           (setq newlines (max (min maxlines onekeybuflines) 5))
+           (setq newlines (max (min maxlines buflines) 5))
            (if dedicatedframe (eval resizeframe)
              (if onekeywin (delete-window onekeywin))
              (switch-to-buffer-other-frame onekeybuf t)
@@ -2227,7 +2313,8 @@ The one-key window will be selected after calling this function unless optional 
            (with-selected-window (or onekeywin (selected-window))
              (if (and helpframe (> (length (window-list helpframe)) 1))
                  (delete-window helpwin))
-             (display-buffer (get-buffer-create one-key-help-buffer-name))))
+             (display-buffer-pop-up-window
+              (get-buffer-create one-key-help-buffer-name) nil)))
           ((eq state 'hidehelp) (if helpwin
                                     (if (and dedicatedframe
                                              (> (length (window-list helpframe)) 1))
