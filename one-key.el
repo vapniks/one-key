@@ -2254,7 +2254,7 @@ The one-key window will be selected after calling this function unless optional 
          (onekeywin (get-buffer-window one-key-buffer-name t))
          (onekeyframe (if onekeywin (window-frame onekeywin)))
          (helpbuf (get-buffer one-key-help-buffer-name))
-         (helpwin (get-buffer-window helpbuf t))
+         (helpwin (if helpbuf (get-buffer-window helpbuf t)))
          (helpframe (if helpwin (window-frame helpwin)))
          (buflines (with-current-buffer (or onekeybuf (current-buffer))
                            (+ 5 (count-lines (point-min) (point-max)))))
@@ -2315,8 +2315,7 @@ The one-key window will be selected after calling this function unless optional 
            (with-selected-window (or onekeywin (selected-window))
              (if (and helpframe (> (length (window-list helpframe)) 1))
                  (delete-window helpwin))
-             (display-buffer-pop-up-window
-              (get-buffer-create one-key-help-buffer-name) nil)))
+             (display-buffer (get-buffer-create one-key-help-buffer-name) nil)))
           ((eq state 'hidehelp) (if helpwin
                                     (if (and dedicatedframe
                                              (> (length (window-list helpframe)) 1))
