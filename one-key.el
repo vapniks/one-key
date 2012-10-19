@@ -2256,33 +2256,48 @@ The one-key window will be selected after calling this function unless optional 
          (helpbuf (get-buffer one-key-help-buffer-name))
          (helpwin (if helpbuf (get-buffer-window helpbuf t)))
          (helpframe (if helpwin (window-frame helpwin)))
+         ;; The number of lines used by the buffer.
          (buflines (with-current-buffer (or onekeybuf (current-buffer))
                            (+ 5 (count-lines (point-min) (point-max)))))
+         ;; The number of lines currently used by the one-key window
+         (winlines (if onekeywin (window-text-height onekeywin)))
+         ;; The maximum height possible in lines.
          (maxlines (if one-key-buffer-dedicated-frame
-                       (let ((lines (- (/ (display-pixel-height) (frame-char-height)) 4))
-                             (initsize one-key-window-ownframe-initial-size))
-                         (if (floatp initsize)
-                             (round (* (max (min initsize 1.0) 0.0) lines))
-                           (min initsize lines)))
+                       (- (/ (display-pixel-height) (frame-char-height)) 4)
                      (frame-parameter nil 'height)))
+         ;; The initial height (in lines) if a new frame is to be created for the one-key buffer.
+         (initialsize (cond
+                       ((floatp one-key-window-ownframe-initial-size)
+                        (round (* maxlines one-key-window-ownframe-initial-size)))
+                       ((integerp one-key-window-ownframe-initial-size)
+                        (max (min one-key-window-ownframe-initial-size maxlines) 5))
+                       (t (error "Invalid value for one-key-window-ownframe-initial-size"))))
+         ;; The number of columns to be used for the width
          (cols (frame-parameter nil 'width))
          newlines
          ;; Make sure one-key-buffer-dedicated-frame is set correctly (the frame may have been deleted).
          (dedicatedframe (if onekeybuf
                              (with-current-buffer onekeybuf
-                               (if (not onekeyframe) (setq one-key-buffer-dedicated-frame nil))
+                               (if (not onekeyframe) (setq one-key-buffer-dedicated-frame nil)
+                                 ;; If one-key is the only buffer displayed in it's frame, and there are other
+                                 ;; frames then assume it has a dedicated frame
+                                 (if (and (= (length (window-list onekeyframe)) 1)
+                                          (> (length (frame-list)) 1))
+                                     (setq one-key-buffer-dedicated-frame onekeyframe)))
                                one-key-buffer-dedicated-frame)))
          ;; Use following let bindings instead of symbol-macrolets to allow debugging
          (resizeframe '(progn (set-frame-height dedicatedframe newlines)
                               (unless noselect
                                 (select-frame-set-input-focus dedicatedframe)
                                 (raise-frame dedicatedframe))
+                              ;(set-window-dedicated-p onekeywin t)
                               (one-key-update-buffer-contents)))
          (resizewindow '(let* ((win (or onekeywin (display-buffer onekeybuf)))
                                (frame (window-frame win)))
                           (fit-window-to-buffer win newlines)
                           (unless noselect (select-frame-set-input-focus frame)
                                   (select-window win))
+                          ;(set-window-dedicated-p win t)
                           (one-key-update-buffer-contents))))
     (cond ((not (or onekeybuf helpbuf)) (error "No one-key buffer found"))
           ((and (not onekeybuf) (equal (current-buffer) helpbuf))
@@ -2297,7 +2312,7 @@ The one-key window will be selected after calling this function unless optional 
            (if onekeybuf
                (if dedicatedframe (eval resizeframe) (eval resizewindow))))
           ((eq state 'ownframe)
-           (setq newlines (max (min maxlines buflines) 5))
+           (setq newlines (max (min maxlines buflines initialsize) 5))
            (if dedicatedframe (eval resizeframe)
              (if onekeywin (delete-window onekeywin))
              (switch-to-buffer-other-frame onekeybuf t)
@@ -2315,12 +2330,22 @@ The one-key window will be selected after calling this function unless optional 
            (with-selected-window (or onekeywin (selected-window))
              (if (and helpframe (> (length (window-list helpframe)) 1))
                  (delete-window helpwin))
-             (display-buffer (get-buffer-create one-key-help-buffer-name) nil)))
+             (let ((helpbuf (get-buffer-create one-key-help-buffer-name))
+                   (helpbuflines (if helpbuf (with-current-buffer helpbuf
+                                               (+ 5 (count-lines (point-min) (point-max)))))))
+               (if (not dedicatedframe)
+                   (display-buffer helpbuf)
+                 (set-frame-height dedicatedframe
+                                   (min maxlines
+                                        (+ (frame-height dedicatedframe)
+                                           helpbuflines)))
+                 (set-window-buffer (split-window-below winlines) helpbuf)))))
           ((eq state 'hidehelp) (if helpwin
-                                    (if (and dedicatedframe
-                                             (> (length (window-list helpframe)) 1))
-                                        (delete-window helpwin)
-                                      (switch-to-prev-buffer helpwin))))
+                                    (if (or (not dedicatedframe)
+                                            (= (length (window-list helpframe)) 1))
+                                        (switch-to-prev-buffer helpwin)
+                                      (delete-window helpwin)
+                                      (set-frame-height dedicatedframe (+ winlines 5)))))
           ((eq state 'close)
            (if dedicatedframe
                (progn (unless (= (length (visible-frame-list)) 1)
