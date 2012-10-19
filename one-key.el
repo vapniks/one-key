@@ -2208,7 +2208,8 @@ will be tried (in accordance with normal emacs behaviour)."
         buffer-read-only nil)
   ;; Set keymap
   (set-char-table-range (second one-key-mode-map) t 'one-key-command)
-  (define-key one-key-mode-map [t] 'one-key-command))
+  (define-key one-key-mode-map [t] 'one-key-command)
+  (use-local-map one-key-mode-map))
 
 (define-derived-mode one-key-help-mode fundamental-mode "One-Key Help"
   "The major-mode for the one-key help buffer."
@@ -2218,23 +2219,24 @@ will be tried (in accordance with normal emacs behaviour)."
                   (dolist (char '(40 41 60 62 91 93 123 125))
                     (modify-syntax-entry char "w" table))
                   table)
-    ;; Set buffer local variables
+  ;; Set buffer local variables
   (dolist (var '(one-key-buffer-special-keybindings
                  one-key-buffer-associated-window
                  one-key-buffer-dedicated-frame))
     (set (make-local-variable var) nil))
   ;; Set mode-line and header-line
   (setq
-   ;mode-line-format one-key-mode-line-format
-   ;     header-line-format (one-key-header-line-format
-   ;                         (or one-key-buffer-menu-names "one-key")
-   ;                         one-key-buffer-menu-number)
-        cursor-type nil
-        one-key-help-mode-map (make-keymap)
-        buffer-read-only nil)
+   ;; mode-line-format one-key-mode-line-format
+   ;;     header-line-format (one-key-header-line-format
+   ;;                         (or one-key-buffer-menu-names "one-key")
+   ;;                         one-key-buffer-menu-number)
+   cursor-type nil
+   one-key-help-mode-map (make-keymap)
+   buffer-read-only nil)
   ;; Set keymap
   (set-char-table-range (second one-key-help-mode-map) t 'one-key-command)
-  (define-key one-key-help-mode-map [t] 'one-key-command))
+  (define-key one-key-help-mode-map [t] 'one-key-command)
+  (use-local-map one-key-help-mode-map))
 
 (defun one-key-reposition-window-contents nil
   "Scroll the one-key buffer contents so that the top of the buffer is shown at the top of the window."
