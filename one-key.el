@@ -2209,7 +2209,6 @@ will be tried (in accordance with normal emacs behaviour)."
   ;; Set keymap
   (set-char-table-range (second one-key-mode-map) t 'one-key-command)
   (define-key one-key-mode-map [t] 'one-key-command)
-
   (use-local-map one-key-mode-map)
   (local-unset-key (kbd "ESC")))
 
