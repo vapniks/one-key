@@ -843,8 +843,8 @@ sort methods for different menus."
   :group 'one-key)
 
 (defcustom one-key-special-keybindings
-  `((quit-close "ESC" "Quit and close menu window" ,(apply-partially 'one-key-set-window-state 'close))
-    (quit-open"C-ESC" "Quit, but keep menu window open"
+  `((quit-close "q" "Quit and close menu window" ,(apply-partially 'one-key-set-window-state 'close))
+    (quit-open "C-q" "Quit, but keep menu window open"
               ,(apply-partially 'one-key-set-window-state 'deselect))
     (toggle-persistence "<C-menu>" "Toggle menu persistence"
                         (lambda nil (if one-key-buffer-match-action
@@ -1991,7 +1991,7 @@ from the associated menu type in `one-key-types-of-menu' or using `one-key-defau
   "Invoke command associated with last keypress in one-key buffer."
   (interactive)
   (let ((helpbufp (string= (buffer-name) one-key-help-buffer-name))
-        (key (one-key-key-description last-input-event)) matchitem)
+        (key (one-key-key-description (this-command-keys))) matchitem)
     (with-current-buffer (or (get-buffer one-key-buffer-name)
                              (get-buffer one-key-help-buffer-name))
       (cond
@@ -2295,14 +2295,12 @@ The one-key window will be selected after calling this function unless optional 
                               (unless noselect
                                 (select-frame-set-input-focus dedicatedframe)
                                 (raise-frame dedicatedframe))
-                                        ;(set-window-dedicated-p onekeywin t)
                               (one-key-update-buffer-contents)))
          (resizewindow '(let* ((win (or onekeywin (display-buffer onekeybuf)))
                                (frame (window-frame win)))
                           (fit-window-to-buffer win newlines)
                           (unless noselect (select-frame-set-input-focus frame)
                                   (select-window win))
-                                        ;(set-window-dedicated-p win t)
                           (one-key-update-buffer-contents))))
     (cond ((not (or onekeybuf helpbuf)) (error "No one-key buffer found"))
           ((and (not onekeybuf) (equal (current-buffer) helpbuf))
