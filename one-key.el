@@ -1053,6 +1053,15 @@ The keys will be displayed in the one-key help buffer in the order shown when th
   :group 'one-key
   :type '(repeat (symbol :tag "Name" :help-echo "The name/symbol corresponding to the keybinding.")))
 
+(defcustom one-key-major-mode-special-keybindings
+  (one-key-add-elements-to-list
+   'one-key-general-special-keybindings 
+   '(help documentation save-menu limit-items highlight-items edit-item delete-item kill-items yank-items swap-keys
+          add-item add-menu remove-menu move-item donate report-bug rebuild-menu))
+  "List of special keys to be used for major-mode menus (see `one-key-default-special-keybindings' for more info)."
+  :group 'one-key
+  :type '(repeat (symbol :tag "Name" :help-echo "The name/symbol corresponding to the keybinding.")))
+
 (defun one-key-assq-list (symlist alist)
   "Return a list of the cdr's of elements of ALIST whose car's match a symbol in SYMLIST.
 The matching is performed with assq so that only the first element of alist matching a symbol in SYMLIST is returned.
@@ -3370,7 +3379,7 @@ This function assumes dynamic binding of okr-title-string to the current title s
                       (list "major-mode"
                             (lambda (name) (string-match "^major-mode" name))
                             'one-key-get-major-mode-menu
-                            nil nil) t)
+                            nil 'one-key-major-mode-special-keybindings) t)
 (one-key-add-to-alist 'one-key-types-of-menu
                       (list "existing menu"
                             (lambda (name) (equal name "existing menu"))
