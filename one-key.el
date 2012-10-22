@@ -2037,7 +2037,7 @@ from the associated menu type in `one-key-types-of-menu' or using `one-key-defau
                                 :test (lambda (x y) (equal x (one-key-remap-key-description y)))))
         (if (get-buffer one-key-buffer-name)
             (with-current-buffer one-key-buffer-name
-                (funcall (caddr matchitem)))
+              (funcall (caddr matchitem)))
           (one-key-set-window-state 'close)))
        ;; Handle all other (miss-match) keys unless we're in the help buffer.
        ((not helpbufp) (if one-key-buffer-miss-match-action
@@ -2209,7 +2209,9 @@ will be tried (in accordance with normal emacs behaviour)."
   ;; Set keymap
   (set-char-table-range (second one-key-mode-map) t 'one-key-command)
   (define-key one-key-mode-map [t] 'one-key-command)
-  (use-local-map one-key-mode-map))
+
+  (use-local-map one-key-mode-map)
+  (local-unset-key (kbd "ESC")))
 
 (define-derived-mode one-key-help-mode fundamental-mode "One-Key Help"
   "The major-mode for the one-key help buffer."
