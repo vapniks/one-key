@@ -1720,7 +1720,7 @@ with this menu. The current sort index is stored for this menu is stored in `one
          (keys (if (not onemenu) (mapcar (lambda (x) (caar x)) sorteditems)))
          (descs (if (not onemenu) (mapcar (lambda (x) (cdar x)) sorteditems)))
          (commands (if (not onemenu) (mapcar 'cdr sorteditems)))
-         (sortedlists (if onemenu sorteditems (one-key-create-menu-lists commands descs keys nil)))
+         (sortedlists (if onemenu sorteditems (one-key-create-menu-lists commands descs keys nil :invalidkeys nil)))
          (basename (replace-regexp-in-string " ([0-9]+)$" "" name))
          (newnames (if onemenu name (one-key-append-numbers-to-menu-name basename (length sortedlists)))))
     (if onemenu (setf (nth one-key-buffer-menu-number one-key-buffer-menu-alists) sortedlists)
@@ -2887,9 +2887,8 @@ in the associated menu."
           do (setq start end end (min (+ end maxsize) nitems))
           collect (cons start end))))
 
-(defun* one-key-create-menu-lists (commands &optional descriptions keys
-                                            (addkeydescs t)
-                                            (maxsize (length one-key-default-menu-keys))
+(defun* one-key-create-menu-lists (commands &optional descriptions keys (addkeydescs t)
+                                            &key (maxsize (length one-key-default-menu-keys))
                                             (keyfunc 'one-key-generate-key)
                                             (invalidkeys
                                              (append one-key-disallowed-keymap-menu-keys
