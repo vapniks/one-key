@@ -1791,15 +1791,16 @@ This function only works when called within the context of the one-key buffer si
           (error "Number of menu names doesn't match number of menus"))
         (setq one-key-buffer-menu-names
               (concatenate 'list
-                           (subseq one-key-buffer-menu-names 0 (1+ one-key-buffer-menu-names))
+                           (subseq one-key-buffer-menu-names 0 (1+ one-key-buffer-menu-number))
                            (if (and multi newnames) newnames (list newnames))
-                           (subseq one-key-buffer-menu-names (1+ one-key-buffer-menu-names) listlen))
+                           (subseq one-key-buffer-menu-names (1+ one-key-buffer-menu-number) listlen))
               one-key-buffer-menu-alists
               (concatenate 'list
                            (subseq one-key-buffer-menu-alists 0 (1+ one-key-buffer-menu-number))
                            (if (and multi newlists) newlists (list newlists))
                            (subseq one-key-buffer-menu-alists (1+ one-key-buffer-menu-number) listlen))
-              one-key-buffer-menu-number (1+ one-key-buffer-menu-number))))))
+              one-key-buffer-menu-number (1+ one-key-buffer-menu-number)))))
+  (one-key-update-buffer-contents))
 
 (defun one-key-get-indices-of-matches (regexp names)
   "Return list of indices of elements of NAMES (a list of strings) that match REGEXP (a regular expression)."
@@ -1854,25 +1855,27 @@ If there is currently only one loaded menu, the one-key window will be closed.
 The function returns the number of menus deleted.
 
 This function only works when called within the context of the one-key buffer since it depends on buffer local variables."
-  (let* ((listlen (length one-key-buffer-menu-alists))
-         (indices (if (stringp menus)
-                      (one-key-get-indices-of-matches menus one-key-buffer-menu-names)
-                    (if (listp menus) menus (list menus)))))
-    (unless (= listlen (length one-key-buffer-menu-names))
-      (error "Number of menu names doesn't match number of menus"))
-    (if (= (length indices) 1)
-        (progn (one-key-set-window-state 'close) 1)
-      (dolist (index indices)
-        (setq one-key-buffer-menu-names
-              (concatenate 'list
-                           (subseq one-key-buffer-menu-names 0 index)
-                           (subseq one-key-buffer-menu-names (1+ index) listlen))
-              one-key-buffer-menu-alists
-              (concatenate 'list
-                           (subseq one-key-buffer-menu-alists 0 index)
-                           (subseq one-key-buffer-menu-alists (1+ index) listlen))
-              one-key-buffer-menu-number (min index (- listlen 2))))
-      (length indices))))
+  (with-current-buffer one-key-buffer-name
+    (let* ((listlen (length one-key-buffer-menu-alists))
+           (indices (if (stringp menus)
+                        (one-key-get-indices-of-matches menus one-key-buffer-menu-names)
+                      (if (listp menus) menus (list menus)))))
+      (unless (= listlen (length one-key-buffer-menu-names))
+        (error "Number of menu names doesn't match number of menus"))
+      (if (= (length indices) 1)
+          (progn (one-key-set-window-state 'close) 1)
+        (dolist (index indices)
+          (setq one-key-buffer-menu-names
+                (concatenate 'list
+                             (subseq one-key-buffer-menu-names 0 index)
+                             (subseq one-key-buffer-menu-names (1+ index) listlen))
+                one-key-buffer-menu-alists
+                (concatenate 'list
+                             (subseq one-key-buffer-menu-alists 0 index)
+                             (subseq one-key-buffer-menu-alists (1+ index) listlen))
+                one-key-buffer-menu-number (min index (- listlen 2))))
+        (length indices))))
+  (one-key-update-buffer-contents))
 
 (defun one-key-delete-associated-menus (&optional (menunum one-key-buffer-menu-number))
   "Remove all menus (from the currently loaded menus) that are associated with the current menu.
