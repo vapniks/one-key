@@ -2890,7 +2890,11 @@ in the associated menu."
 (defun* one-key-create-menu-lists (commands &optional descriptions keys
                                             (addkeydescs t)
                                             (maxsize (length one-key-default-menu-keys))
-                                            (keyfunc 'one-key-generate-key))
+                                            (keyfunc 'one-key-generate-key)
+                                            (invalidkeys
+                                             (append one-key-disallowed-keymap-menu-keys
+                                                     (one-key-get-special-key-descriptions
+                                                      one-key-default-special-keybindings))))
   "Create list/lists of menu items for use in `one-key' menu.
 COMMANDS should be a list of commands for the menu items, and KEYS an optional corresponding list of keys.
 If any element in KEYS is nil, or is a repeat of a previously used key in the current menu, or if KEYS is nil,
@@ -2902,44 +2906,50 @@ set from the corresponding command name.
 If the number of menu items is larger than MAXSIZE then several menus will be created, each of
 which contains at most MAXSIZE items. By default MAXSIZE is equal to the length of `one-key-default-menu-keys',
 and KEYFUNC is set to `one-key-generate-key' (which selects keys from `one-key-default-menu-keys').
+If ADDKEYDESCS is non-nil (default) then key descriptions will be added to the end of the command descriptions
+in the menu.
 
-Finally, if ADDKEYDESCS is non-nil (default) then key descriptions will be added to the end of the command descriptions
-in the menu."
+INVALIDKEYS is an optional list of keys to exclude from the menu. If any key in KEYS is also in INVALIDKEYS then
+a new key will be created to replace it. By default it is set to the keys in `one-key-disallowed-keymap-menu-keys'
+and `one-key-get-special-key-descriptions'."
   (let* ((nitems (length commands))
          (indices (one-key-get-menu-splits nitems maxsize))
          (nummenus (length indices))
-         (menu-alists (loop for (start . end) in indices
-                            for cmds = (subseq commands start end)
-                            for descs = (subseq descriptions start end)
-                            for keys2 = (subseq keys start end)
-                            for usedkeys = nil
-                            for descs2 = (loop for desc in descs
-                                               for cmd in cmds
-                                               for key in keys2
-                                               for desc2 = (or desc
-                                                               (capitalize
-                                                                (replace-regexp-in-string
-                                                                 "-" " " (symbol-name cmd))))
-                                               collect (if (and key addkeydescs)
-                                                           (concat desc2 " ("
-                                                                   (one-key-key-description key)
-                                                                   ")")
-                                                         desc2))
-                            for keystrs = (loop for key in keys2
-                                                for desc in descs2
-                                                if (member key usedkeys)
-                                                collect (let ((newkey (funcall keyfunc desc usedkeys)))
-                                                              (push newkey usedkeys)
-                                                              newkey)
-                                                else
-                                                collect (or (and key (push key usedkeys) (one-key-key-description key))
-                                                            (let ((newkey (funcall keyfunc desc usedkeys)))
-                                                              (push newkey usedkeys)
-                                                              newkey)))
-                            collect (loop for cmd in cmds
-                                          for desc in descs2
-                                          for key in keystrs
-                                          collect (cons (cons key desc) cmd)))))
+         (menu-alists
+          (loop for (start . end) in indices
+                for cmds = (subseq commands start end)
+                for descs = (subseq descriptions start end)
+                for keys2 = (subseq keys start end)
+                for usedkeys = invalidkeys
+                for descs2 = (loop for desc in descs
+                                   for cmd in cmds
+                                   for key in keys2
+                                   for desc2 = (or desc
+                                                   (capitalize
+                                                    (replace-regexp-in-string
+                                                     "-" " " (symbol-name cmd))))
+                                   collect (if (and key addkeydescs)
+                                               (concat desc2 " ("
+                                                       (one-key-key-description key)
+                                                       ")")
+                                             desc2))
+                for keystrs = (loop for key in keys2
+                                    for desc in descs2
+                                    for keydesc = (one-key-key-description key)
+                                    if (member* keydesc usedkeys
+                                                :test (lambda (a b) (equal a (one-key-key-description b))))
+                                    collect (let ((newkey (funcall keyfunc desc usedkeys)))
+                                              (push newkey usedkeys)
+                                              newkey)
+                                    else
+                                    collect (or (and key (push keydesc usedkeys) keydesc)
+                                                (let ((newkey (funcall keyfunc desc usedkeys)))
+                                                  (push newkey usedkeys)
+                                                  newkey)))
+                collect (loop for cmd in cmds
+                              for desc in descs2
+                              for key in keystrs
+                              collect (cons (cons key desc) cmd)))))
     menu-alists))
 
 (defun one-key-build-menu-sets-menu-alist nil
