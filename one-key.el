@@ -1785,20 +1785,21 @@ This function only works when called within the context of the one-key buffer si
          (newnames (car both))
          (newlists (cdr both))
          (multi (listp newnames)))
-    (let* ((listlen (length one-key-buffer-menu-alists)))
-      (unless (= listlen (length one-key-buffer-menu-names))
-        (error "Number of menu names doesn't match number of menus"))
-      (setq one-key-buffer-menu-names
-            (concatenate 'list
-                         (subseq one-key-buffer-menu-names 0 (1+ one-key-buffer-menu-names))
-                         (if (and multi newnames) newnames (list newnames))
-                         (subseq one-key-buffer-menu-names (1+ one-key-buffer-menu-names) listlen))
-            one-key-buffer-menu-alists
-            (concatenate 'list
-                         (subseq one-key-buffer-menu-alists 0 (1+ one-key-buffer-menu-number))
-                         (if (and multi newlists) newlists (list newlists))
-                         (subseq one-key-buffer-menu-alists (1+ one-key-buffer-menu-number) listlen))
-            one-key-buffer-menu-number (1+ one-key-buffer-menu-number)))))
+    (with-current-buffer one-key-buffer-name
+      (let* ((listlen (length one-key-buffer-menu-alists)))
+        (unless (= listlen (length one-key-buffer-menu-names))
+          (error "Number of menu names doesn't match number of menus"))
+        (setq one-key-buffer-menu-names
+              (concatenate 'list
+                           (subseq one-key-buffer-menu-names 0 (1+ one-key-buffer-menu-names))
+                           (if (and multi newnames) newnames (list newnames))
+                           (subseq one-key-buffer-menu-names (1+ one-key-buffer-menu-names) listlen))
+              one-key-buffer-menu-alists
+              (concatenate 'list
+                           (subseq one-key-buffer-menu-alists 0 (1+ one-key-buffer-menu-number))
+                           (if (and multi newlists) newlists (list newlists))
+                           (subseq one-key-buffer-menu-alists (1+ one-key-buffer-menu-number) listlen))
+              one-key-buffer-menu-number (1+ one-key-buffer-menu-number))))))
 
 (defun one-key-get-indices-of-matches (regexp names)
   "Return list of indices of elements of NAMES (a list of strings) that match REGEXP (a regular expression)."
@@ -2565,7 +2566,8 @@ a new menu will be added to the current menu set.
 This function only works when called within the context of the one-key buffer since it depends on buffer local variables."
   (one-key-add-menus names vars)
   (if one-key-submenus-replace-parents
-      (one-key-delete-menus (1- one-key-buffer-menu-number))))
+      (with-current-buffer one-key-buffer-name
+        (one-key-delete-menus (1- one-key-buffer-menu-number)))))
 
 (defun one-key-merge-menu-lists (lista listb)
   "Given two one-key menu lists, merge them and return the result.
