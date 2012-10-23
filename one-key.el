@@ -2907,10 +2907,12 @@ which contains at most MAXSIZE items. By default MAXSIZE is equal to the length 
 and KEYFUNC is set to `one-key-generate-key' (which selects keys from `one-key-default-menu-keys').
 If ADDKEYDESCS is non-nil (default) then key descriptions will be added to the end of the command descriptions
 in the menu.
-
 INVALIDKEYS is an optional list of keys to exclude from the menu. If any key in KEYS is also in INVALIDKEYS then
 a new key will be created to replace it. By default it is set to the keys in `one-key-disallowed-keymap-menu-keys'
-and `one-key-get-special-key-descriptions'."
+and `one-key-get-special-key-descriptions'.
+
+MAXSIZE, KEYFUNC and INVALIDKEYS are keyword arguments and need to be set using, e.g. :maxsize arg1, :keyfunc arg2,
+and :invalidkeys arg3."
   (let* ((nitems (length commands))
          (indices (one-key-get-menu-splits nitems maxsize))
          (nummenus (length indices))
