@@ -2580,10 +2580,10 @@ also occur in LISTA will be exchanged for a new key that doesn't occur in either
                       (progn (push cmd usedcmds) cmd))))
 
 (defun* one-key-create-menus-from-menubar-keymap (keymap &optional (name (number-to-string (random)))
-                                                         (invalidkeys
-                                                          (append one-key-disallowed-keymap-menu-keys
-                                                                  (one-key-get-special-key-descriptions
-                                                                   one-key-default-special-keybindings))))
+                                                         &key (invalidkeys
+                                                               (append one-key-disallowed-keymap-menu-keys
+                                                                       (one-key-get-special-key-descriptions
+                                                                        one-key-default-special-keybindings))))
   "Create menu alists for a menu-bar keymap KEYMAP and all sub menus.
 Submenus will always be assigned to variables whose names are formed by concatenating NAME with the name of the menu-bar
 submenu. If NAME is not supplied then a random number will be used instead.
@@ -2678,6 +2678,7 @@ These keys will only be excluded from the toplevel menu, not the submenus."
                                                             "-map$" "" (symbol-name keymap))
                                                          "unknown"))
                                                  prefix
+                                                 &key
                                                  (invalidkeys
                                                   (append one-key-disallowed-keymap-menu-keys
                                                           (one-key-get-special-key-descriptions
@@ -2787,7 +2788,7 @@ in `one-key-default-special-keybindings'."
                       (y-or-n-p "Include menu-bar items?"))))
         ;; we use no name for the menubar menu since the symbol will subsequently be uninterned anyway
         (let ((menuvar (one-key-create-menus-from-menubar-keymap menubar (concat name "-menubar")
-                                                                 (append usedkeys invalidkeys))))
+                                                                 :invalidkeys (append usedkeys invalidkeys))))
           (setq menu-alist (one-key-merge-menu-lists menu-alist (eval menuvar)))
           (unintern (symbol-name menuvar))))
     ;; set the value of the variable to hold the main menu, and make sure it will be saved if necessary
