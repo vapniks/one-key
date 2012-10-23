@@ -1099,9 +1099,7 @@ If `specialkeys' is a list then a list of strings will be returned."
          (len (length keys)))
     (if (> len 1) keys (car keys))))
 
-(defcustom one-key-disallowed-keymap-menu-keys (nconc '("M-TAB")
-                                                      (one-key-get-special-key-descriptions
-                                                       one-key-default-special-keybindings))
+(defcustom one-key-disallowed-keymap-menu-keys '("M-TAB")
   "List of keys that should be excluded from one-key menus created from keymaps.
 Each item in this list is a key description as returned by `one-key-key-description'."
   :group 'one-key
@@ -2582,7 +2580,10 @@ also occur in LISTA will be exchanged for a new key that doesn't occur in either
                       (progn (push cmd usedcmds) cmd))))
 
 (defun* one-key-create-menus-from-menubar-keymap (keymap &optional (name (number-to-string (random)))
-                                                         invalidkeys)
+                                                         (invalidkeys
+                                                          (append one-key-disallowed-keymap-menu-keys
+                                                                  (one-key-get-special-key-descriptions
+                                                                   one-key-default-special-keybindings))))
   "Create menu alists for a menu-bar keymap KEYMAP and all sub menus.
 Submenus will always be assigned to variables whose names are formed by concatenating NAME with the name of the menu-bar
 submenu. If NAME is not supplied then a random number will be used instead.
@@ -2676,7 +2677,11 @@ These keys will only be excluded from the toplevel menu, not the submenus."
                                                            (replace-regexp-in-string
                                                             "-map$" "" (symbol-name keymap))
                                                          "unknown"))
-                                                 prefix)
+                                                 prefix
+                                                 (invalidkeys
+                                                  (append one-key-disallowed-keymap-menu-keys
+                                                          (one-key-get-special-key-descriptions
+                                                           one-key-default-special-keybindings))))
   "Create menu alists for a keymap and all sub keymaps.
 KEYMAP is the keymap or keymap symbol to use, NAME is a name for the keymap (e.g. \"emacs-lisp-mode\") and will
 be used to remove common prefix words from the item descriptions.
@@ -2690,8 +2695,10 @@ function is called recursively).
 
 Any submenus that have fewer than `one-key-min-keymap-submenu-size' items will be merged with their parent menu,
 unless this would create a menu of more than (length one-key-default-menu-keys) items.
-Also any items whose commands have keybindings that are in `one-key-disallowed-keymap-menu-keys' will have new keys
-created for them."
+
+Also any items whose commands have keybindings that are in INVALIDKEYS will have new keys created for them.
+By default this is set to the keys in `one-key-disallowed-keymap-menu-keys' and the keys used by the special keys
+in `one-key-default-special-keybindings'."
   (let* ((name (or name  ; make sure the name variable is set properly
                    (if (symbolp keymap)
                        (replace-regexp-in-string
@@ -2732,7 +2739,7 @@ created for them."
                            (desc1b (capitalize (replace-regexp-in-string "-" " " desc1a)))
                            (desc2 (concat desc1b " (" keydesc ")"))
                            ;; if the key is invalid, generate a new one
-                           (keystr2 (if (member keystr one-key-disallowed-keymap-menu-keys)
+                           (keystr2 (if (member keystr invalidkeys)
                                         (one-key-generate-key desc2 usedkeys)
                                       keystr)))
                       ;; mark this command as used
@@ -2748,7 +2755,7 @@ created for them."
                            (desc2 (concat "Prefix key (" keydesc ")"))
                            (desc3 (one-key-colourize-string "cyan" desc2))
                            ;; if the key is invalid, generate a new one
-                           (keystr2 (if (member keystr one-key-disallowed-keymap-menu-keys)
+                           (keystr2 (if (member keystr invalidkeys)
                                         (one-key-generate-key desc2 usedkeys)
                                       keystr))
                            (existingvar (intern-soft (concat "one-key-menu-" submenuname "-alist"))))
@@ -2779,7 +2786,8 @@ created for them."
                  (and (eq one-key-include-menubar-items 'prompt)
                       (y-or-n-p "Include menu-bar items?"))))
         ;; we use no name for the menubar menu since the symbol will subsequently be uninterned anyway
-        (let ((menuvar (one-key-create-menus-from-menubar-keymap menubar (concat name "-menubar") usedkeys)))
+        (let ((menuvar (one-key-create-menus-from-menubar-keymap menubar (concat name "-menubar")
+                                                                 (append usedkeys invalidkeys))))
           (setq menu-alist (one-key-merge-menu-lists menu-alist (eval menuvar)))
           (unintern (symbol-name menuvar))))
     ;; set the value of the variable to hold the main menu, and make sure it will be saved if necessary
