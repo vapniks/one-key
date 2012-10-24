@@ -843,9 +843,9 @@ sort methods for different menus."
   :group 'one-key)
 
 (defcustom one-key-special-keybindings
-  `((quit-close "q" "Quit and close menu window" ,(apply-partially 'one-key-set-window-state 'close))
+  `((quit-close "q" "Quit and close menu window" (lambda nil (setq one-key-buffer-temp-action 'close)))
     (quit-open "C-q" "Quit, but keep menu window open"
-              ,(apply-partially 'one-key-set-window-state 'deselect))
+               (lambda nil (setq one-key-buffer-temp-action 'deselect)))
     (toggle-persistence "<C-menu>" "Toggle menu persistence"
                         (lambda nil (if one-key-buffer-match-action
                                         (setq one-key-buffer-match-action nil
@@ -920,9 +920,8 @@ sort methods for different menus."
     (add-menu "<C-f9>" "Add a menu" one-key-add-menus)
     (remove-menu "<C-S-f9>" "Remove this menu" one-key-delete-menus)
     (move-item "<f10>" "Reposition item (with arrow keys)"
-               (lambda nil (let ((key (one-key-key-description
-                                       (read-event "Enter key of item to be moved"))))
-                             (setq one-key-current-item-being-moved key)) t))
+               (lambda nil (let ((key (one-key-key-description (read-event "Enter key of item to be moved"))))
+                             (setq one-key-current-item-being-moved key))))
     (donate "<f11>" "Donate to support further development"
             (lambda nil (browse-url "http://onekeydonate.dynalias.net")))
     (report-bug "<C-f11>" "Report a bug" one-key-submit-bug-report)
@@ -938,7 +937,7 @@ sort methods for different menus."
                        (message "%S" names))))
     (customize-menusets "C-c" "Customize menu sets"
                         (lambda nil
-                          (setq one-key-menu-window-configuration nil)
+                          (one-key-set-window-state 'close)
                           (with-selected-window (previous-window)
                             (customize-group 'one-key-menu-sets))))
     (change-default-menuset "<f5>" "Change default menu set"
@@ -993,16 +992,16 @@ sort methods for different menus."
                     (one-key-update-buffer-contents)))
     (rebuild-menu "<M-f11>" "Rebuild the menu" one-key-rebuild-menu)
     (read-tree-up "RET" "Complete current list"
-                  (lambda nil (setq selected-item 'goup) nil))
+                  (lambda nil (setq selected-item 'goup)))
     (read-tree-up2 ")" "Complete current list"
-                   (lambda nil (setq selected-item 'goup) nil))
+                   (lambda nil (setq selected-item 'goup)))
     (read-tree-down "SPC" "Start new list recursively"
-                    (lambda nil (setq selected-item 'godown) nil))
+                    (lambda nil (setq selected-item 'godown)))
     (read-tree-down2 "(" "Start new list recursively"
-                     (lambda nil (setq selected-item 'godown) nil))
+                     (lambda nil (setq selected-item 'godown)))
     (read-tree-delete "<backspace>" "Remove last item from list"
-                      (lambda nil (setq selected-item 'del) nil))
-    (read-logical-negate "!" "Negate next item" (lambda nil (setq selected-item 'not) nil))
+                      (lambda nil (setq selected-item 'del)))
+    (read-logical-negate "!" "Negate next item" (lambda nil (setq selected-item 'not)))
     )
   "An list of special keys; labels, keybindings, descriptions and associated functions.
 Each item in the list contains (in this order):
@@ -1406,11 +1405,11 @@ This is set to the window that was selected when the one-key menu was opened.
 This variable is local to the one-key buffer.")
 
 (defvar one-key-buffer-temp-action nil
-  "Indicates what to do after the last key was pressed in the one-key buffer.
-This variable may be set by special key or menu commands and it's value is treated in the same way as
-`one-key-buffer-match-action' except that it is overridden by `one-key-buffer-match-action' after a menu command
-if `one-key-buffer-temp-action' is nil.
-Also the value is reset to nil after performing the associated action.
+  "Indicates what to do after the last key was pressed in the one-key buffer. 
+This variable may be set by special key or menu commands in the context of the one-key buffer.
+It's value is treated in the same way as `one-key-buffer-match-action' except that it is overridden by
+`one-key-buffer-match-action' after a menu command if `one-key-buffer-temp-action' is nil.
+The default value is nil and it is reset to nil after performing the associated action.
 
 This variable is local to the one-key buffer.")
 
@@ -2046,10 +2045,9 @@ from the associated menu type in `one-key-types-of-menu' or using `one-key-defau
                    (issymbol (symbolp thislist)))
               (if issymbol (add-to-list 'one-key-altered-menus (symbol-name thislist)))))
           ;; Execute the menu command in the associated window, (and get action to perform afterwards).
-          (with-selected-window one-key-buffer-associated-window
-            (call-interactively command)
-            (setq postaction (or one-key-buffer-temp-action
-                                 one-key-buffer-match-action)))))
+          (with-selected-window one-key-buffer-associated-window (call-interactively command))
+          (setq postaction (or one-key-buffer-temp-action
+                               one-key-buffer-match-action))))
        ;; Handle all other (miss-match) keys unless called from the help buffer.
        ((not helpbufp)
         (setq postaction one-key-buffer-miss-match-action)))
@@ -2061,7 +2059,9 @@ from the associated menu type in `one-key-types-of-menu' or using `one-key-defau
             ((eq postaction 'executeclose)
              (one-key-execute-binding-command key)
              (one-key-set-window-state 'close))
-            (t (one-key-set-window-state postaction))))))
+            (t (one-key-set-window-state postaction)))
+      ;; Reset one-key-buffer-temp-action.
+      (setq one-key-buffer-temp-action nil))))
 
 (defun one-key-update-buffer-contents (&optional title-string)
   "Update the contents of the one-key menu buffer.
@@ -3110,6 +3110,7 @@ If SUBMENUP is non-nil then the `one-key-open-submenu' command is used to add/re
   "Submit a bug report for one-key via mail."
   (interactive)
   (require 'reporter)
+  (one-key-set-window-state 'close)
   (let ((reporter-prompt-for-summary-p "Bug report subject: "))
     (reporter-submit-bug-report
      one-key-maintainer-email
