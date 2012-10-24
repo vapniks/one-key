@@ -1194,9 +1194,6 @@ This should probably be left alone unless you remove `toggle-help' or `quit-clos
 (defvar one-key-null-keys (regexp-opt '("<remap>" "mouse" "<follow-link>"))
   "Regular expression matching key descriptions of keymap items that should be excluded from `one-key' menus.")
 
-(defvar one-key-menu-window-configuration nil
-  "Variable that records the window configuration that was in place before the popup menu window was opened.")
-
 (defvar one-key-menu-show-key-help nil
   "If true show help for function associated with next keystroke, when it is pressed in the one-key-menu.")
 
@@ -3135,7 +3132,6 @@ If SUBMENUP is non-nil then the `one-key-open-submenu' command is used to add/re
            'one-key-major-mode-remap-alist
            'one-key-menu-sets-special-keybindings
            'one-key-menu-show-key-help
-           'one-key-menu-window-configuration
            'one-key-menu-window-max-height
            'one-key-menus-save-file
            'one-key-min-keymap-submenu-size
