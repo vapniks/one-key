@@ -1405,11 +1405,21 @@ This is set to the window that was selected when the one-key menu was opened.
 
 This variable is local to the one-key buffer.")
 
+(defvar one-key-buffer-temp-action nil
+  "Indicates what to do after the last key was pressed in the one-key buffer.
+This variable may be set by special key or menu commands and it's value is treated in the same way as
+`one-key-buffer-match-action' except that it is overridden by `one-key-buffer-match-action' after a menu command
+if `one-key-buffer-temp-action' is nil.
+Also the value is reset to nil after performing the associated action.
+
+This variable is local to the one-key buffer.")
+
 (defvar one-key-buffer-match-action 'close
   "Indicates what to do after a matching (menu item) key is pressed, and the associated command is executed.
 The value should be either nil which means do nothing and leave the window open, a function to be called with
 no arguments, or a symbol which is interpreted in the same way as the possible values for `one-key-window-toggle-sequence'.
 The default value is 'close (i.e. close the one-key window).
+This variable may be temporarily overridden by the value of `one-key-buffer-temp-action' by individual commands.
 
 This variable is local to the one-key buffer.")
 
@@ -2002,7 +2012,8 @@ from the associated menu type in `one-key-types-of-menu' or using `one-key-defau
   "Invoke command associated with last keypress in one-key buffer."
   (interactive)
   (let ((helpbufp (string= (buffer-name) one-key-help-buffer-name))
-        (key (one-key-key-description (this-command-keys))) matchitem)
+        (key (one-key-key-description (this-command-keys)))
+        matchitem postaction)
     (with-current-buffer (or (get-buffer one-key-buffer-name)
                              (get-buffer one-key-help-buffer-name))
       (cond
@@ -2010,17 +2021,15 @@ from the associated menu type in `one-key-types-of-menu' or using `one-key-defau
        ((and (string-match "mouse" key)) t)
        ;; Make sure frame switching works.
        ((and (string= "<switch-frame>" key)) (select-frame (previous-frame)))
-       ;; If only the help buffer is available then close it.
-       ((and helpbufp (not (get-buffer one-key-buffer-name)))
-        (one-key-set-window-state 'close))
-       ;; If the help buffer is showing then the special keybindings get priority
-       ((and (get-buffer-window one-key-help-buffer-name)
-             (setq matchitem (assoc* key one-key-buffer-special-keybindings
-                                     :test (lambda (x y) (equal x (one-key-remap-key-description y))))))
-        ;; Make sure we call the special key function in the one-key buffer (we might be in the help buffer).
-        (with-current-buffer one-key-buffer-name
-          (funcall (caddr matchitem))))
-       ;; Handle keystrokes matching menu items unless we're in the help buffer.
+       ;; If this is the help buffer then there's no one-key buffer, so close the help buffer too.
+       ((string= (buffer-name) one-key-help-buffer-name)
+        (setq postaction 'close))
+       ;; Handle special keys
+       ((setq matchitem (assoc* key one-key-buffer-special-keybindings
+                                :test (lambda (x y) (equal x (one-key-remap-key-description y)))))
+        (funcall (caddr matchitem))
+        (setq postaction one-key-buffer-temp-action))
+       ;; Handle keystrokes matching menu items unless called from the help buffer.
        ((and (not helpbufp)
              (setq matchitem (assoc* key one-key-buffer-filtered-list
                                      :test (lambda (x y) (equal x (one-key-remap-key-description (car y)))))))
@@ -2036,29 +2045,23 @@ from the associated menu type in `one-key-types-of-menu' or using `one-key-defau
             (let* ((thislist (nth one-key-buffer-menu-number one-key-buffer-menu-alists))
                    (issymbol (symbolp thislist)))
               (if issymbol (add-to-list 'one-key-altered-menus (symbol-name thislist)))))
-          ;; Execute the menu command in the associated window
-          (with-selected-window one-key-buffer-associated-window (call-interactively command))
-          ;; Keep open/close window according to the value of one-key-buffer-match-action
-          (if one-key-buffer-match-action
-              (if (functionp one-key-buffer-match-action)
-                  (funcall one-key-buffer-match-action)
-                (one-key-set-window-state one-key-buffer-match-action)))))
-       ;; Handle special keys (help buffer not open)
-       ((setq matchitem (assoc* key one-key-buffer-special-keybindings
-                                :test (lambda (x y) (equal x (one-key-remap-key-description y)))))
-        (if (get-buffer one-key-buffer-name)
-            (with-current-buffer one-key-buffer-name
-              (funcall (caddr matchitem)))
-          (one-key-set-window-state 'close)))
-       ;; Handle all other (miss-match) keys unless we're in the help buffer.
-       ((not helpbufp) (if one-key-buffer-miss-match-action
-                           (if (functionp one-key-buffer-miss-match-action)
-                               (funcall one-key-buffer-miss-match-action)
-                             (case one-key-buffer-miss-match-action
-                               (execute (one-key-execute-binding-command key))
-                               (executeclose (one-key-execute-binding-command key)
-                                             (one-key-set-window-state 'close))
-                               (t (one-key-set-window-state one-key-buffer-miss-match-action))))))))))
+          ;; Execute the menu command in the associated window, (and get action to perform afterwards).
+          (with-selected-window one-key-buffer-associated-window
+            (call-interactively command)
+            (setq postaction (or one-key-buffer-temp-action
+                                 one-key-buffer-match-action)))))
+       ;; Handle all other (miss-match) keys unless called from the help buffer.
+       ((not helpbufp)
+        (setq postaction one-key-buffer-miss-match-action)))
+      ;; Set one-key window state appropriately according to value of postaction var (nil by default).
+      (cond ((functionp postaction)
+             (funcall postaction))
+            ((eq postaction 'execute)
+             (one-key-execute-binding-command key))
+            ((eq postaction 'executeclose)
+             (one-key-execute-binding-command key)
+             (one-key-set-window-state 'close))
+            (t (one-key-set-window-state postaction))))))
 
 (defun one-key-update-buffer-contents (&optional title-string)
   "Update the contents of the one-key menu buffer.
@@ -2204,6 +2207,7 @@ will be tried (in accordance with normal emacs behaviour)."
                  one-key-buffer-special-keybindings
                  one-key-buffer-filter-regex
                  one-key-buffer-filtered-list
+                 one-key-buffer-temp-action
                  one-key-buffer-miss-match-action
                  one-key-buffer-match-action
                  one-key-buffer-associated-window
