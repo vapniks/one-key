@@ -1956,7 +1956,7 @@ This function only works when called within the context of the one-key buffer si
                       (if (listp menus) menus (list menus)))))
       (unless (= listlen (length one-key-buffer-menu-names))
         (error "Number of menu names doesn't match number of menus"))
-      (if (= (length listlen) 1)
+      (if (= listlen 1)
           (progn (one-key-set-window-state 'close) 1)
         (dolist (index indices)
           (setq one-key-buffer-menu-names
