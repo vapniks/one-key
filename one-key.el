@@ -1912,10 +1912,8 @@ If called interactively, MENUSET will be prompted for."
   (interactive (list (if (featurep 'ido)
                          (ido-completing-read "Menu set: " (mapcar 'car one-key-sets-of-menus-alist))
                        (completing-read "Menu set: " (mapcar 'car one-key-sets-of-menus-alist)))))
-  (let* ((item (assoc menuset one-key-sets-of-menus-alist))
-         (names (cdr item)))
-    (if item
-        (one-key-open-menus names menu-number)
+  (let* ((names (assoc-default menuset one-key-sets-of-menus-alist)))
+    (if names (one-key-open-menus names menu-number)
       (message "Invalid menu set name!"))))
 
 (defun one-key-rebuild-menu nil
@@ -2844,8 +2842,7 @@ found)."
 
 (defun one-key-remap-key-description (keydesc)
   "Remap key description string KEYDESC according to it's entry in `one-key-key-description-remap' if it has one."
-  (let ((pair (assoc keydesc one-key-key-description-remap)))
-    (if pair (cdr pair) keydesc)))
+  (or (assoc-default keydesc one-key-key-description-remap) keydesc))
 
 (defun one-key-key-description (keyseq)
   "Return the key description for the key sequence or single key KEYSEQ.
@@ -2994,7 +2991,7 @@ If there is an element of `one-key-major-mode-remap-alist' associated with the c
 otherwise the name of the current major mode will be used.
 In both cases if the variable `one-key-menu-<menu-name>-alist' (where <menu-name> is the menu name associated with this
 major mode) exists then it will be used, otherwise it will be created."
-  (let* ((modename (or (cdr (assoc major-mode one-key-major-mode-remap-alist))
+  (let* ((modename (or (assoc-default major-mode one-key-major-mode-remap-alist)
                        (with-selected-window
                            (previous-window)
                          (symbol-name major-mode))))
@@ -3095,7 +3092,7 @@ If SUBMENUP is non-nil then the `one-key-open-submenu' command is used to add/re
          (keystr1 (one-key-colourize-string col1 "default menu set"))
          (keystr2 (one-key-colourize-string col2b "normal menu set"))
          (menuname (nth one-key-buffer-menu-number one-key-buffer-menu-names))
-         (sortindex (or (cdr (assoc menuname one-key-sort-method-indices-alist)) 0))
+         (sortindex (or (assoc-default menuname one-key-sort-method-indices-alist) 0))
          (sortmethods (or (nth 5 (one-key-get-menu-type menuname))
                           one-key-default-sort-method-alist)))
     (concat keystr1 keystr2 "\n"
@@ -3166,6 +3163,8 @@ By default WIDTH is set to the current window width (as returned by the `window-
         (concat (make-string lpadlen ? ) string (make-string rpadlen ? ))
       (if shorten (substring string (- lpadlen) rpadlen) string))))
 
+;; FIXME: make this (and related functions) iterative instead of recursive, and make it work with new
+;; one-key buffer system.
 (defun* one-key-read (prompt collection
                              &optional predicate require-match def title-string
                              (special-keys '(quit-close quit-open toggle-display next-menu prev-menu up down
