@@ -2571,9 +2571,11 @@ a new menu will be added to the current menu set.
 
 This function only works when called within the context of the one-key buffer since it depends on buffer local variables."
   (one-key-add-menus names vars)
-  (if one-key-submenus-replace-parents
-      (with-current-buffer one-key-buffer-name
-        (one-key-delete-menus (1- one-key-buffer-menu-number)))))
+  (with-current-buffer one-key-buffer-name
+    (if one-key-submenus-replace-parents
+        (one-key-delete-menus (1- one-key-buffer-menu-number)))
+    (setq one-key-buffer-temp-action
+          (nth one-key-window-toggle-pos one-key-window-toggle-sequence))))
 
 (defun one-key-merge-menu-lists (lista listb)
   "Given two one-key menu lists, merge them and return the result.
