@@ -462,7 +462,7 @@
 ;;; Code:
 
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Utility Functions ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;; UTILITY FUNCTIONS ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; (these need to go first since customizable variables depend on them) ;;;;
 
 (defun one-key-add-elements-to-list (list-var newelts)
@@ -492,7 +492,44 @@ NO-REPLACE has the same meaning as in `one-key-add-to-alist'."
         (one-key-add-to-alist alist-var elt no-replace))
   (symbol-value alist-var))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Customize ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defun one-key-assq-list (symlist alist)
+  "Return a list of the cdr's of elements of ALIST whose car's match a symbol in SYMLIST.
+The matching is performed with assq so that only the first element of alist matching a symbol in SYMLIST is returned.
+The elements returned will be in the same order as the elements of SYMLIST."
+  (mapcar 'cdr (loop for symbol in symlist collect (assq symbol alist))))
+
+(defun one-key-eval-if-symbol (sexp)
+  "If SEXP is a symbol return the result of eval'ing it, otherwise return SEXP."
+  (if (symbolp sexp) (eval sexp) sexp))
+
+(defun one-key-get-special-key-contents (specialkeys)
+  "Given a symbol or list of symbols from `one-key-special-keybindings', return the corresponding contents for each symbol.
+The first element of the contents of each item will be replaced by a key description string by following symbol references
+in `one-key-special-keybindings'.
+In other words if `one-key-special-keybindings' contains the items (symba symbb \"descriptiona\" commanda), and
+ (symbb \"a\" \"descriptionb\" commandb), then (one-key-get-special-key-contents '(symba symbb)) will return '((\"a\" \"descriptiona\" commanda) (\"b\" \"descriptionb\" commandb)). Notice that symbb is replaced by \"a\" in the returned list since
+this is the key description for symbb. At most 5 symbolic links will be followed before setting the key to nil."
+  (let* ((symbs (if (listp specialkeys) specialkeys
+                  (if (symbolp specialkeys) (list specialkeys)
+                    (error "Invalid argument"))))
+         (items (one-key-assq-list symbs one-key-special-keybindings)))
+    (loop for (key . rest) in items
+          for x = 1
+          do (while (and key (symbolp key))
+               (setq key (cadr (assoc key one-key-special-keybindings)))
+               (if (> x 4) (setq key nil) (setq x (1+ x))))
+          collect (cons key (if key rest (list "undefined key!"))))))
+
+(defun one-key-get-special-key-descriptions (specialkeys)
+  "Given a symbol or list of symbols from `one-key-special-keybindings', return the corresponding key descriptions.
+This can be used to find out which special keys are used for a particular one-key menu type.
+If `specialkeys' is a single symbol then a single string will be returned.
+If `specialkeys' is a list then a list of strings will be returned."
+  (let* ((keys (mapcar 'car (one-key-get-special-key-contents specialkeys)))
+         (len (length keys)))
+    (if (> len 1) keys (car keys))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; CUSTOMIZABLE VARIABLES ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defgroup one-key nil
   "One key - easy access, refactorable menus."
@@ -1061,43 +1098,6 @@ The keys will be displayed in the one-key help buffer in the order shown when th
   :group 'one-key
   :type '(repeat (symbol :tag "Name" :help-echo "The name/symbol corresponding to the keybinding.")))
 
-(defun one-key-assq-list (symlist alist)
-  "Return a list of the cdr's of elements of ALIST whose car's match a symbol in SYMLIST.
-The matching is performed with assq so that only the first element of alist matching a symbol in SYMLIST is returned.
-The elements returned will be in the same order as the elements of SYMLIST."
-  (mapcar 'cdr (loop for symbol in symlist collect (assq symbol alist))))
-
-(defun one-key-eval-if-symbol (sexp)
-  "If SEXP is a symbol return the result of eval'ing it, otherwise return SEXP."
-  (if (symbolp sexp) (eval sexp) sexp))
-
-(defun one-key-get-special-key-contents (specialkeys)
-  "Given a symbol or list of symbols from `one-key-special-keybindings', return the corresponding contents for each symbol.
-The first element of the contents of each item will be replaced by a key description string by following symbol references
-in `one-key-special-keybindings'.
-In other words if `one-key-special-keybindings' contains the items (symba symbb \"descriptiona\" commanda), and
- (symbb \"a\" \"descriptionb\" commandb), then (one-key-get-special-key-contents '(symba symbb)) will return '((\"a\" \"descriptiona\" commanda) (\"b\" \"descriptionb\" commandb)). Notice that symbb is replaced by \"a\" in the returned list since
-this is the key description for symbb. At most 5 symbolic links will be followed before setting the key to nil."
-  (let* ((symbs (if (listp specialkeys) specialkeys
-                  (if (symbolp specialkeys) (list specialkeys)
-                    (error "Invalid argument"))))
-         (items (one-key-assq-list symbs one-key-special-keybindings)))
-    (loop for (key . rest) in items
-          for x = 1
-          do (while (and key (symbolp key))
-               (setq key (cadr (assoc key one-key-special-keybindings)))
-               (if (> x 4) (setq key nil) (setq x (1+ x))))
-          collect (cons key (if key rest (list "undefined key!"))))))
-
-(defun one-key-get-special-key-descriptions (specialkeys)
-  "Given a symbol or list of symbols from `one-key-special-keybindings', return the corresponding key descriptions.
-This can be used to find out which special keys are used for a particular one-key menu type.
-If `specialkeys' is a single symbol then a single string will be returned.
-If `specialkeys' is a list then a list of strings will be returned."
-  (let* ((keys (mapcar 'car (one-key-get-special-key-contents specialkeys)))
-         (len (length keys)))
-    (if (> len 1) keys (car keys))))
-
 (defcustom one-key-disallowed-keymap-menu-keys '("M-TAB")
   "List of keys that should be excluded from one-key menus created from keymaps.
 Each item in this list is a key description as returned by `one-key-key-description'."
@@ -1160,17 +1160,8 @@ Each item in the list contains (in this order):
   :group 'one-key
   :type 'boolean)
 
-(defvar one-key-displayed-sort-method nil
-  "The sort method displayed in the mode line.")
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; FACES ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defvar one-key-mode-line-message '(format "Press %s for help, %s to quit. Sorted by %s (%s first)."
-                                              (cadr (assoc 'toggle-help one-key-special-keybindings))
-                                              (cadr (assoc 'quit-close one-key-special-keybindings))
-                                              one-key-displayed-sort-method (if one-key-column-major-order "columns" "rows"))
-  "Form that when evaluated should produce a string for the mode-line in the *One-Key* buffer.
-This should probably be left alone unless you remove `toggle-help' or `quit-close' from `one-key-special-keybindings'")
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Faces ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defface one-key-name
   '((t (:foreground "Gold")))
   "Face for highlighting name."
@@ -1187,6 +1178,16 @@ This should probably be left alone unless you remove `toggle-help' or `quit-clos
   :group 'one-key)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Global Variables ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defvar one-key-displayed-sort-method nil
+  "The sort method displayed in the mode line.")
+
+(defvar one-key-mode-line-message '(format "Press %s for help, %s to quit. Sorted by %s (%s first)."
+                                              (cadr (assoc 'toggle-help one-key-special-keybindings))
+                                              (cadr (assoc 'quit-close one-key-special-keybindings))
+                                              one-key-displayed-sort-method (if one-key-column-major-order "columns" "rows"))
+  "Form that when evaluated should produce a string for the mode-line in the *One-Key* buffer.
+This should probably be left alone unless you remove `toggle-help' or `quit-close' from `one-key-special-keybindings'")
 
 (defvar one-key-copied-items nil
   "List of menu items that have been killed using the `one-key-copy/kill-items' function.")
@@ -1257,7 +1258,7 @@ This should probably be left alone unless you remove `toggle-help' or `quit-clos
 This is required in order that keys such as RET (which can also be described as <return> are always described and
 recognized the same way.")
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; some menus for the toplevel ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;; some menus for the toplevel ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defvar one-key-menu-sorting-commands-alist
   '((("l" . "Sort lines alphabetically (M-x sort-lines)") . sort-lines)
     (("p" . "Sort paragraphs alphabetically (M-x sort-paragraphs)") . sort-paragraphs)
@@ -1446,7 +1447,94 @@ These are the items that are displayed in the one-key buffer.
 
 This variable is local to the one-key buffer.")
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Interactive Functions ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;; This function is needed for defining the major modes
+(defun one-key-header-line-format (names menu-number)
+  "Return the preferred value of `header-line-format' for the *One-Key* buffer.
+NAMES should be the current list of menu names displayed, or just a single name if there is only one menu.
+MENU-NUMBER should be nil if NAMES is a single name, otherwise it should index the current menu in NAMES."
+  (let* ((prenames (if (and menu-number (> menu-number 0))
+                       (concat (mapconcat 'identity (subseq names 0 menu-number) " ") " ")))
+         (nameslen (length names))
+         (postnames (if (and menu-number (< menu-number (1- nameslen)))
+                        (concat " " (mapconcat 'identity (subseq names (1+ menu-number) nameslen) " "))))
+         (name (if menu-number (nth menu-number names) names))
+         (name1 (propertize name 'face 'one-key-name))
+         (namelen (length name))
+         (prelen (length prenames))
+         (postlen (length postnames))
+         (winwidth (window-width))
+         (namepos (/ (- winwidth namelen) 2))
+         (startpos (- namepos prelen))
+         (postnames2 (if postnames (substring postnames 0 (min namepos postlen)))))
+    (if (>= startpos 0)
+        (concat (make-string startpos ? ) prenames name1 postnames2)
+      (concat (substring prenames (- startpos) prelen) name1 postnames2))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Major Modes ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(define-derived-mode one-key-mode fundamental-mode "One-Key"
+  "The major-mode for the one-key menu buffer."
+  :group 'one-key
+  ;; Make sure brackets are not highlighted by syntax table
+  :syntax-table (let ((table (make-syntax-table)))
+                  (dolist (char '(40 41 60 62 91 93 123 125))
+                    (modify-syntax-entry char "w" table))
+                  table)
+  ;; Set buffer local variables
+  (dolist (var '(one-key-buffer-menu-number
+                 one-key-buffer-menu-names
+                 one-key-buffer-menu-alists
+                 one-key-buffer-special-keybindings
+                 one-key-buffer-filter-regex
+                 one-key-buffer-filtered-list
+                 one-key-buffer-temp-action
+                 one-key-buffer-miss-match-action
+                 one-key-buffer-match-action
+                 one-key-buffer-associated-window
+                 one-key-buffer-dedicated-frame))
+    (set (make-local-variable var) nil))
+  ;; Set mode-line and header-line
+  (setq mode-line-format one-key-mode-line-format
+        header-line-format (one-key-header-line-format
+                            (or one-key-buffer-menu-names "one-key")
+                            one-key-buffer-menu-number)
+        cursor-type nil
+        one-key-mode-map (make-keymap)
+        buffer-read-only nil)
+  ;; Set keymap
+  (set-char-table-range (second one-key-mode-map) t 'one-key-command)
+  (define-key one-key-mode-map [t] 'one-key-command)
+  (use-local-map one-key-mode-map)
+  (local-unset-key (kbd "ESC")))
+
+(define-derived-mode one-key-help-mode fundamental-mode "One-Key Help"
+  "The major-mode for the one-key help buffer."
+  :group 'one-key
+  ;; Make sure brackets are not highlighted by syntax table
+  :syntax-table (let ((table (make-syntax-table)))
+                  (dolist (char '(40 41 60 62 91 93 123 125))
+                    (modify-syntax-entry char "w" table))
+                  table)
+  ;; Set buffer local variables
+  (dolist (var '(one-key-buffer-special-keybindings
+                 one-key-buffer-associated-window
+                 one-key-buffer-dedicated-frame))
+    (set (make-local-variable var) nil))
+  ;; Set mode-line and header-line
+  (setq
+   ;; mode-line-format one-key-mode-line-format
+   ;;     header-line-format (one-key-header-line-format
+   ;;                         (or one-key-buffer-menu-names "one-key")
+   ;;                         one-key-buffer-menu-number)
+   cursor-type nil
+   one-key-help-mode-map (make-keymap)
+   buffer-read-only nil)
+  ;; Set keymap
+  (set-char-table-range (second one-key-help-mode-map) t 'one-key-command)
+  (define-key one-key-help-mode-map [t] 'one-key-command)
+  (use-local-map one-key-help-mode-map))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Functions ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun one-key-show-help (special-keybindings)
   "Show information about `one-key-menu' special keybindings in the alist SPECIAL-KEYBINDINGS."
@@ -1962,28 +2050,6 @@ If no menu set matches then open `one-key-default-menu-set'."
                            msg-face))
     (buffer-string)))
 
-(defun one-key-header-line-format (names menu-number)
-  "Return the preferred value of `header-line-format' for the *One-Key* buffer.
-NAMES should be the current list of menu names displayed, or just a single name if there is only one menu.
-MENU-NUMBER should be nil if NAMES is a single name, otherwise it should index the current menu in NAMES."
-  (let* ((prenames (if (and menu-number (> menu-number 0))
-                       (concat (mapconcat 'identity (subseq names 0 menu-number) " ") " ")))
-         (nameslen (length names))
-         (postnames (if (and menu-number (< menu-number (1- nameslen)))
-                        (concat " " (mapconcat 'identity (subseq names (1+ menu-number) nameslen) " "))))
-         (name (if menu-number (nth menu-number names) names))
-         (name1 (propertize name 'face 'one-key-name))
-         (namelen (length name))
-         (prelen (length prenames))
-         (postlen (length postnames))
-         (winwidth (window-width))
-         (namepos (/ (- winwidth namelen) 2))
-         (startpos (- namepos prelen))
-         (postnames2 (if postnames (substring postnames 0 (min namepos postlen)))))
-    (if (>= startpos 0)
-        (concat (make-string startpos ? ) prenames name1 postnames2)
-      (concat (substring prenames (- startpos) prelen) name1 postnames2))))
-
 (defun one-key-highlight-menu (keystroke names menu-number &optional title-string)
   "Highlight items in KEYSTROKE (an alist of menu items), and return contents for insertion in *One-Key* buffer.
 Also create header-line from NAMES (a list of menu names), highlighting the MENU-NUMBER'th name in that list.
@@ -2186,68 +2252,6 @@ will be tried (in accordance with normal emacs behaviour)."
   "Return non-nil if one-key menu window exists, otherwise return nil."
   (let ((onekeybuf (get-buffer one-key-buffer-name)))
     (and onekeybuf (window-live-p (get-buffer-window onekeybuf)))))
-
-(define-derived-mode one-key-mode fundamental-mode "One-Key"
-  "The major-mode for the one-key menu buffer."
-  :group 'one-key
-  ;; Make sure brackets are not highlighted by syntax table
-  :syntax-table (let ((table (make-syntax-table)))
-                  (dolist (char '(40 41 60 62 91 93 123 125))
-                    (modify-syntax-entry char "w" table))
-                  table)
-  ;; Set buffer local variables
-  (dolist (var '(one-key-buffer-menu-number
-                 one-key-buffer-menu-names
-                 one-key-buffer-menu-alists
-                 one-key-buffer-special-keybindings
-                 one-key-buffer-filter-regex
-                 one-key-buffer-filtered-list
-                 one-key-buffer-temp-action
-                 one-key-buffer-miss-match-action
-                 one-key-buffer-match-action
-                 one-key-buffer-associated-window
-                 one-key-buffer-dedicated-frame))
-    (set (make-local-variable var) nil))
-  ;; Set mode-line and header-line
-  (setq mode-line-format one-key-mode-line-format
-        header-line-format (one-key-header-line-format
-                            (or one-key-buffer-menu-names "one-key")
-                            one-key-buffer-menu-number)
-        cursor-type nil
-        one-key-mode-map (make-keymap)
-        buffer-read-only nil)
-  ;; Set keymap
-  (set-char-table-range (second one-key-mode-map) t 'one-key-command)
-  (define-key one-key-mode-map [t] 'one-key-command)
-  (use-local-map one-key-mode-map)
-  (local-unset-key (kbd "ESC")))
-
-(define-derived-mode one-key-help-mode fundamental-mode "One-Key Help"
-  "The major-mode for the one-key help buffer."
-  :group 'one-key
-  ;; Make sure brackets are not highlighted by syntax table
-  :syntax-table (let ((table (make-syntax-table)))
-                  (dolist (char '(40 41 60 62 91 93 123 125))
-                    (modify-syntax-entry char "w" table))
-                  table)
-  ;; Set buffer local variables
-  (dolist (var '(one-key-buffer-special-keybindings
-                 one-key-buffer-associated-window
-                 one-key-buffer-dedicated-frame))
-    (set (make-local-variable var) nil))
-  ;; Set mode-line and header-line
-  (setq
-   ;; mode-line-format one-key-mode-line-format
-   ;;     header-line-format (one-key-header-line-format
-   ;;                         (or one-key-buffer-menu-names "one-key")
-   ;;                         one-key-buffer-menu-number)
-   cursor-type nil
-   one-key-help-mode-map (make-keymap)
-   buffer-read-only nil)
-  ;; Set keymap
-  (set-char-table-range (second one-key-help-mode-map) t 'one-key-command)
-  (define-key one-key-help-mode-map [t] 'one-key-command)
-  (use-local-map one-key-help-mode-map))
 
 (defun one-key-reposition-window-contents nil
   "Scroll the one-key buffer contents so that the top of the buffer is shown at the top of the window."
