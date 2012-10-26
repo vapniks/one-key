@@ -1956,7 +1956,7 @@ This function only works when called within the context of the one-key buffer si
                       (if (listp menus) menus (list menus)))))
       (unless (= listlen (length one-key-buffer-menu-names))
         (error "Number of menu names doesn't match number of menus"))
-      (if (= (length indices) 1)
+      (if (= (length listlen) 1)
           (progn (one-key-set-window-state 'close) 1)
         (dolist (index indices)
           (setq one-key-buffer-menu-names
@@ -1967,9 +1967,9 @@ This function only works when called within the context of the one-key buffer si
                 (concatenate 'list
                              (subseq one-key-buffer-menu-alists 0 index)
                              (subseq one-key-buffer-menu-alists (1+ index) listlen))
-                one-key-buffer-menu-number (min index (- listlen 2))))
-        (length indices))))
-  (one-key-update-buffer-contents))
+                one-key-buffer-menu-number (min index (- listlen 2)))))
+      (one-key-update-buffer-contents)
+      (length indices))))
 
 (defun one-key-delete-associated-menus (&optional (menunum one-key-buffer-menu-number))
   "Remove all menus (from the currently loaded menus) that are associated with the current menu.
