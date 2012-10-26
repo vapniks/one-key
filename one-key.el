@@ -1177,7 +1177,9 @@ Each item in the list contains (in this order):
   "Face for highlighting prompt."
   :group 'one-key)
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Global Variables ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; STRUCTURE ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; GLOBAL VARIABLES ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defvar one-key-displayed-sort-method nil
   "The sort method displayed in the mode line.")
@@ -1258,7 +1260,7 @@ This should probably be left alone unless you remove `toggle-help' or `quit-clos
 This is required in order that keys such as RET (which can also be described as <return> are always described and
 recognized the same way.")
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;; some menus for the toplevel ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;; Some menus for the toplevel ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defvar one-key-menu-sorting-commands-alist
   '((("l" . "Sort lines alphabetically (M-x sort-lines)") . sort-lines)
     (("p" . "Sort paragraphs alphabetically (M-x sort-paragraphs)") . sort-paragraphs)
@@ -1470,7 +1472,7 @@ MENU-NUMBER should be nil if NAMES is a single name, otherwise it should index t
         (concat (make-string startpos ? ) prenames name1 postnames2)
       (concat (substring prenames (- startpos) prelen) name1 postnames2))))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Major Modes ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; MAJOR MODES ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define-derived-mode one-key-mode fundamental-mode "One-Key"
   "The major-mode for the one-key menu buffer."
@@ -1534,7 +1536,7 @@ MENU-NUMBER should be nil if NAMES is a single name, otherwise it should index t
   (define-key one-key-help-mode-map [t] 'one-key-command)
   (use-local-map one-key-help-mode-map))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Functions ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; FUNCTIONS ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun one-key-show-help (special-keybindings)
   "Show information about `one-key-menu' special keybindings in the alist SPECIAL-KEYBINDINGS."
@@ -1578,10 +1580,6 @@ The following special keys may also be used:\n"
                                (if onekeybuf (with-current-buffer onekeybuf
                                                one-key-buffer-associated-window))))))
 
-
-
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Special-Key functions ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun one-key-show-item-help (key)
   "Show help for the item in the current menu that is associated with the key KEY."
