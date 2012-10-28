@@ -29,7 +29,6 @@
 ;; it under the terms of the GNU General Public License as published by
 ;; the Free Software Foundation; either version 3, or (at your option)
 ;; any later version.
-
 ;; This program is distributed in the hope that it will be useful,
 ;; but WITHOUT ANY WARRANTY; without even the implied warranty of
 ;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -693,7 +692,7 @@ current major mode) will be used (and created if necessary)."
                                           (lambda nil (interactive)
                                             (one-key-open-submenu "Editing commands"
                                                                   one-key-menu-editing-commands-alist)))
-                                         (("C-s" . "Searching commands") .
+                                         (("s" . "Searching commands") .
                                           (lambda nil (interactive)
                                             (one-key-open-submenu "Searching commands"
                                                                   one-key-menu-searching-commands-alist)))
@@ -1179,7 +1178,18 @@ Each item in the list contains (in this order):
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; STRUCTURE ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(defstruct one-key-menu
+  "Information for constructing a one-key menu."
+  name items specialkeys filter filtereditems title sortmethods)
+
+(defstruct one-key-menus
+  "Set of one-key-menu objects, and name of menu set, along with other relevant information."
+  (name :read-only t) menus)
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; GLOBAL VARIABLES ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defvar one-key-current-menus nil
+  "The list of one-key menus used in the current one-key buffer.")
 
 (defvar one-key-displayed-sort-method nil
   "The sort method displayed in the mode line.")
@@ -2811,17 +2821,16 @@ The generated key can be used in a `one-key' menu, and this function can be used
 of `one-key' menus.
 The function will try to choose a key corresponding to a char appearing in DESC, first choosing lowercase letters,
 then uppercase, then key presses with control then with the meta key.
-USEDKEYS should be a list of keys which cannot be used (since they have already be used).
+USEDKEYS should be a list of keys (as string descriptions, e.g. as returned by `kbd') which cannot be used.
 If the ELEMENTS arg (a list of keys) is provided the normal key selection method will not be used and instead a key
 from ELEMENTS that is not in USEDKEYS will be chosen instead.
 If TRYKEY is provided it should be a key and will be returned if it is not in USEDKEYS (otherwise another key will be
 found)."
   (let ((trykey2 (one-key-key-description trykey)))
     (flet ((findmatch (transformer keys)
-                      (dolist (key (mapcar 'identity keys))
+                      (dolist (key keys)
                         (let ((key2 (funcall transformer key)))
-                          (if (and (member key one-key-default-menu-keys)
-                                   (not (member key2 usedkeys)))
+                          (if (not (member key2 usedkeys))
                               (return key2)))))
            (uptransformer (prefix) `(lambda (char) (concat ,prefix (upcase (char-to-string char)))))
            (downtransformer (prefix) `(lambda (char) (concat ,prefix (downcase (char-to-string char)))))
@@ -2831,22 +2840,40 @@ found)."
                                (findmatch (uptransformer "C-") keys)
                                (findmatch (downtransformer "M-") keys)                               
                                (findmatch (uptransformer "M-") keys))))
-      (or (and trykey2
-               (not (memq trykey2 usedkeys))
-               (not (member (one-key-key-description trykey2) usedkeys))
-               trykey)
+      (or (and trykey2 (not (member trykey2 usedkeys))
+               trykey2)
           (if elements (loop for element in elements
                              for keystr = (one-key-key-description element)
-                             if (not (or (memq element usedkeys)
-                                         (member keystr usedkeys)))
+                             if (not (member keystr usedkeys))
                              return keystr))
-          (findall desc)
+          (findall (reverse (intersection one-key-default-menu-keys (mapcar 'identity desc))))
           (findall one-key-default-menu-keys)
-          (error "Can not generate a unique key for file : %s" desc)))))
+          (error "Can not generate a unique key for item : %s" desc)))))
 
 (defun one-key-remap-key-description (keydesc)
   "Remap key description string KEYDESC according to it's entry in `one-key-key-description-remap' if it has one."
   (or (assoc-default keydesc one-key-key-description-remap) keydesc))
+
+(defun* one-key-remap-invalid-keys (menu-alist &key
+                                               (invalidkeys
+                                                (append one-key-disallowed-keymap-menu-keys
+                                                        (one-key-get-special-key-descriptions
+                                                         one-key-default-special-keybindings)))
+                                               (keyfunc 'one-key-generate-key))
+  "Remap any keys in the one-key menu MENULIST that are in INVALIDKEYS to new unused keys.
+INVALIDKEYS should be a list of string descriptions of keys (e.g. as returned by the `kbd' macro).
+New keys are selected using KEYFUNC which should be a function taking two arguments - a description of the command and a list of
+used keys (in that order), and return a new unused key. The default value for KEYFUNC is `one-key-generate-key'.
+By default INVALIDKEYS is set to the keys in `one-key-disallowed-keymap-menu-keys' and `one-key-default-special-keybindings'"
+  (let ((usedkeys invalidkeys)
+        newkey)
+    (loop for ((key . desc) . cmd) in menu-alist
+          if (member key usedkeys)
+          do (setq newkey (funcall keyfunc desc usedkeys))
+          and collect (cons (cons newkey desc) cmd)
+          and do (push newkey usedkeys)
+          else collect (cons (cons key desc) cmd)
+          and do (push key usedkeys))))
 
 (defun one-key-key-description (keyseq)
   "Return the key description for the key sequence or single key KEYSEQ.
