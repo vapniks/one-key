@@ -1854,18 +1854,27 @@ This function must be called within the context of the one-key buffer to work."
                                  (funcall two name)))))
                     one-key-types-of-menu)))
 
-(defun one-key-get-menus-for-type (name)
-  "Given the name of an existing menu or menu type in `one-key-types-of-menu', return associated names and menu alists.
-If no such menu or menu type exists, return nil."
-  (if name (let* ((listname (concat "one-key-menu-" name "-alist"))
-                  (type (one-key-get-menu-type name))
-                  (func (or (third type)
-                            (and (not type)
-                                 (loop for sym being the symbols
-                                       for symname = (symbol-name sym)
-                                       when (equal listname symname)
-                                       return (cons name sym))))))
-             (if (functionp func) (funcall func name) func))))
+(defun one-key-get-menus-for-type (name &optional (remapkeys t))
+  "Given the name NAME of an existing menu or menu type in `one-key-types-of-menu', return associated names and menu alists.
+If no such menu or menu type exists, return nil.
+The optional argument REMAPKEYS is t by default and indicates whether or not to remap the keys in the menu using
+the `one-key-remap-invalid-keys' function."
+  (let* ((pair (if name (let* ((listname (concat "one-key-menu-" name "-alist"))
+                               (type (one-key-get-menu-type name))
+                               (func (or (third type)
+                                         (and (not type)
+                                              (loop for sym being the symbols
+                                                    for symname = (symbol-name sym)
+                                                    when (equal listname symname)
+                                                    return (cons name sym))))))
+                          (if (functionp func) (funcall func name) func))))
+         (onep (stringp (car pair)))
+         (names (car pair))
+         (menus (if remapkeys
+                    (if onep (one-key-remap-invalid-keys (cdr pair))
+                      (mapcar 'one-key-remap-invalid-keys (cdr pair)))
+                  (cdr pair))))
+    (cons names menus)))
 
 (defun one-key-prompt-for-menu nil
   "Prompt the user for a `one-key' menu type, and return menu name(s) and menu alist(s)."
