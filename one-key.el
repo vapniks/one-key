@@ -1854,7 +1854,7 @@ This function must be called within the context of the one-key buffer to work."
                                  (funcall two name)))))
                     one-key-types-of-menu)))
 
-(defun one-key-get-menus-for-type (name &optional (remapkeys t))
+(defun* one-key-get-menus-for-type (name &optional (remapkeys t))
   "Given the name NAME of an existing menu or menu type in `one-key-types-of-menu', return associated names and menu alists.
 If no such menu or menu type exists, return nil.
 The optional argument REMAPKEYS is t by default and indicates whether or not to remap the keys in the menu using
@@ -2876,7 +2876,7 @@ used keys (in that order), and return a new unused key. The default value for KE
 By default INVALIDKEYS is set to the keys in `one-key-disallowed-keymap-menu-keys' and `one-key-default-special-keybindings'"
   (let ((usedkeys invalidkeys)
         newkey)
-    (loop for ((key . desc) . cmd) in menu-alist
+    (loop for ((key . desc) . cmd) in (one-key-eval-if-symbol menu-alist)
           if (member key usedkeys)
           do (setq newkey (funcall keyfunc desc usedkeys))
           and collect (cons (cons newkey desc) cmd)
