@@ -692,9 +692,9 @@ current major mode) will be used (and created if necessary)."
                                           (lambda nil (interactive)
                                             (one-key-open-submenu "Editing commands"
                                                                   one-key-menu-editing-commands-alist)))
-                                         (("s" . "Searching commands") .
+                                         (("s" . "Search/replace/grep commands") .
                                           (lambda nil (interactive)
-                                            (one-key-open-submenu "Searching commands"
+                                            (one-key-open-submenu "Search/replace/grep commands"
                                                                   one-key-menu-searching-commands-alist)))
                                          (("S" . "Sorting commands") .
                                           (lambda nil (interactive)
@@ -1285,11 +1285,15 @@ recognized the same way.")
 (defvar one-key-menu-searching-commands-alist
   '((("C-s" . "Search forward (C-s)") . (lambda nil (interactive) (isearch-mode t nil nil t)))
     (("C-r" . "Search backward (C-r)") . (lambda nil (interactive) (isearch-mode nil nil nil t)))
-    (("M-%" . "Replace string (M-%)") . query-replace)
+    (("M-%" . "Search-replace string (M-%)") . query-replace)
     (("C-M-s" . "Search forward for regexp (C-M-s)") . isearch-forward-regexp)
     (("C-M-r" . "Search backward for regexp (C-M-r)") . isearch-backward-regexp)    
-    (("C-M-%" . "Replace regexp (C-M-%)") . query-replace-regexp)
-    (("b" . "Regular expression builder (M-x re-builder)") . re-builder))
+    (("C-M-%" . "Search-replace regexp (C-M-%)") . query-replace-regexp)
+    (("b" . "Regular expression builder (M-x re-builder)") . re-builder)
+    (("l" . "Grep files in dir (M-x lgrep)") . lgrep)
+    (("r" . "Grep files in dir and subdirs (M-x rgrep)") . rgrep)
+    (("f" . "Run grep via find (M-x grep-find)") . grep-find)
+    )
   "The `one-key' menu alist for search/replace commands.")
 
 (defvar one-key-menu-editing-commands-alist
@@ -2159,8 +2163,8 @@ doesn't exist."
             (if (stringp one-key-buffer-filter-regex)
                 (remove-if-not
                  (lambda (elt) (string-match one-key-buffer-filter-regex (cdar elt)))
-                 full-list)
-              full-list)
+                 (remove nil full-list))
+              (remove nil full-list))
             one-key-buffer-special-keybindings
             (or (one-key-get-special-key-contents
                  (one-key-eval-if-symbol
