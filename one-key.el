@@ -453,6 +453,8 @@
 ;; one-key-read-logical-formula : change recursive algorithm to iterative one and allow more flexible editing of logical formula
 ;; (left/right to move to previous/next clause, and <insert>/<delete> to insert/delete clause. Need cursor to show position).
 ;; Also have special key to show items filtered by current state of formula.
+;;
+;; one-key menus listing all commands in a given elisp library. Prompt user for library name first. 
 
 ;;; Require
 (eval-when-compile (require 'cl))
@@ -894,27 +896,35 @@ sort methods for different menus."
                                  (mod (1- one-key-buffer-menu-number)
                                       (length one-key-buffer-menu-alists))
                                  one-key-default-menu-number one-key-buffer-menu-number)
-                 (one-key-update-buffer-contents)))
+                 (one-key-update-buffer-contents)
+                 (one-key-set-window-state
+                  (nth one-key-window-toggle-pos one-key-window-toggle-sequence))))
     (prev-menu "<right>" "Change to right menu"
                (lambda nil (setq one-key-buffer-menu-number
                                  (mod (1+ one-key-buffer-menu-number)
                                       (length one-key-buffer-menu-alists))
                                  one-key-default-menu-number one-key-buffer-menu-number)
-                 (one-key-update-buffer-contents)))
+                 (one-key-update-buffer-contents)
+                 (one-key-set-window-state
+                  (nth one-key-window-toggle-pos one-key-window-toggle-sequence))))
     (skip-menus-left "<C-left>" "Skip menus to left"
                      (lambda nil (let* ((nummenus (length one-key-buffer-menu-alists))
                                         (skipnum (max (round (* nummenus 0.333)) 2)))
                                    (setq one-key-buffer-menu-number
                                          (mod (- one-key-buffer-menu-number skipnum) nummenus)
                                          one-key-default-menu-number one-key-buffer-menu-number)
-                                   (one-key-update-buffer-contents))))
+                                   (one-key-update-buffer-contents)
+                                   (one-key-set-window-state
+                                    (nth one-key-window-toggle-pos one-key-window-toggle-sequence)))))
     (skip-menus-right "<C-right>" "Skip menus to right"
                       (lambda nil (let* ((nummenus (length one-key-buffer-menu-alists))
                                          (skipnum (max (round (* nummenus 0.333)) 2)))
                                     (setq one-key-buffer-menu-number
                                           (mod (+ one-key-buffer-menu-number skipnum) nummenus)
                                           one-key-default-menu-number one-key-buffer-menu-number)
-                                    (one-key-update-buffer-contents))))
+                                    (one-key-update-buffer-contents)
+                                    (one-key-set-window-state
+                                     (nth one-key-window-toggle-pos one-key-window-toggle-sequence)))))
     (up "<up>" "Scroll/move up one line" one-key-menu-window-scroll-up-line)
     (down "<down>" "Scroll/move down one line" ,(apply-partially 'one-key-menu-window-scroll-up-line t))
     (scroll-down "<prior>" "Scroll menu down one page" ,(apply-partially 'one-key-menu-window-scroll-up t))
@@ -1293,6 +1303,8 @@ recognized the same way.")
     (("l" . "Grep files in dir (M-x lgrep)") . lgrep)
     (("r" . "Grep files in dir and subdirs (M-x rgrep)") . rgrep)
     ,(if (featurep 'mgrep) '(("m" . "mgrep - grep dirs stored in `mgrep-list' (M-x mgrep)") . mgrep))
+    ,(if (featurep 'ack-and-a-half) '(("a" . "ack - grep source code files (M-x ack-and-a-half)") . ack-and-a-half))
+    ,(if (featurep 'ack-and-a-half) '(("F" . "open source code file (M-x ack-and-a-half-find-file)") . ack-and-a-half-find-file))
     (("f" . "Run grep via find (M-x grep-find)") . grep-find)
     )
   "The `one-key' menu alist for search/replace commands.")
