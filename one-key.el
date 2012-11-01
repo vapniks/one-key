@@ -571,26 +571,24 @@ A positive integer : indicates maximum size of one-key window in lines.
 Floating point number between 0.0 & 1.0 : indicates maximum size of one-key window as fraction of the frame (or whole screen
 if it has a frame to itself).
 Symbol 'close : indicates to close the one-key window (but not kill the buffer).
-Symbol 'defocus : indicates to keep the one-key window open but move focus to the associated window.
+Symbol 'deselect : indicates to keep the one-key window open but move focus to the associated window.
 Symbol 'ownframe : indicates to place the one-key window in its own frame. Once one-key has it's own frame the window cannot be placed back in another frame without closing it first.
-Symbol 'showhelp : show the *Help* buffer (see `one-key-window-help-buffer-own-frame')
-Symbol 'hidehelp : hide the *Help* buffer
-
-If you want to use one-key with a seperate frame, place 'ownframe at the front of this list, and customize the value of
-`one-key-ownframe-initial-size' to set the initial size."
+Symbol 'showhelp : show the *Help* buffer (see `one-key-window-help-buffer-own-frame').
+Symbol 'hidehelp : hide the *Help* buffer.
+A cons cell whose car is a symbol indicating the state to switch to, and whose cdr is an integer or float indicating the
+size of the window after switching (interpreted in the same way as above).
+At the moment the car is fixed to ownframe, but more states will be added soon."
   :type '(repeat (choice (integer :tag "Max number of lines")
                          (float :tag "Max height as fraction of frame/screen")
                          (const :tag "Return focus to previous window/buffer" deselect)
                          (const :tag "Open window in own frame" ownframe)
-                         (const :tag "Close window" close)))
-  :group 'one-key)
-
-(defcustom one-key-window-ownframe-initial-size 0.3
-  "Initial size of one-key window when opened in it's own frame.
-Value can either be an integer indicating the number of lines, or a floating point number between 0.0 & 1.0 indicating the fraction
-of the screen to use."
-  :type '(choice (integer :tag "Max number of lines")
-                 (float :tag "Max height as fraction of screen"))
+                         (const :tag "Show the one-key help buffer" showhelp)
+                         (const :tag "Hide the one-key help buffer" hidehelp)
+                         (const :tag "Close window" close)
+                         (cons :tag "Pair" 
+                                 (choice (const :tag "Open window in own frame" ownframe))
+                                 (choice (integer :tag "Max number of lines")
+                                         (float :tag "Max height as fraction of frame/screen")))))
   :group 'one-key)
 
 (defvar one-key-window-toggle-pos 0
@@ -2319,13 +2317,6 @@ The one-key window will be selected after calling this function unless optional 
                               1)
                          (display-pixel-height))
                      (frame-parameter nil 'height)))
-         ;; The initial height (in lines) if a new frame is to be created for the one-key buffer.
-         (initialsize (cond
-                       ((floatp one-key-window-ownframe-initial-size)
-                        (round (* maxlines one-key-window-ownframe-initial-size)))
-                       ((integerp one-key-window-ownframe-initial-size)
-                        (max (min one-key-window-ownframe-initial-size maxlines) 5))
-                       (t (error "Invalid value for one-key-window-ownframe-initial-size"))))
          ;; The number of columns to be used for the width
          (cols (frame-parameter nil 'width))
          ;; Make sure one-key-buffer-dedicated-frame is set correctly
@@ -2375,7 +2366,7 @@ The one-key window will be selected after calling this function unless optional 
                  (if dedicatedframe (eval resizeframe) (eval resizewindow)))
              (if helpp (one-key-set-window-state 'showhelp))))
           ((eq state 'ownframe)
-           (let ((newlines (max (min maxlines (+ buflines 3) initialsize) 5))
+           (let ((newlines (max (min maxlines (+ buflines 3) maxlines) 5))
                  (helpp (windowp helpwin)))
              (if helpp (one-key-set-window-state 'hidehelp))
              (if dedicatedframe (eval resizeframe)
@@ -2436,7 +2427,13 @@ The one-key window will be selected after calling this function unless optional 
   (interactive)
   (setq one-key-window-toggle-pos (mod (1+ one-key-window-toggle-pos)
                                        (length one-key-window-toggle-sequence)))
-  (one-key-set-window-state (nth one-key-window-toggle-pos one-key-window-toggle-sequence)))
+  (let* ((nextstate (nth one-key-window-toggle-pos
+                         one-key-window-toggle-sequence))
+         (pair (consp nextstate)))
+    (if pair
+        (progn (one-key-set-window-state (car nextstate))
+               (one-key-set-window-state (cdr nextstate)))
+      (one-key-set-window-state nextstate))))
 
 (defun one-key-menu-window-scroll-up (&optional down)
   "Scroll up one screen of the `one-key' menu window.
