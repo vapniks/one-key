@@ -454,7 +454,9 @@
 ;; (left/right to move to previous/next clause, and <insert>/<delete> to insert/delete clause. Need cursor to show position).
 ;; Also have special key to show items filtered by current state of formula.
 ;;
-;; one-key menus listing all commands in a given elisp library. Prompt user for library name first. 
+;; one-key menus listing all commands in a given elisp library. Prompt user for library name first.
+;; one-key-navigate - for navigating org-files and call trees
+
 
 ;;; Require
 (eval-when-compile (require 'cl))
@@ -1300,10 +1302,13 @@ recognized the same way.")
     (("b" . "Regular expression builder (M-x re-builder)") . re-builder)
     (("l" . "Grep files in dir (M-x lgrep)") . lgrep)
     (("r" . "Grep files in dir and subdirs (M-x rgrep)") . rgrep)
+    (("g" . "Run grep via find (M-x grep-find)") . grep-find)
     ,(if (featurep 'mgrep) '(("m" . "mgrep - grep dirs stored in `mgrep-list' (M-x mgrep)") . mgrep))
     ,(if (featurep 'ack-and-a-half) '(("a" . "ack - grep source code files (M-x ack-and-a-half)") . ack-and-a-half))
-    ,(if (featurep 'ack-and-a-half) '(("F" . "open source code file (M-x ack-and-a-half-find-file)") . ack-and-a-half-find-file))
-    (("f" . "Run grep via find (M-x grep-find)") . grep-find)
+    ,(if (featurep 'ack-and-a-half) '(("o" . "open source code file (M-x ack-and-a-half-find-file)") . ack-and-a-half-find-file))
+    (("f" . "Find files and put them in dired buffer (M-x find-dired)") . find-dired)
+    (("n" . "Find files matching by name (M-x find-name-dired)") . find-name-dired)
+    (("c" . "Find files matching by contents (M-x find-grep-dired)") . find-grep-dired)
     )
   "The `one-key' menu alist for search/replace commands.")
 
