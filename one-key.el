@@ -1186,15 +1186,20 @@ Each item in the list contains (in this order):
   "Face for highlighting prompt."
   :group 'one-key)
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; STRUCTURE ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; STRUCTURES ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defstruct one-key-menu
+ (defstruct one-key-menu-struct
   "Information for constructing a one-key menu."
   name items specialkeys filter filtereditems title sortmethods)
 
 (defstruct one-key-menus
   "Set of one-key-menu objects, and name of menu set, along with other relevant information."
   (name :read-only t) menus)
+
+(defun one-key-get-slots (struct)
+  "Return list of symbols for the slots in the cl-structure STRUCT."
+  (mapcar 'car (cdr (get (intern-soft (substring (symbol-name (elt struct 0)) 10))
+                         'cl-struct-slots))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; GLOBAL VARIABLES ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
