@@ -1188,7 +1188,7 @@ Each item in the list contains (in this order):
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; STRUCTURES ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
- (defstruct one-key-menu-struct
+(defstruct one-key-menu-struct
   "Information for constructing a one-key menu."
   name items specialkeys filter filtereditems title sortmethods)
 
@@ -2102,9 +2102,10 @@ from the associated menu type in `one-key-types-of-menu' or using `one-key-defau
   (let* ((name (if menu-number (nth menu-number names) names))
          (title-func (or (fourth (one-key-get-menu-type name)) one-key-default-title-func))
          (title-string2 (or title-string (and title-func (funcall title-func))))
-         (infoline (if (> (length title-string2) 0) (one-key-highlight (if (equal (substring title-string2 -1) "\n") title-string2
-                                                                         (concat title-string2 "\n"))
-                                                                       "\\(<[^<>]*>\\|'[^']*'\\)" '(face one-key-name))))
+         (infoline (if (> (length title-string2) 0)
+                       (one-key-highlight (if (equal (substring title-string2 -1) "\n") title-string2
+                                            (concat title-string2 "\n"))
+                                          "\\(<[^<>]*>\\|'[^']*'\\)" '(face one-key-name))))
          (keystrokelist (one-key-highlight keystroke "\\[\\([^\\[\\]\\)*?\\]" '(face one-key-keystroke))))
     (setq header-line-format (one-key-header-line-format names menu-number)
           mode-line-format one-key-mode-line-format)
@@ -2172,9 +2173,12 @@ The optional argument TITLE-STRING is a title to insert above the menu items. By
 automatically from the associated menu type in `one-key-types-of-menu' or using `one-key-default-title-func' if that
 doesn't exist."
   (with-current-buffer one-key-buffer-name
-    (cond ((not one-key-buffer-menu-number) (error "Buffer local variable one-key-buffer-menu-number is nil"))
-          ((not one-key-buffer-menu-names) (error "Buffer local variable one-key-buffer-menu-names is nil"))
-          ((not one-key-buffer-menu-alists) (error "Buffer local variable one-key-buffer-menu-alists is nil")))
+    (cond ((not one-key-buffer-menu-number)
+           (error "Buffer local variable one-key-buffer-menu-number is nil"))
+          ((not one-key-buffer-menu-names)
+           (error "Buffer local variable one-key-buffer-menu-names is nil"))
+          ((not one-key-buffer-menu-alists)
+           (error "Buffer local variable one-key-buffer-menu-alists is nil")))
     (let* ((this-list (nth one-key-buffer-menu-number one-key-buffer-menu-alists))
            (issymbol (symbolp this-list))
            (full-list (if issymbol (eval this-list) this-list))
@@ -2221,7 +2225,7 @@ doesn't exist.
 
 By default the one-key buffer will be associated with the currently selected window, and all menu commands will be executed
 in that window. You can change the associated window by setting the ASSOCIATED-WINDOW arg to any other window.
-If ASSOCIATED-WINDOW is explicitely set to nil then the window that was last used with one-key will be used (if it exists).
+If ASSOCIATED-WINDOW is explicitly set to nil then the window that was last used with one-key will be used (if it exists).
 
 The MATCH-ACTION and MISS-MATCH-ACTION arguments indicate what to do after a matching (menu item)/non-matching key is pressed
 respectively. See `one-key-buffer-match-action' and `one-key-buffer-miss-match-action' for the different values these args
