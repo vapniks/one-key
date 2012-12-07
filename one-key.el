@@ -2136,13 +2136,13 @@ from the associated menu type in `one-key-types-of-menu' or using `one-key-defau
        ((string= (buffer-name) one-key-help-buffer-name)
         (setq postaction 'close))
        ;; Handle special keys
-       ((setq matchitem (assoc* key one-key-buffer-special-keybindings
+       ((setq matchitem (assoc* key (one-key-current-menu-specialkeys)
                                 :test (lambda (x y) (equal x (one-key-remap-key-description y)))))
         (funcall (caddr matchitem))
         (setq postaction one-key-buffer-temp-action))
        ;; Handle keystrokes matching menu items unless called from the help buffer.
        ((and (not helpbufp)
-             (setq matchitem (assoc* key one-key-buffer-filtered-list
+             (setq matchitem (assoc* key (one-key-current-menu-filtereditems)
                                      :test (lambda (x y) (equal x (one-key-remap-key-description (car y)))))))
         (let* ((desc (cdar matchitem))
                (rest (cdr matchitem))
@@ -2153,16 +2153,18 @@ from the associated menu type in `one-key-types-of-menu' or using `one-key-defau
           ;; Update key usage statistics if necessary
           (unless (not one-key-auto-brighten-used-keys)
             (one-key-menu-increment-key-usage matchitem)
-            (let* ((thislist (nth one-key-buffer-menu-number one-key-buffer-menu-alists))
+            (let* ((thislist (one-key-current-menu-items))
                    (issymbol (symbolp thislist)))
               (if issymbol (add-to-list 'one-key-altered-menus (symbol-name thislist)))))
           ;; Execute the menu command in the associated window, (and get action to perform afterwards).
-          (with-selected-window one-key-buffer-associated-window (call-interactively command))
+          (with-selected-window (one-key-current-menus-assocwindow) (call-interactively command))
           (setq postaction (or one-key-buffer-temp-action
+                               (one-key-current-menu-match-action)
                                one-key-buffer-match-action))))
        ;; Handle all other (miss-match) keys unless called from the help buffer.
        ((not helpbufp)
-        (setq postaction one-key-buffer-miss-match-action)))
+        (setq postaction (or (one-key-current-menu-miss-match-action)
+                             one-key-buffer-miss-match-action))))
       ;; Set one-key window state appropriately according to value of postaction var (nil by default).
       (cond ((functionp postaction)
              (funcall postaction))
