@@ -1201,6 +1201,19 @@ Each item in the list contains (in this order):
                  (,(intern-soft (concat "one-key-menus-" symb))
                   one-key-current-menus)))))))
 
+;; Functions for accessing specific menu (current menu by default)
+(let ((slots (mapcar 'car (cdr (get 'one-key-menu-struct 'cl-struct-slots)))))
+  (dolist (slot slots)
+    (let ((symb (symbol-name slot)))
+      (eval `(defun ,(intern (concat "one-key-current-menu-" symb)) (&optional val menunum)
+               (let ((menu (nth (or menunum (one-key-current-menus-menunumber) 0)
+                                (one-key-current-menus-menus))))
+                 (if (not (one-key-menu-struct-p menu))
+                     (error "Invalid menu object")
+                   (if val
+                       (setf (,(intern-soft (concat "one-key-menu-struct-" symb)) menu) val)
+                     (,(intern-soft (concat "one-key-menu-struct-" symb)) menu)))))))))
+
 (defvar one-key-displayed-sort-method nil
   "The sort method displayed in the mode line.")
 
