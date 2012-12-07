@@ -1123,11 +1123,8 @@ Each item in the list contains (in this order):
      a menu of this type, otherwise it returns nil. Note: this function should only return non-nil if a menu can be
      reconstructed from the name using the next item in this list.
 
-  3) A function which takes the menu name as its only argument and returns a cons cell whose car is the new name or list
-     of names for the menus, and whose cdr is a menu alist, a symbol whose value is a menu alist, or a list of symbols
-     and/or menu alists. The number of names returned in the car should be equal to the number of menu alists/symbols
-     returned in the cdr. Alternatively this can be a cons cell whose car is the name/names and whose cdr is the menu
-     alist/alists.
+  3) A function which takes the menu name as its only argument and returns a `one-key-menu-struct' object containing
+     the title string, menu items, and special-keys etc.
 
   4) An function that takes no arguments and returns a title string for the `one-key' menu.
      The function will be evaluated in the context of the `one-key-highlight-menu' function, and will be processed by
@@ -1145,23 +1142,9 @@ Each item in the list contains (in this order):
                        (function :tag "Condition"
                                  :help-echo "A function which returns the new menu name(s) when passed a name corresponding to this type, and returns nil otherwise.")
                        (choice (symbol :tag "Menu alist symbol(s)"
-                                       :help-echo "A symbol whose value is a menu alist of keys for menus of this type, or a list of such menus.")
+                                       :help-echo "A symbol whose value is a `one-key-menu-struct' object.")
                                (function :tag "Menu alist function"
-                                         :help-echo "A function which takes the menu name as its only argument and returns either a `one-key' menu alist of keys, or a symbol whose value is such a list, or a list of menus and/or symbols."))
-                       (function :tag "Title string function"
-                                 :help-echo "A function which returns a title string for `one-key' menus of this type.")
-                       (choice (symbol :tag "Special keybindings symbol"
-                                       :help-echo "A symbol whose value is a list of special keybindings for menus of this type")
-                               (repeat :tag "Special keybindings"
-                                       (list (string :tag "Keybinding"
-                                                     :help-echo "String representation of the keybinding for this action")
-                                             (string :tag "Description"
-                                                     :help-echo "Description to display in help buffer")
-                                             (function :tag "Function"
-                                                       :help-echo "Function for performing action. See description below for further details."))))
-                       (alist :tag "Sort methods"
-                              :key-type (string :tag "Name" :help-echo "Name for sort method")
-                              :value-type (function :tag "Function" :help-echo "Predicate that returns non-nil if 1st item comes before 2nd"))))
+                                         :help-echo "A function which takes the menu name as its only argument and returns a `one-key-menu-struct' object or a symbol whose value is such an object."))))
   :group 'one-key)
 
 (defcustom one-key-persistent-menu-number t
