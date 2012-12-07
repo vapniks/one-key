@@ -9,8 +9,8 @@
 ;; Copyright (C) 2008, 2009, 2010 Andy Stewart, all rights reserved.
 ;; Copyright (C) 2009, rubikitch, all rights reserved.
 ;; Created: 2008-12-22 21:54:30
-;; Version: 1.0
-;; Last-Updated: 2/8/2012 16:00:00
+;; Version: 1.1
+;; Last-Updated: 7/12/2012 01:00:00
 ;;           By: Joe Bloggs
 ;; URL: http://www.emacswiki.org/emacs/download/one-key.el
 ;; Keywords: one-key
