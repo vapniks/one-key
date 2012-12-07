@@ -1173,11 +1173,11 @@ Each item in the list contains (in this order):
 
 (defstruct one-key-menu-struct
   "Information for constructing a one-key menu."
-  name items specialkeys filter filtereditems title sortmethods)
+  name items specialkeys filter filtereditems title sortmethods match-action miss-match-action)
 
 (defstruct one-key-menus
   "Set of one-key-menu objects, and name of menu set, along with other relevant information."
-  (name nil :read-only t) menus assocwindow windowstate menunumber match-action miss-match-action)
+  (name nil :read-only t) menus assocwindow menunumber)
 
 (defun one-key-get-slots (struct)
   "Return list of symbols for the slots in the cl-structure STRUCT."
@@ -2168,14 +2168,11 @@ from the associated menu type in `one-key-types-of-menu' or using `one-key-defau
     ;; Check menus in one-key-current-menus
     (unless (one-key-menus-p one-key-current-menus)
       (error "Invalid structure for one-key-current-menus"))
-    (one-key-menus-name one-key-current-menus)
+    (unless (one-key-current-menus-menus)
+      (error "No menus in one-key-current-menus"))
+    (unless (one-key-current-menus-menunumber)
+      (error "Menu number not set in one-key-current-menus"))
     
-    (cond ((not one-key-buffer-menu-number)
-           (error "Buffer local variable one-key-buffer-menu-number is nil"))
-          ((not one-key-buffer-menu-names)
-           (error "Buffer local variable one-key-buffer-menu-names is nil"))
-          ((not one-key-buffer-menu-alists)
-           (error "Buffer local variable one-key-buffer-menu-alists is nil")))
     (let* ((this-list (nth one-key-buffer-menu-number one-key-buffer-menu-alists))
            (issymbol (symbolp this-list))
            (full-list (if issymbol (eval this-list) this-list))
@@ -2215,6 +2212,9 @@ in that window."
     (if (not (equal major-mode 'one-key-mode)) (one-key-mode))
     (if (setq one-key-current-menus menus) (error "No value set for `one-key-current-menus'"))
     (setq one-key-window-toggle-pos 0)
+    (unless (one-key-current-menus-assocwindow)
+      (one-key-current-menus-assocwindow (selected-window)))
+    
     (one-key-update-buffer-contents))
     ;; Open the one-key window
     (one-key-set-window-state (car one-key-window-toggle-sequence))))
