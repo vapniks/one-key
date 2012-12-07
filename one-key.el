@@ -1177,7 +1177,7 @@ Each item in the list contains (in this order):
 
 (defstruct one-key-menus
   "Set of one-key-menu objects, and name of menu set, along with other relevant information."
-  (name :read-only t) menus assocwindow windowstate menunumber match-action miss-match-action)
+  (name nil :read-only t) menus assocwindow windowstate menunumber match-action miss-match-action)
 
 (defun one-key-get-slots (struct)
   "Return list of symbols for the slots in the cl-structure STRUCT."
@@ -1186,8 +1186,20 @@ Each item in the list contains (in this order):
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; GLOBAL VARIABLES ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defvar one-key-current-menus nil
+(defvar one-key-current-menus (make-one-key-menus)
   "The current `one-key-menus' object used in the current one-key buffer.")
+
+;; Build accessor functions for `one-key-current-menus'
+(let ((slots (one-key-get-slots one-key-current-menus)))
+  (dolist (slot slots)
+    (let ((symb (symbol-name slot)))
+      (eval `(defun ,(intern (concat "one-key-current-menus-" symb)) (&optional val)
+               (if val
+                   (setf (,(intern-soft (concat "one-key-menus-" symb))
+                          one-key-current-menus)
+                         val)
+                 (,(intern-soft (concat "one-key-menus-" symb))
+                  one-key-current-menus)))))))
 
 (defvar one-key-displayed-sort-method nil
   "The sort method displayed in the mode line.")
@@ -2151,11 +2163,13 @@ from the associated menu type in `one-key-types-of-menu' or using `one-key-defau
       (setq one-key-buffer-temp-action nil))))
 
 (defun one-key-update-buffer-contents (&optional (buf one-key-buffer-name))
-  "Update the contents of the one-key menu buffer.
-The optional argument TITLE-STRING is a title to insert above the menu items. By default this string will be obtained
-automatically from the associated menu type in `one-key-types-of-menu' or using `one-key-default-title-func' if that
-doesn't exist."
+  "Update the contents of the one-key menu buffer."
   (with-current-buffer buf
+    ;; Check menus in one-key-current-menus
+    (unless (one-key-menus-p one-key-current-menus)
+      (error "Invalid structure for one-key-current-menus"))
+    (one-key-menus-name one-key-current-menus)
+    
     (cond ((not one-key-buffer-menu-number)
            (error "Buffer local variable one-key-buffer-menu-number is nil"))
           ((not one-key-buffer-menu-names)
