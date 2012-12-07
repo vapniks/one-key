@@ -1177,7 +1177,7 @@ Each item in the list contains (in this order):
 
 (defstruct one-key-menus
   "Set of one-key-menu objects, and name of menu set, along with other relevant information."
-  (name :read-only t) menus)
+  (name :read-only t) menus assocwindow windowstate menunumber match-action miss-match-action)
 
 (defun one-key-get-slots (struct)
   "Return list of symbols for the slots in the cl-structure STRUCT."
@@ -1187,7 +1187,7 @@ Each item in the list contains (in this order):
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; GLOBAL VARIABLES ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defvar one-key-current-menus nil
-  "The list of one-key menus used in the current one-key buffer.")
+  "The current `one-key-menus' object used in the current one-key buffer.")
 
 (defvar one-key-displayed-sort-method nil
   "The sort method displayed in the mode line.")
@@ -2150,7 +2150,7 @@ from the associated menu type in `one-key-types-of-menu' or using `one-key-defau
       ;; Reset one-key-buffer-temp-action.
       (setq one-key-buffer-temp-action nil))))
 
-(defun one-key-update-buffer-contents (&optional title-string (buf one-key-buffer-name))
+(defun one-key-update-buffer-contents (&optional (buf one-key-buffer-name))
   "Update the contents of the one-key menu buffer.
 The optional argument TITLE-STRING is a title to insert above the menu items. By default this string will be obtained
 automatically from the associated menu type in `one-key-types-of-menu' or using `one-key-default-title-func' if that
@@ -2185,79 +2185,23 @@ doesn't exist."
                one-key-buffer-menu-names one-key-buffer-menu-number title-string))))
   (one-key-reposition-window-contents))
 
-(defun* one-key-menu (&optional menu-names menu-alists menu-number
-                                &key special-keybinding-symbols title-string
-                                (associated-window (selected-window))
-                                (miss-match-action 'close) (match-action 'close))
+(defun* one-key-menu (&optional menus)
   "Function to open `one-key' menu of commands. The commands are executed by pressing the associated keys.
-MENU-NAMES is the name of the menu as displayed in the menu window, or a list of names corresponding to different menu
-lists in MENU-ALISTS.
-MENU-ALISTS is either a list of menu items, a list of such lists or a symbol whose value is a list or list of lists.
-Each item in a menu list is of the form: ((key . description) . command).
-MENU-NUMBER should be an index (starting at 0) indicating which list to display initially (default is 0).
-If either of MENU-NAMES or MENU-ALISTS is nil then the values that are already stored in the one-key buffer (as buffer local
-variables) will be used, or an error will be flagged if no such values exist.
+By default the menus stored in `one-key-current-menus' will be used. If MENUS is non-nil it should be a `one-key-menus'
+object containing `one-key-menu-struct' objects and other relevant information.
 
-The user can switch between the menu lists by pressing the appropriate keys in `one-key-default-special-keybindings'.
-If SPECIAL-KEYBINDING-SYMBOLS is non-nil then it should be a list of symbols corresponding to items in `one-key-special-keybindings',
- and defines the special keys to use for this menu. Otherwise the special keys will be determined from the menu type,
-or `one-key-default-special-keybindings' will be used.
-TITLE-STRING is a string to display above the menu items. If TITLE-STRING is nil then the title string will be obtained
-from the fourth element of the associated menu type in `one-key-types-of-menu' or using `one-key-default-title-func' if that
-doesn't exist.
+The user can switch between the menu lists by pressing the appropriate special keys (see `one-key-default-special-keybindings').
 
 By default the one-key buffer will be associated with the currently selected window, and all menu commands will be executed
-in that window. You can change the associated window by setting the ASSOCIATED-WINDOW arg to any other window.
-If ASSOCIATED-WINDOW is explicitly set to nil then the window that was last used with one-key will be used (if it exists).
-
-The MATCH-ACTION and MISS-MATCH-ACTION arguments indicate what to do after a matching (menu item)/non-matching key is pressed
-respectively. See `one-key-buffer-match-action' and `one-key-buffer-miss-match-action' for the different values these args
-can take."
+in that window."
   (let* ((buf (or (get-buffer one-key-buffer-name)
-                  (generate-new-buffer one-key-buffer-name)))
-         (menu-number (or menu-number 0)))
+                  (generate-new-buffer one-key-buffer-name))))
     ;; Setup the one-key buffer
     (set-buffer buf)
     (if (not (equal major-mode 'one-key-mode)) (one-key-mode))
-    (let* ((onemenup (and (listp menu-alists)
-                          (listp (car menu-alists))
-                          (listp (caar menu-alists))
-                          (stringp (caaar menu-alists))))
-           (menu-alists2 (or (if onemenup (list menu-alists) menu-alists)
-                             one-key-buffer-menu-alists
-                             (error "Both menu-alists and one-key-buffer-menu-alists are nil")))
-           (menu-names2 (or (if (stringp menu-names) (list menu-names) menu-names)
-                            one-key-buffer-menu-names
-                            (error "Both menu-names and one-key-buffer-menu-names are nil")))
-           (menu-number2 (or menu-number one-key-buffer-menu-number
-                             (error "Both menu-number and one-key-buffer-menu-number are nil")))
-           (menu-number3 (if onemenup 0 ; make sure menu number is set properly
-                           (max (min menu-number2 (1- (length menu-alists2))) 0)))
-           (this-name (nth menu-number3 menu-names2))
-           (special-keybindings (or (if special-keybinding-symbols
-                                        (one-key-get-special-key-contents special-keybinding-symbols))
-                                    (if menu-alists
-                                        (one-key-get-special-key-contents
-                                         (one-key-eval-if-symbol
-                                          (or (fifth (one-key-get-menu-type this-name))
-                                              one-key-default-special-keybindings))))
-                                    one-key-buffer-special-keybindings))
-           (associated-window2 (or associated-window
-                                  one-key-buffer-associated-window
-                                  (error "Both associated-window and one-key-buffer-associated-window are nil")))
-           (miss-match-action2 (if menu-alists miss-match-action
-                                 one-key-buffer-miss-match-action))
-           (match-action2 (if menu-alists match-action
-                            one-key-buffer-match-action)))
-      (setq one-key-buffer-menu-number menu-number3
-            one-key-buffer-menu-names menu-names2
-            one-key-buffer-menu-alists menu-alists2
-            one-key-buffer-special-keybindings special-keybindings
-            one-key-buffer-associated-window associated-window2
-            one-key-buffer-miss-match-action miss-match-action2
-            one-key-buffer-match-action match-action2
-            one-key-window-toggle-pos 0)
-      (one-key-update-buffer-contents title-string))
+    (if (setq one-key-current-menus menus) (error "No value set for `one-key-current-menus'"))
+    (setq one-key-window-toggle-pos 0)
+    (one-key-update-buffer-contents))
     ;; Open the one-key window
     (one-key-set-window-state (car one-key-window-toggle-sequence))))
 
