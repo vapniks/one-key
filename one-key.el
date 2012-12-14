@@ -1173,7 +1173,7 @@ Each item in the list contains (in this order):
 
 (defstruct one-key-menu-struct
   "Information for constructing a one-key menu."
-  name items specialkeys filter filtereditems title sortmethods match-action miss-match-action)
+  name items displayed-items filter filtereditems specialkeys title sortmethods match-action miss-match-action)
 
 (defstruct one-key-menus
   "Set of one-key-menu objects, and name of menu set, along with other relevant information."
@@ -1190,10 +1190,13 @@ Each item in the list contains (in this order):
   "The current `one-key-menus' object used in the current one-key buffer.")
 
 ;; Build accessor functions for `one-key-current-menus'
+;; Function names are in the form one-key-current-menus-<MEM> where <MEM> is the member to to get/set
 (let ((slots (one-key-get-slots one-key-current-menus)))
   (dolist (slot slots)
     (let ((symb (symbol-name slot)))
       (eval `(defun ,(intern (concat "one-key-current-menus-" symb)) (&optional val)
+               ,(concat "Get/set the value of " symb " in the current menu.
+If called with no args, return the value of " symb ", otherwise set the value to VAL.")
                (if val
                    (setf (,(intern-soft (concat "one-key-menus-" symb))
                           one-key-current-menus)
@@ -1202,10 +1205,16 @@ Each item in the list contains (in this order):
                   one-key-current-menus)))))))
 
 ;; Functions for accessing specific menu (current menu by default)
+;; Function names are in the form one-key-current-menu-<MEM> where <MEM> is the member to to get/set
 (let ((slots (mapcar 'car (cdr (get 'one-key-menu-struct 'cl-struct-slots)))))
   (dolist (slot slots)
     (let ((symb (symbol-name slot)))
       (eval `(defun ,(intern (concat "one-key-current-menu-" symb)) (&optional val menunum)
+               ,(concat "Get/set the value of " symb " in a specific menu.
+If called with no args, return the value of " symb " for the current menu,
+If optional arg VAL is supplied, set the value of " symb " to VAL and return it.
+By default the current menu will be used, but if the optional arg MENUNUM is set then
+the MENUNUM'th menu will be used instead.")
                (let ((menu (nth (or menunum (one-key-current-menus-menunumber) 0)
                                 (one-key-current-menus-menus))))
                  (if (not (one-key-menu-struct-p menu))
@@ -1888,8 +1897,8 @@ This function must be called within the context of the one-key buffer to work."
                     one-key-types-of-menu)))
 
 (defun* one-key-get-menus-for-type (name &optional (remapkeys t))
-  "Given the name NAME of an existing menu or menu type in `one-key-types-of-menu', return associated names and menu alists.
-If no such menu or menu type exists, return nil.
+  "Given the name NAME of an existing menu or menu type in `one-key-types-of-menu', return associated menu object.
+The returned object is of type `one-key-menu-struct'. If no such menu object exists, return nil.
 The optional argument REMAPKEYS is t by default and indicates whether or not to remap the keys in the menu using
 the `one-key-remap-invalid-keys' function."
   (let* ((pair (if name (let* ((listname (concat "one-key-menu-" name "-alist"))
@@ -1901,8 +1910,6 @@ the `one-key-remap-invalid-keys' function."
                                                     when (equal listname symname)
                                                     return (cons name sym))))))
                           (if (functionp func) (funcall func name) func))))
-         (onep (stringp (car pair)))
-         (names (car pair))
          (menus (if remapkeys
                     (if onep (one-key-remap-invalid-keys (cdr pair))
                       (mapcar 'one-key-remap-invalid-keys (cdr pair)))
@@ -2232,7 +2239,7 @@ in that window."
     
     (one-key-update-buffer-contents))
     ;; Open the one-key window
-    (one-key-set-window-state (car one-key-window-toggle-sequence))))
+    (one-key-set-window-state (car one-key-window-toggle-sequence)))
 
 (defun one-key-execute-binding-command (key)
   "Execute the command bound to KEY (a string description of a key), unless this command is `keyboard-quit'.
