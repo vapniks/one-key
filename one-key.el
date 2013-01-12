@@ -2176,9 +2176,11 @@ from the associated menu type in `one-key-types-of-menu' or using `one-key-defau
       (cond ((functionp postaction)
              (funcall postaction))
             ((eq postaction 'execute)
-             (one-key-execute-binding-command key))
+             (with-temp-buffer (one-key-current-menus-assocwindow)
+                               (one-key-execute-binding-command key)))
             ((eq postaction 'executeclose)
-             (one-key-execute-binding-command key)
+             (with-temp-buffer (one-key-current-menus-assocwindow)
+                               (one-key-execute-binding-command key))
              (one-key-set-window-state 'close))
             (t (one-key-set-window-state postaction)))
       ;; Reset one-key-buffer-temp-action.
