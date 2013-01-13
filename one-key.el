@@ -1888,13 +1888,15 @@ This function must be called within the context of the one-key buffer to work."
 
 (defun one-key-get-menu-type (name)
   "Return the element of `one-key-types-of-menu' corresponding to menu with name NAME, or nil if none exists."
-  (if name (find-if (lambda (x)
-                      (let ((one (first x))
-                            (two (second x)))
-                        (or (equal one name) 
-                            (and (functionp two)
-                                 (funcall two name)))))
-                    one-key-types-of-menu)))
+  (if name
+      (let ((type (find-if (lambda (x)
+                             (let ((one (first x))
+                                   (two (second x)))
+                               (or (equal one name) 
+                                   (and (functionp two)
+                                        (funcall two name)))))
+                           one-key-types-of-menu)))
+        (if (functionp type) (funcall type name) type))))
 
 (defun* one-key-get-menus-for-type (name &optional (remapkeys t))
   "Given the name NAME of an existing menu or menu type in `one-key-types-of-menu', return associated menu object.
@@ -1917,7 +1919,7 @@ the `one-key-remap-invalid-keys' function."
     (cons names menus)))
 
 (defun one-key-prompt-for-menu nil
-  "Prompt the user for a `one-key' menu type, and return menu name(s) and menu alist(s)."
+  "Prompt the user for a `one-key' menu type, and return the corresponding one-key-menu-struct."
   (let* ((alltypes (remq nil (mapcar 'car one-key-types-of-menu)))
          (type (if (featurep 'ido)
                    (ido-completing-read "Menu type: " alltypes)
