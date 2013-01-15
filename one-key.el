@@ -2236,14 +2236,14 @@ in that window."
     ;; Setup the one-key buffer
     (set-buffer buf)
     (if (not (equal major-mode 'one-key-mode)) (one-key-mode))
-    (if (setq one-key-current-menus menus) (error "No value set for `one-key-current-menus'"))
+    (unless (setq one-key-current-menus (or menus one-key-current-menus))
+      (error "No value set for `one-key-current-menus'"))
     (setq one-key-window-toggle-pos 0)
     (unless (one-key-current-menus-assocwindow)
       (one-key-current-menus-assocwindow (selected-window)))
-    
     (one-key-update-buffer-contents))
-    ;; Open the one-key window
-    (one-key-set-window-state (car one-key-window-toggle-sequence)))
+  ;; Open the one-key window
+  (one-key-set-window-state (car one-key-window-toggle-sequence)))
 
 (defun one-key-execute-binding-command (key)
   "Execute the command bound to KEY (a string description of a key), unless this command is `keyboard-quit'.
