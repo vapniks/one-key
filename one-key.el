@@ -2403,11 +2403,13 @@ The one-key window will be selected after calling this function unless optional 
                      (switch-to-prev-buffer helpwin))))))))
   (one-key-reposition-window-contents))
 
-(defun one-key-menu-window-toggle nil
-  "Toggle the one-key menu window to the next state in `one-key-window-toggle-sequence'."
+(defun one-key-menu-window-toggle (&optional nochange)
+  "Toggle the one-key menu window to the next state in `one-key-window-toggle-sequence'.
+If optional arg NOCHANGE is non-nil then set window to the current state in the `one-key-window-toggle-sequence'."
   (interactive)
-  (setq one-key-window-toggle-pos (mod (1+ one-key-window-toggle-pos)
-                                       (length one-key-window-toggle-sequence)))
+  (setq one-key-window-toggle-pos
+        (mod (if nochange one-key-window-toggle-pos (1+ one-key-window-toggle-pos))
+             (length one-key-window-toggle-sequence)))
   (let* ((nextstate (nth one-key-window-toggle-pos
                          one-key-window-toggle-sequence))
          (pair (consp nextstate)))
