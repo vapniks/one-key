@@ -897,16 +897,14 @@ sort methods for different menus."
                                       (length one-key-buffer-menu-alists))
                                  one-key-default-menu-number one-key-buffer-menu-number)
                  (one-key-update-buffer-contents)
-                 (one-key-set-window-state
-                  (nth one-key-window-toggle-pos one-key-window-toggle-sequence))))
+                 (one-key-menu-window-toggle t)))
     (prev-menu "<right>" "Change to right menu"
                (lambda nil (setq one-key-buffer-menu-number
                                  (mod (1+ one-key-buffer-menu-number)
                                       (length one-key-buffer-menu-alists))
                                  one-key-default-menu-number one-key-buffer-menu-number)
                  (one-key-update-buffer-contents)
-                 (one-key-set-window-state
-                  (nth one-key-window-toggle-pos one-key-window-toggle-sequence))))
+                 (one-key-menu-window-toggle t)))
     (skip-menus-left "<C-left>" "Skip menus to left"
                      (lambda nil (let* ((nummenus (length one-key-buffer-menu-alists))
                                         (skipnum (max (round (* nummenus 0.333)) 2)))
@@ -914,8 +912,7 @@ sort methods for different menus."
                                          (mod (- one-key-buffer-menu-number skipnum) nummenus)
                                          one-key-default-menu-number one-key-buffer-menu-number)
                                    (one-key-update-buffer-contents)
-                                   (one-key-set-window-state
-                                    (nth one-key-window-toggle-pos one-key-window-toggle-sequence)))))
+                                   (one-key-menu-window-toggle t))))
     (skip-menus-right "<C-right>" "Skip menus to right"
                       (lambda nil (let* ((nummenus (length one-key-buffer-menu-alists))
                                          (skipnum (max (round (* nummenus 0.333)) 2)))
@@ -923,8 +920,7 @@ sort methods for different menus."
                                           (mod (+ one-key-buffer-menu-number skipnum) nummenus)
                                           one-key-default-menu-number one-key-buffer-menu-number)
                                     (one-key-update-buffer-contents)
-                                    (one-key-set-window-state
-                                     (nth one-key-window-toggle-pos one-key-window-toggle-sequence)))))
+                                    (one-key-menu-window-toggle t))))
     (up "<up>" "Scroll/move up one line" one-key-menu-window-scroll-up-line)
     (down "<down>" "Scroll/move down one line" ,(apply-partially 'one-key-menu-window-scroll-up-line t))
     (scroll-down "<prior>" "Scroll menu down one page" ,(apply-partially 'one-key-menu-window-scroll-up t))
@@ -2243,7 +2239,7 @@ in that window."
       (one-key-current-menus-assocwindow (selected-window)))
     (one-key-update-buffer-contents))
   ;; Open the one-key window
-  (one-key-set-window-state (car one-key-window-toggle-sequence)))
+  (one-key-menu-window-toggle t))
 
 (defun one-key-execute-binding-command (key)
   "Execute the command bound to KEY (a string description of a key), unless this command is `keyboard-quit'.
