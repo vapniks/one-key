@@ -2229,8 +2229,8 @@ a string. By default TITLE is set to `one-key-default-title-func'."
       (one-key-current-menu-displayeditems
        (if (stringp filter)
             (remove-if-not (lambda (elt) (string-match filter (cdar elt)))
-             (remove nil full-list))
-         (remove nil full-list)))
+             (remq nil full-list))
+         (remq nil full-list)))
       ;; Fill the buffer
       (erase-buffer)
       (goto-char (point-min))
