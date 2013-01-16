@@ -2223,9 +2223,7 @@ from the associated menu type in `one-key-types-of-menu' or using `one-key-defau
       (error "No menus in one-key-current-menus"))
     (unless (one-key-current-menus-menunumber)
       (error "Menu number not set in one-key-current-menus"))
-    (let* ((this-list (one-key-current-menu-items))
-           (issymbol (symbolp this-list))
-           (full-list (if issymbol (eval this-list) this-list))
+    (let* ((full-list (one-key-eval-if-symbol (one-key-current-menu-items)))
            (this-name (one-key-current-menu-name))
            (filter (one-key-current-menu-filter)))
       ;; Filter the menu items.
