@@ -2239,7 +2239,9 @@ from the associated menu type in `one-key-types-of-menu' or using `one-key-defau
       (goto-char (point-min))
       (insert (one-key-highlight-menu
                (one-key-menu-format (one-key-current-menu-displayeditems))
-               (one-key-current-menu-name) nil (one-key-current-menu-title)))))
+               (mapcar (lambda (menu) (one-key-menu-struct-name menu)) (one-key-menus-menus))
+               (one-key-menus-menunumber)
+               (one-key-current-menu-title)))))
   (one-key-reposition-window-contents))
 
 (defun* one-key-menu (&optional menus)
