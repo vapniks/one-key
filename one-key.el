@@ -2134,19 +2134,20 @@ If no menu set matches then open `one-key-default-menu-set'."
                            msg-face))
     (buffer-string)))
 
-(defun one-key-highlight-menu (keystroke names menu-number &optional title-string)
+(defun one-key-highlight-menu (keystroke names menu-number &optional (title one-key-default-title-func))
   "Highlight items in KEYSTROKE (an alist of menu items), and return contents for insertion in *One-Key* buffer.
 Also create header-line from NAMES (a list of menu names), highlighting the MENU-NUMBER'th name in that list.
 MENU-NUMBER should be the number of the currently selected menu in the NAMES list, or nil if NAMES contains
 a single menu name.
-The optional arg TITLE-STRING is a title to place above the menu items. By default this title is obtained automatically
-from the associated menu type in `one-key-types-of-menu' or using `one-key-default-title-func' if that doesn't exist."
+The optional arg TITLE is either a string to place above the menu items, or a function with no args which returns
+a string. By default TITLE is set to `one-key-default-title-func'."
   (let* ((name (if menu-number (nth menu-number names) names))
-         (title-func (or (fourth (one-key-get-menu-type name)) one-key-default-title-func))
-         (title-string2 (or title-string (and title-func (funcall title-func))))
-         (infoline (if (> (length title-string2) 0)
-                       (one-key-highlight (if (equal (substring title-string2 -1) "\n") title-string2
-                                            (concat title-string2 "\n"))
+         (title-string (cond ((functionp title) (funcall title))
+                             ((stringp title) title)
+                             (t (funcall one-key-default-title-func))))
+         (infoline (if (> (length title-string) 0)
+                       (one-key-highlight (if (equal (substring title-string -1) "\n") title-string
+                                            (concat title-string "\n"))
                                           "\\(<[^<>]*>\\|'[^']*'\\)" '(face one-key-name))))
          (keystrokelist (one-key-highlight keystroke "\\[\\([^\\[\\]\\)*?\\]" '(face one-key-keystroke))))
     (setq header-line-format (one-key-header-line-format names menu-number)
