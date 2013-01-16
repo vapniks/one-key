@@ -1168,13 +1168,41 @@ Each item in the list contains (in this order):
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; STRUCTURES ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defstruct one-key-menu-struct
-  "Information for constructing a one-key menu."
-  name items displayed-items filter filtereditems specialkeys specialkeysymbols
-  title sortmethods match-action miss-match-action)
+  "Information for constructing a one-key menu.
+May contain the following items:
+
+name : the name of the menu (a string)
+items : list of menu items
+displayeditems : list of currently displayed menu items
+filter : regular expression for filtering menu items
+specialkeysymbols : list of special key symbols for this menu
+specialkeys : list of special key items corresponding to specialkeysymbols
+title : title string to place above menu items
+sortmethods : list of names of sort methods that can be used with this menu
+sortnumber : index for the current sort method in sortmethods 
+match-action : indicate what to do after a matching (menu item) key is pressed, and the associated
+               command is executed. The value should be either nil which means do nothing and leave
+               the window open, a function to be called with no arguments, or a symbol which is interpreted
+               in the same way as the possible values for `one-key-window-toggle-sequence'.
+               The default value is 'close (i.e. close the one-key window). This variable may be temporarily
+               overridden by the value of `one-key-buffer-temp-action' by individual commands.
+miss-match-action : Indicates what to do after a miss-match (non menu item) key is pressed.
+               The possible values are the same as for `one-key-buffer-match-action' or the symbols
+               'execute 'executeclose which will execute the key (in the associated window) and leave the
+               one-key window open/closed respectively. The default value is 'close (i.e. close the one-key window).
+"
+  name items displayed-items filter displayeditems specialkeysymbols specialkeys 
+  title sortmethods sortindex (match-action 'close) (miss-match-action 'close))
 
 (defstruct one-key-menus
-  "Set of one-key-menu objects, and name of menu set, along with other relevant information."
-  (name nil :read-only t) menus assocwindow menunumber)
+  "Set of one-key-menu objects, and name of menu set, along with other relevant information.
+May contain the following items:
+
+menus : list of `one-key-menu-struct' items
+menunumber : index of the currently displayed menu of previously mentioned menus item
+assocwindow : the window associated with this set of menus
+"
+  (name nil :read-only t) menus menunumber assocwindow)
 
 (defun one-key-get-slots (struct)
   "Return list of symbols for the slots in the cl-structure STRUCT."
@@ -2148,7 +2176,7 @@ from the associated menu type in `one-key-types-of-menu' or using `one-key-defau
         (setq postaction one-key-buffer-temp-action))
        ;; Handle keystrokes matching menu items unless called from the help buffer.
        ((and (not helpbufp)
-             (setq matchitem (assoc* key (one-key-current-menu-filtereditems)
+             (setq matchitem (assoc* key (one-key-current-menu-displayeditems)
                                      :test (lambda (x y) (equal x (one-key-remap-key-description (car y)))))))
         (let* ((desc (cdar matchitem))
                (rest (cdr matchitem))
@@ -2201,7 +2229,7 @@ from the associated menu type in `one-key-types-of-menu' or using `one-key-defau
            (this-name (one-key-current-menu-name))
            (filter (one-key-current-menu-filter)))
       ;; Filter the menu items.
-      (one-key-current-menu-filtereditems
+      (one-key-current-menu-displayeditems
        (if (stringp filter)
             (remove-if-not (lambda (elt) (string-match filter (cdar elt)))
              (remove nil full-list))
@@ -2210,7 +2238,7 @@ from the associated menu type in `one-key-types-of-menu' or using `one-key-defau
       (erase-buffer)
       (goto-char (point-min))
       (insert (one-key-highlight-menu
-               (one-key-menu-format (one-key-current-menu-filtereditems))
+               (one-key-menu-format (one-key-current-menu-displayeditems))
                (one-key-current-menu-name) nil (one-key-current-menu-title)))))
   (one-key-reposition-window-contents))
 
