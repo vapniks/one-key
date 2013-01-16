@@ -2137,11 +2137,9 @@ If no menu set matches then open `one-key-default-menu-set'."
 (defun one-key-highlight-menu (keystroke names menu-number &optional (title one-key-default-title-func))
   "Highlight items in KEYSTROKE (an alist of menu items), and return contents for insertion in *One-Key* buffer.
 Also create header-line from NAMES (a list of menu names), highlighting the MENU-NUMBER'th name in that list.
-MENU-NUMBER should be the number of the currently selected menu in the NAMES list, or nil if NAMES contains
-a single menu name.
 The optional arg TITLE is either a string to place above the menu items, or a function with no args which returns
 a string. By default TITLE is set to `one-key-default-title-func'."
-  (let* ((name (if menu-number (nth menu-number names) names))
+  (let* ((name (nth menu-number names))
          (title-string (cond ((functionp title) (funcall title))
                              ((stringp title) title)
                              (t (funcall one-key-default-title-func))))
