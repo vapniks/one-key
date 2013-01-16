@@ -1169,7 +1169,8 @@ Each item in the list contains (in this order):
 
 (defstruct one-key-menu-struct
   "Information for constructing a one-key menu."
-  name items displayed-items filter filtereditems specialkeys title sortmethods match-action miss-match-action)
+  name items displayed-items filter filtereditems specialkeys specialkeysymbols
+  title sortmethods match-action miss-match-action)
 
 (defstruct one-key-menus
   "Set of one-key-menu objects, and name of menu set, along with other relevant information."
@@ -2194,28 +2195,23 @@ from the associated menu type in `one-key-types-of-menu' or using `one-key-defau
       (error "No menus in one-key-current-menus"))
     (unless (one-key-current-menus-menunumber)
       (error "Menu number not set in one-key-current-menus"))
-    
-    (let* ((this-list (nth one-key-buffer-menu-number one-key-buffer-menu-alists))
+    (let* ((this-list (one-key-current-menu-items))
            (issymbol (symbolp this-list))
            (full-list (if issymbol (eval this-list) this-list))
-           (this-name (nth one-key-buffer-menu-number one-key-buffer-menu-names)))
-      ;; Fill buffer with menu items.
-      (setq one-key-buffer-filtered-list
-            (if (stringp one-key-buffer-filter-regex)
-                (remove-if-not
-                 (lambda (elt) (string-match one-key-buffer-filter-regex (cdar elt)))
-                 (remove nil full-list))
-              (remove nil full-list))
-            one-key-buffer-special-keybindings
-            (or (one-key-get-special-key-contents
-                 (one-key-eval-if-symbol
-                  (or (fifth (one-key-get-menu-type this-name))
-                      one-key-default-special-keybindings)))))
+           (this-name (one-key-current-menu-name))
+           (filter (one-key-current-menu-filter)))
+      ;; Filter the menu items.
+      (one-key-current-menu-filtereditems
+       (if (stringp filter)
+            (remove-if-not (lambda (elt) (string-match filter (cdar elt)))
+             (remove nil full-list))
+         (remove nil full-list)))
+      ;; Fill the buffer
       (erase-buffer)
       (goto-char (point-min))
       (insert (one-key-highlight-menu
-               (one-key-menu-format one-key-buffer-filtered-list)
-               one-key-buffer-menu-names one-key-buffer-menu-number title-string))))
+               (one-key-menu-format (one-key-current-menu-filtereditems))
+               (one-key-current-menu-name) nil (one-key-current-menu-title)))))
   (one-key-reposition-window-contents))
 
 (defun* one-key-menu (&optional menus)
@@ -2235,8 +2231,16 @@ in that window."
     (unless (setq one-key-current-menus (or menus one-key-current-menus))
       (error "No value set for `one-key-current-menus'"))
     (setq one-key-window-toggle-pos 0)
+    ;; Set the special keys 
+    (one-key-current-menu-specialkeys
+     (one-key-get-special-key-contents
+      (one-key-eval-if-symbol
+       (or (one-key-current-menu-specialkeysymbols)
+           one-key-default-special-keybindings))))
+    ;; Associate current window with one-key buffer
     (unless (one-key-current-menus-assocwindow)
       (one-key-current-menus-assocwindow (selected-window)))
+    ;; Display the buffer contents
     (one-key-update-buffer-contents))
   ;; Open the one-key window
   (one-key-menu-window-toggle t))
