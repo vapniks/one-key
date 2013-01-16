@@ -1913,15 +1913,13 @@ This function must be called within the context of the one-key buffer to work."
 
 (defun one-key-get-menu-type (name)
   "Return the element of `one-key-types-of-menu' corresponding to menu with name NAME, or nil if none exists."
-  (if name
-      (let ((type (find-if (lambda (x)
-                             (let ((one (first x))
-                                   (two (second x)))
-                               (or (equal one name) 
-                                   (and (functionp two)
-                                        (funcall two name)))))
-                           one-key-types-of-menu)))
-        (if (functionp type) (funcall type name) type))))
+  (find-if (lambda (x)
+             (let ((one (first x))
+                   (two (second x)))
+               (or (equal one name)
+                   (and (functionp two)
+                        (funcall two name)))))
+           one-key-types-of-menu))
 
 (defun* one-key-get-menus-for-type (name &optional (remapkeys t))
   "Given the name NAME of an existing menu or menu type in `one-key-types-of-menu', return associated menu object.
