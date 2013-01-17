@@ -1847,7 +1847,7 @@ If COLOUR is \"\" then all highlighting (and more generally any text properties)
 NAME is the name of the menu, and MENU-STRUCT is either a one-key menu list, or a symbol whose value is such a menu."
   (let* ((isref (symbolp menu-struct))
          (varname (if isref (symbol-name menu-struct)
-                    (concat "one-key-menu-" name "-struct")))
+                    (concat "one-key-" name "-menu-struct")))
          (menu-struct2 (one-key-eval-if-symbol menu-struct))
          (saveable-items (mapcar 'symbol-name (intersection
                                                (one-key-get-slots menu-struct2)
@@ -3053,10 +3053,9 @@ and :invalidkeys arg3."
 Any menu names that match the regular expressions in `one-key-exclude-from-save' will not be saved."
   (loop for x in one-key-altered-menus
         for varname = (if (stringp x) x (if (symbolp x) (symbol-name x)))
-        for name = (if (string-match "one-key-menu-.*-alist" varname)
-                       (substring varname 13 -6))
+        for name = (if (string-match "one-key-.*-menu-struct" varname)
+                       (substring varname 13 -7))
         for var = (intern-soft varname)
-        for menulist = (eval var)
         for exclude = (loop for regex in one-key-exclude-from-save
                             if (string-match regex varname) return t)
         if (and name var (not exclude)) do (one-key-save-menu name var)))
