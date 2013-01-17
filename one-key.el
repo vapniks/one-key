@@ -1191,8 +1191,14 @@ miss-match-action : Indicates what to do after a miss-match (non menu item) key 
                'execute 'executeclose which will execute the key (in the associated window) and leave the
                one-key window open/closed respectively. The default value is 'close (i.e. close the one-key window).
 "
-  name items displayed-items filter displayeditems specialkeysymbols specialkeys 
+  name items filter displayeditems specialkeysymbols specialkeys 
   title sortmethods sortindex (match-action 'close) (miss-match-action 'close))
+
+(defcustom one-key-menu-struct-savable-items
+  '("name" "displayeditems" "title")
+  "List of members of `one-key-menu-struct' (or derived structures) that should be saved to file when a menu is saved."
+  :group 'one-key
+  :type '(repeat (string :tag "Member name" :help-echo "Name of the menu-struct member to be saved." )))
 
 (defstruct one-key-menus
   "Set of one-key-menu objects, and name of menu set, along with other relevant information.
@@ -1204,9 +1210,13 @@ assocwindow : the window associated with this set of menus
 "
   (name nil :read-only t) menus menunumber assocwindow)
 
+(defun one-key-get-struct-type (struct)
+  "Return the type name of the structure STRUCT."
+  (substring (symbol-name (elt testmenu 0)) 10))
+
 (defun one-key-get-slots (struct)
   "Return list of symbols for the slots in the cl-structure STRUCT."
-  (mapcar 'car (cdr (get (intern-soft (substring (symbol-name (elt struct 0)) 10))
+  (mapcar 'car (cdr (get (intern-soft (one-key-get-struct-type struct))
                          'cl-struct-slots))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; GLOBAL VARIABLES ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1832,13 +1842,17 @@ If COLOUR is \"\" then all highlighting (and more generally any text properties)
     (if isref (add-to-list 'one-key-altered-menus (symbol-name this-list))))
   (one-key-update-buffer-contents))
 
-(defun one-key-save-menu (name menu-list)
+(defun one-key-save-menu (name menu-struct)
   "Save a one-key menu to the file `one-key-menus-save-file'.
-NAME is the name of the menu, and MENU-LIST is either a one-key menu list, or a symbol whose value is such a menu."
-  (let* ((isref (symbolp menu-list))
-         (varname (if isref (symbol-name menu-list)
-                    (concat "one-key-menu-" name "-alist")))
-         (full-list (if isref (eval menu-list) menu-list))
+NAME is the name of the menu, and MENU-STRUCT is either a one-key menu list, or a symbol whose value is such a menu."
+  (let* ((isref (symbolp menu-struct))
+         (varname (if isref (symbol-name menu-struct)
+                    (concat "one-key-menu-" name "-struct")))
+         (menu-struct2 (one-key-eval-if-symbol menu-struct))
+         (saveable-items (mapcar 'symbol-name (intersection
+                                               (one-key-get-slots menu-struct2)
+                                               one-key-menu-struct-savable-items)))
+         (typename (one-key-get-struct-type menu-struct2))
          (file one-key-menus-save-file)
          (buf (get-file-buffer file)))
     (if file
@@ -1851,9 +1865,11 @@ NAME is the name of the menu, and MENU-LIST is either a one-key menu list, or a 
                 (mark-sexp)
                 (kill-region (point) (marker-position (mark-marker)))
                 (deactivate-mark))
-              (insert (concat "(setq " varname "\n      '"
-                              (replace-regexp-in-string
-                               ") ((" ")\n        ((" (eval `(prin1-to-string full-list))) ")"))
+              (insert (concat "(setq " varname " (make-" typename "\n"))
+              (loop for item in saveable-items
+                    for value = (eval `(,(intern-soft (concat typename "-" item)) menu-struct2))
+                    (insert (concat ":" item " " (prin1-to-string value) "\n")))
+              (insert "))\n")
               (save-buffer)
               (if (not buf) (kill-buffer (get-file-buffer file))))
           (message "Can't write to file %s" file))
