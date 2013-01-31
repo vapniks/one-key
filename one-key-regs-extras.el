@@ -78,8 +78,8 @@
 ;;
 
 ;;; TODO
-;;
 ;; 
+;; Register for calling idomenu for a specific buffer, from any other buffer.
 ;;
 ;;; Require
 (require 'one-key-regs)
