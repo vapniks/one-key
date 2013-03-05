@@ -453,6 +453,7 @@
 ;; one-key-read-logical-formula : change recursive algorithm to iterative one and allow more flexible editing of logical formula
 ;; (left/right to move to previous/next clause, and <insert>/<delete> to insert/delete clause. Need cursor to show position).
 ;; Also have special key to show items filtered by current state of formula.
+;; Utilize 'booldnf' in linux for converting a logical formula into a DNF.
 ;;
 ;; one-key menus listing all commands in a given elisp library. Prompt user for library name first.
 ;; one-key-navigate - for navigating org-files and call trees
@@ -2167,7 +2168,7 @@ from the associated menu type in `one-key-types-of-menu' or using `one-key-defau
       ;; Reset one-key-buffer-temp-action.
       (setq one-key-buffer-temp-action nil))))
 
-(defun one-key-update-buffer-contents (&optional title-string (buf one-key-buffer-name))
+(defun* one-key-update-buffer-contents (&optional title-string (buf one-key-buffer-name))
   "Update the contents of the one-key menu buffer.
 The optional argument TITLE-STRING is a title to insert above the menu items. By default this string will be obtained
 automatically from the associated menu type in `one-key-types-of-menu' or using `one-key-default-title-func' if that
