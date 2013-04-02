@@ -38,7 +38,9 @@
 ;; Floor, Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
-;; 
+;;
+;; Bitcoin donations gratefully accepted: 1HnSqGHrVenb1t2V2aijyocWyZcd7qt1k
+
 ;; This library adds a new menu type to `one-key' called `one-key-registers' which creates a menu
 ;; for the currently loaded registers in `register-alist'. For more information on one-key see `one-key.el'.
 ;; Registers may be edited, created and deleted from within the `one-key-registers' menu, and many
@@ -1215,3 +1217,6 @@ Unless NOPROMPT is non-nil the user will be prompted to check if they want to co
 (provide 'one-key-regs)
 
 ;;; one-key-regs.el ends here
+
+;; (magit-push)
+;; (yaoddmuse-post "EmacsWiki" "one-key-regs.el" (buffer-name) (buffer-string) "update")
