@@ -3520,5 +3520,5 @@ This function assumes dynamic binding of okr-title-string to the current title s
 ;;; one-key.el ends here
 
 ;; (magit-push)
-;; (yaoddmuse-post "EmacsWiki" "simple-call-tree+.el" (buffer-name) (buffer-string) "update")
+;; (yaoddmuse-post "EmacsWiki" "one-key.el" (buffer-name) (buffer-string) "update")
 
