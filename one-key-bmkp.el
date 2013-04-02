@@ -37,7 +37,9 @@
 ;; If not, see <http://www.gnu.org/licenses/>.
 
 ;;; Commentary: 
-;; 
+;;
+;; Bitcoin donations gratefully accepted: 1HnSqGHrVenb1t2V2aijyocWyZcd7qt1k
+
 ;; This library defines a `one-key' menu type for bookmarks.
 ;; See the documentation for `one-key' for how to add a new menu to a menu-set.
 
@@ -432,3 +434,6 @@ If there are no existing filters, print a message saying so and return nil."
 (provide 'one-key-bmkp)
 
 ;;; one-key-bmkp.el ends here
+
+;; (magit-push)
+;; (yaoddmuse-post "EmacsWiki" "one-key-bmkp.el" (buffer-name) (buffer-string) "update")
