@@ -38,7 +38,9 @@
 ;; If not, see <http://www.gnu.org/licenses/>.
 
 ;;; Commentary: 
-;; 
+;;
+;; Bitcoin donations gratefully accepted: 1HnSqGHrVenb1t2V2aijyocWyZcd7qt1k
+
 ;; Extra register types for `one-key-regs', including starting various different types of processes (shell, database
 ;; clients, repl's, debuggers, etc.), bookmarks, desktops, and window configs (using policy switch).
 ;; If you want to use auth-source for obtaining login credentials for the database registers then you should set
@@ -525,6 +527,8 @@ bookmark should be added to the `one-key' menu."
 (provide 'one-key-regs-extras)
 ;;; one-key-regs-extras.el ends here
 
+;; (magit-push)
+;; (yaoddmuse-post "EmacsWiki" "one-key-regs-extras.el" (buffer-name) (buffer-string) "update")
 
 
 
