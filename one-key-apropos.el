@@ -37,7 +37,9 @@
 ;; If not, see <http://www.gnu.org/licenses/>.
 
 ;;; Commentary: 
-;; 
+;;
+;; Bitcoin donations gratefully accepted: 1HnSqGHrVenb1t2V2aijyocWyZcd7qt1k
+
 ;; This library will add a new one-key menu type called "apropos-command".
 ;; When you add a new menu of this type to a set of one-key menus you will be prompted for a word list or regexp,
 ;; and new one-key menus will be added containing commands matching those words/regexps.
@@ -133,3 +135,6 @@
 
 (provide 'one-key-apropos)
 ;;; one-key-apropos.el ends here
+
+;; (magit-push)
+;; (yaoddmuse-post "EmacsWiki" "one-key-apropos.el" (buffer-name) (buffer-string) "update")
