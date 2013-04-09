@@ -567,13 +567,16 @@ instead of prompting the user for one."
     (progn
       (add-to-list 'one-key-regs-custom-register-types
                    '(ERC
-                     `(let ((args ',(append (erc-select-read-args)
-                                            (list :channel (read-string "Channel (leave blank for none): " )))))
-                        (erc-open (plist-get args :server) (plist-get args :port)
-                                  (plist-get args :nick) (erc-compute-full-name)
-                                  t (plist-get args :password))
-                        (if (string-match "\\S-" (plist-get args :channel))
-                            (erc-join-channel (plist-get args :channel))))
+                     `(let* ((args ',(append (erc-select-read-args)
+                                            (list :channel (read-string "Channel (leave blank for none): " ))))
+                             (server (plist-get args :server))
+                             (nick (plist-get args :nick))
+                             (port (plist-get args :port))
+                             (password (plist-get args :password))
+                             (channel (plist-get args :channel))
+                             (bufs (erc-already-logged-in server port nick)))
+                        (unless bufs (erc-open server port nick (erc-compute-full-name) t password))
+                        (if (string-match "\\S-" channel) (erc-join-channel channel)))
                      (lambda (reg)
                        (let* ((args (cadar (cdaadr (cdr reg)))) 
                               (server (plist-get args :server))
