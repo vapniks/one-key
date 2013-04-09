@@ -112,9 +112,11 @@ options argument to be passed to FUNC."
                       (optfun (third proctype))
                       (options (funcall optfun)))
                  `(let ((type ,type)) (funcall ,startfun ',options)))
-               (lambda (reg) (format "Start %s process" (cadar (third reg))))))
+               (lambda (reg)
+                 (format "*%s*" (car (cdaadr (cdr reg)))))))
 (if (not (assq 'start-process one-key-regs-colours-alist))
           (add-to-list 'one-key-regs-colours-alist '(start-process . "green")))
+
 
 ;; add processes that only need the starting directory to be set
 (let ((proclist '(("shell" . shell)
@@ -122,7 +124,7 @@ options argument to be passed to FUNC."
                   ("python-shell" . python-shell)
                   ("octave" . run-octave)
                   ("matlab" . matlab-shell)
-                  ("interactive elisp" . ielm)
+                  ("ielm" . ielm)
                   ("slime" . slime)
                   ("haskell" . run-haskell))))
   (loop for (name . func) in proclist
