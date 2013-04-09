@@ -556,7 +556,7 @@ instead of prompting the user for one."
                           (completing-read "WebJump to site: " webjump-sites nil t)))
                      (lambda (reg) (format "Web: %s" (caddr reg)))))
       (if (not (assq 'webjump one-key-regs-colours-alist))
-          (add-to-list 'one-key-regs-colours-alist '(webjump . "blue")))))
+          (add-to-list 'one-key-regs-colours-alist '(webjump . "magenta1")))))
 
 
 
