@@ -524,6 +524,42 @@ bookmark should be added to the `one-key' menu."
                         (if desktop-buffer-args-list
                             (format ", %d to restore lazily" (length desktop-buffer-args-list)) ""))))))
 
+(defun one-key-regs-webjump (name)
+  "Jumps to the webjump with name NAME.
+This is a wrapper to the `webjump' command, which uses NAME as the webjump item
+instead of prompting the user for one."
+  (interactive)
+  (let* ((completion-ignore-case t)
+	 (item (assoc-string name webjump-sites t))
+	 (name (car item))
+	 (expr (cdr item)))
+    (browse-url (webjump-url-fix
+		 (cond ((not expr) "")
+		       ((stringp expr) expr)
+		       ((vectorp expr) (webjump-builtin expr name))
+		       ((listp expr) (eval expr))
+		       ((symbolp expr)
+			(if (fboundp expr)
+			    (funcall expr name)
+			  (error "WebJump URL function \"%s\" undefined"
+				 expr)))
+		       (t (error "WebJump URL expression for \"%s\" invalid"
+				 name)))))))
+
+(if (require 'webjump nil t)
+    (progn
+      (add-to-list 'one-key-regs-custom-register-types
+                   '(webjump
+                     `(one-key-regs-webjump
+                       ,(if (featurep 'ido)
+                            (ido-completing-read "WebJump to site: " webjump-sites nil t)
+                          (completing-read "WebJump to site: " webjump-sites nil t)))
+                     (lambda (reg) (format "Web: %s" (caddr reg)))))
+      (if (not (assq 'webjump one-key-regs-colours-alist))
+          (add-to-list 'one-key-regs-colours-alist '(webjump . "blue")))))
+
+
+
 (provide 'one-key-regs-extras)
 ;;; one-key-regs-extras.el ends here
 
