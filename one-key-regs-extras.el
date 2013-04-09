@@ -558,7 +558,25 @@ instead of prompting the user for one."
       (if (not (assq 'webjump one-key-regs-colours-alist))
           (add-to-list 'one-key-regs-colours-alist '(webjump . "magenta1")))))
 
+(if (require 'erc nil t)
+    (progn
+      (add-to-list 'one-key-regs-custom-register-types
+                   '(ERC
+                     `(let ((args ',(append (erc-select-read-args)
+                                            (list :channel (read-string "Channel (leave blank for none): " )))))
+                        (erc-open (plist-get args :server) (plist-get args :port)
+                                  (plist-get args :nick) (erc-compute-full-name)
+                                  t (plist-get args :password))
+                        (if (string-match "\\S-" channel) (erc-join-channel channel)))
+                     (lambda (reg)
+                       (let* ((args (cadar (cdaadr (cdr reg)))) 
+                              (server (plist-get args :server))
+                              (channel (plist-get args :channel)))
+                         (format "IRC: %s" (if (string-match "\\S-" channel) channel server))))))
+      (if (not (assq 'erc one-key-regs-colours-alist))
+          (add-to-list 'one-key-regs-colours-alist '(ERC . "red")))))
 
+  
 
 (provide 'one-key-regs-extras)
 ;;; one-key-regs-extras.el ends here
