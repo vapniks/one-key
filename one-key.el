@@ -459,6 +459,9 @@
 ;;
 ;; one-key menus listing all commands in a given elisp library. Prompt user for library name first.
 ;; one-key-navigate - for navigating org-files and call trees
+;;
+;; Could use this https://github.com/nicferrier/emacs-kv for handling nested one-key menus?
+;; (download from marmalade)
 
 
 ;;; Require
