@@ -449,13 +449,20 @@ and COLOUR is the name of the associated colour to use in the `one-key' menu."
                                                         one-key-regs-currently-loaded-file
                                                         t) t))
                            (edit-register edit-item "Edit a register"
-                                          (lambda nil (one-key-regs-edit-menu-item info-alist full-list) t))
+                                          (lambda nil (one-key-regs-edit-menu-item
+                                                       one-key-buffer-filtered-list
+                                                       one-key-buffer-full-list) t))
                            (delete-register delete-item "Delete a register"
-                                            (lambda nil (one-key-regs-delete-menu-item info-alist full-list) t))
+                                            (lambda nil (one-key-regs-delete-menu-item
+                                                         one-key-buffer-filtered-list
+                                                         one-key-buffer-full-list) t))
                            (swap-register-keys swap-keys "Swap register keys"
-                                               (lambda nil (one-key-regs-swap-menu-items full-list) t))
+                                               (lambda nil (one-key-regs-swap-menu-items
+                                                            one-key-buffer-full-list) t))
                            (add-register add-item "Add a register"
-                                         (lambda nil (one-key-regs-prompt-to-add-menu-item info-alist full-list) t))
+                                         (lambda nil (one-key-regs-prompt-to-add-menu-item
+                                                      one-key-buffer-filtered-list
+                                                      one-key-buffer-full-list) t))
                            (show-register-prefix-keys "C-p" "Show prefix associations"
                                                       one-key-regs-show-prefix-key-associations)
                            (clear-registers "<C-f6>" "Delete all registers"
@@ -474,8 +481,8 @@ and COLOUR is the name of the associated colour to use in the `one-key' menu."
   (one-key-add-elements-to-list
    'one-key-general-special-keybindings
    '(show-register show-register-prefix-keys save-registers merge-registers replace-registers regs-documentation limit-items
-                  highlight-items edit-register delete-register clear-registers swap-register-keys add-register add-menu
-                  remove-menu move-item donate report-bug))
+                   highlight-items edit-register delete-register clear-registers swap-register-keys add-register add-menu
+                   remove-menu move-item donate report-bug))
   "List of special keys to be used for one-key-registers menus (see `one-key-default-special-keybindings' for more info)."  
   :group 'one-key-regs
   :type '(repeat (symbol :tag "Name" :help-echo "The name/symbol corresponding to the keybinding.")))
