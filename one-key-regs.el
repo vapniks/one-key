@@ -449,13 +449,13 @@ and COLOUR is the name of the associated colour to use in the `one-key' menu."
                                                         one-key-regs-currently-loaded-file
                                                         t) t))
                            (edit-register edit-item "Edit a register"
-                                          (lambda nil (one-key-regs-edit-menu-item okm-info-alist okm-full-list) t))
+                                          (lambda nil (one-key-regs-edit-menu-item info-alist full-list) t))
                            (delete-register delete-item "Delete a register"
-                                            (lambda nil (one-key-regs-delete-menu-item okm-info-alist okm-full-list) t))
+                                            (lambda nil (one-key-regs-delete-menu-item info-alist full-list) t))
                            (swap-register-keys swap-keys "Swap register keys"
-                                               (lambda nil (one-key-regs-swap-menu-items okm-full-list) t))
+                                               (lambda nil (one-key-regs-swap-menu-items full-list) t))
                            (add-register add-item "Add a register"
-                                         (lambda nil (one-key-regs-prompt-to-add-menu-item okm-info-alist okm-full-list) t))
+                                         (lambda nil (one-key-regs-prompt-to-add-menu-item info-alist full-list) t))
                            (show-register-prefix-keys "C-p" "Show prefix associations"
                                                       one-key-regs-show-prefix-key-associations)
                            (clear-registers "<C-f6>" "Delete all registers"
