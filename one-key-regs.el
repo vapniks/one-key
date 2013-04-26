@@ -858,10 +858,14 @@ If it is not then update it."
   ;; next remove items that don't correspond to registers, unless they correspond to non-register keys
   (setq one-key-menu-one-key-registers-alist
         (remove-if-not (lambda (item)
-                         (let ((keystr (read-kbd-macro (caar item))))
-                           (and (stringp keystr)
-                                (assq (string-to-char keystr) register-alist))))
-                           one-key-menu-one-key-registers-alist)))
+                         (unless (or (not item)
+                                     (not (listp item))
+                                     (not (listp (car item)))
+                                     (not (caar item)))
+                           (let ((keystr (read-kbd-macro (caar item))))
+                             (and (stringp keystr)
+                                  (assq (string-to-char keystr) register-alist)))))
+                       one-key-menu-one-key-registers-alist)))
 
 (defun one-key-regs-show-prefix-key-associations nil
   "Show current default registers and prefix key associations.
