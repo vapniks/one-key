@@ -558,12 +558,15 @@ unless a prefix key was pressed beforehand in which case the associated register
 Can include the following items: `one-key-regs-default-register-type',
 `one-key-regs-default-region-register-type', and `one-key-regs-prefix-key-associations'.
 If any of these variables are selected then any such values saved in the registers file will override customized values
-the next time the registers are loaded.
-This allows you to have different values for different register sets."
+the next time the registers are loaded. This allows you to have different values for different register sets.
+You can also save the currently named keyboard macros, which can be useful if any registers refer to them.
+Finally you may also specify an arbitrary elisp form to be saved and then evaluated when any register set is loaded."
   :group 'one-key-regs
   :type '(set (const :tag "Default register type" one-key-regs-default-register-type)
               (const :tag "Default region register type" one-key-regs-default-region-register-type)
-              (const :tag "Prefix key associations" one-key-regs-prefix-key-associations)))
+              (const :tag "Prefix key associations" one-key-regs-prefix-key-associations)
+              (const :tag "Named keyboard macros" kmacros)
+              (sexp :tag "Arbitrary elisp to be evaluated when the register set is loaded")))
 
 (defcustom one-key-regs-save-on-exit nil
   "A regular expression to match register filenames that will be saved on exit if currently loaded.
@@ -950,15 +953,34 @@ the intended effect when loaded and executed in a new emacs session (bear this i
           else do (add-to-list 'one-key-menu-one-key-registers-alist item))))\n\n" menu-alist))
       ;; finally save forms to load other items in `one-key-regs-save-items'
       (loop for var in one-key-regs-save-items
-            do (insert (format "(setq %S '%S)\n" var (eval var)))))
-    (setq one-key-regs-currently-loaded-file filename)
-    (setq print-level old-print-level print-length old-print-length))
-  (if (> (length one-key-regs-save-items) 0)
-      (message "Registers, menu items, %s saved to %S"
-               (mapconcat (lambda (x) (substitute 32 45 (substring (symbol-name x) 13)))
-                          one-key-regs-save-items ", ")
-               filename)
-    (message "Registers and menu items saved to %S" filename)))
+            do (cond ((and (symbolp var) (eq var 'kmacros))
+                      (let ((kmacros (cl-loop for elt being the symbols
+                                              if (and (fboundp elt)
+                                                      (or (stringp (symbol-function elt))
+                                                          (vectorp (symbol-function elt))
+                                                          (get elt 'kmacro)))
+                                              collect elt)))
+                        (loop for kmacro in kmacros
+                              do (insert (format "(fset '%S %S)\n"
+                                                 kmacro
+                                                 (symbol-function kmacro)))
+                              (insert (format "(put '%S 'kmacro t)\n" kmacro)))))
+                     ((symbolp var)
+                      (insert (format "(setq %S '%S)\n" var (eval var))))
+                     (t (insert (format "%S\n" var)))))
+      (setq one-key-regs-currently-loaded-file filename)
+      (setq print-level old-print-level print-length old-print-length))
+    (if (> (length one-key-regs-save-items) 0)
+        (message "Registers, menu items, %ssaved to %S"
+                 (mapconcat (lambda (x)
+                              (cond ((and (symbolp x) (eq x 'kmacros))
+                                     "named keyboard macros")
+                                    ((symbolp x)
+                                     (substitute 32 45 (substring (symbol-name x) 13)))
+                                    (t nil)))
+                            one-key-regs-save-items ", ")
+                 filename)
+      (message "Registers and menu items saved to %S" filename))))
 
 (defun one-key-regs-change-key (reg menuitem &optional prompt key)
   "Change the key associated with register REG and `one-key' menu item MENUITEM.
