@@ -560,13 +560,17 @@ Can include the following items: `one-key-regs-default-register-type',
 If any of these variables are selected then any such values saved in the registers file will override customized values
 the next time the registers are loaded. This allows you to have different values for different register sets.
 You can also save the currently named keyboard macros, which can be useful if any registers refer to them.
-Finally you may also specify an arbitrary elisp form to be saved and then evaluated when any register set is loaded."
+Finally you may also specify arbitrary elisp forms to be saved and then evaluated when register sets are loaded.
+In this case, for each elisp form you must specify a regular expression matching the filename(s) of the register sets
+for which the form will be evaluated."
   :group 'one-key-regs
   :type '(set (const :tag "Default register type" one-key-regs-default-register-type)
               (const :tag "Default region register type" one-key-regs-default-region-register-type)
               (const :tag "Prefix key associations" one-key-regs-prefix-key-associations)
               (const :tag "Named keyboard macros" kmacros)
-              (sexp :tag "Arbitrary elisp to be evaluated when the register set is loaded")))
+              (alist :tag "Elisp to be evaluated when the register sets are loaded"
+                     :key-type (regexp :tag "Regexp to match filenames")
+                     :value-type (sexp :tag "Elisp form to be evaluated"))))
 
 (defcustom one-key-regs-save-on-exit nil
   "A regular expression to match register filenames that will be saved on exit if currently loaded.
@@ -967,7 +971,10 @@ the intended effect when loaded and executed in a new emacs session (bear this i
                               (insert (format "(put '%S 'kmacro t)\n" kmacro)))))
                      ((symbolp var)
                       (insert (format "(setq %S '%S)\n" var (eval var))))
-                     (t (insert (format "%S\n" var)))))
+                     ((listp var)
+                      (loop for (regex . sexp) in var
+                            if (string-match regex (file-name-nondirectory filename))
+                            do (insert (format "%S\n" sexp))))))
       (setq one-key-regs-currently-loaded-file filename)
       (setq print-level old-print-level print-length old-print-length))
     (if (> (length one-key-regs-save-items) 0)
