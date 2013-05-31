@@ -982,7 +982,7 @@ the intended effect when loaded and executed in a new emacs session (bear this i
                  (mapconcat (lambda (x)
                               (cond ((and (symbolp x) (eq x 'kmacros))
                                      "named keyboard macros")
-                                    ((symbolp x)
+                                    ((and (symbolp x) x)
                                      (substitute 32 45 (substring (symbol-name x) 13)))
                                     (t nil)))
                             one-key-regs-save-items ", ")
