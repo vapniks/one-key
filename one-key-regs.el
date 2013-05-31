@@ -969,7 +969,7 @@ the intended effect when loaded and executed in a new emacs session (bear this i
                                                  kmacro
                                                  (symbol-function kmacro)))
                               (insert (format "(put '%S 'kmacro t)\n" kmacro)))))
-                     ((symbolp var)
+                     ((and var (symbolp var))
                       (insert (format "(setq %S '%S)\n" var (eval var))))
                      ((listp var)
                       (loop for (regex . sexp) in var
@@ -982,7 +982,7 @@ the intended effect when loaded and executed in a new emacs session (bear this i
                  (mapconcat (lambda (x)
                               (cond ((and (symbolp x) (eq x 'kmacros))
                                      "named keyboard macros")
-                                    ((and (symbolp x) x)
+                                    ((and x (symbolp x))
                                      (substitute 32 45 (substring (symbol-name x) 13)))
                                     (t nil)))
                             one-key-regs-save-items ", ")
