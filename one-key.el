@@ -1213,7 +1213,7 @@ assocwindow : the window associated with this set of menus
 
 (defun one-key-get-struct-type (struct)
   "Return the type name of the structure STRUCT."
-  (substring (symbol-name (elt testmenu 0)) 10))
+  (substring (symbol-name (elt struct 0)) 10))
 
 (defun one-key-get-slots (struct)
   "Return list of symbols for the slots in the cl-structure STRUCT."
