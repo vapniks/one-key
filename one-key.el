@@ -1240,7 +1240,7 @@ If called with no args, return the value of " symb ", otherwise set the value to
                  (,(intern-soft (concat "one-key-menus-" symb))
                   one-key-current-menus)))))))
 
-;; Functions for accessing specific menu (current menu by default)
+;; Functions for accessing specific menu (current menu by default) 
 ;; Function names are in the form one-key-current-menu-<MEM> where <MEM> is the member to to get/set
 (let ((slots (mapcar 'car (cdr (get 'one-key-menu-struct 'cl-struct-slots)))))
   (dolist (slot slots)
@@ -2227,34 +2227,42 @@ a string. By default TITLE is set to `one-key-default-title-func'."
       ;; Reset one-key-buffer-temp-action.
       (setq one-key-buffer-temp-action nil))))
 
-(defun one-key-update-buffer-contents (&optional (buf one-key-buffer-name))
-  "Update the contents of the one-key menu buffer."
+(defun one-key-update-buffer-contents (&optional (menustructs one-key-current-menus)
+                                                 (buf one-key-buffer-name))
+  "Update the contents of buffer BUF with the contents of MENUSTRUCTS.
+MENUSTRUCTS should be a `one-key-menu-struct' structure, and is set to `one-key-current-menus' by default.
+BUF can be a buffer or the name of a buffer and is set to `one-key-buffer-name' by default.
+
+Note: the actual menu displayed will depend on the value of menunum in the MENUSTRUCTS object."
   (with-current-buffer buf
     ;; Check menus in one-key-current-menus
-    (unless (one-key-menus-p one-key-current-menus)
-      (error "Invalid structure for one-key-current-menus"))
-    (unless (one-key-current-menus-menus)
-      (error "No menus in one-key-current-menus"))
-    (unless (one-key-current-menus-menunumber)
-      (error "Menu number not set in one-key-current-menus"))
-    (let* ((full-list (one-key-eval-if-symbol (one-key-current-menu-items)))
-           (this-name (one-key-current-menu-name))
-           (filter (one-key-current-menu-filter)))
+    (unless (one-key-menus-p menustructs)
+      (error "Invalid structure for menus"))
+    (unless (one-key-menus-menus menustructs)
+      (error "No menus"))
+    (unless (one-key-menus-menunumber menustructs)
+      (error "Menu number not set"))
+    (let* ((menus (one-key-menus-menus menustructs))
+           (menunumber (one-key-menus-menunumber menustructs))
+           (currentmenu (nth menunumber menus))
+           (full-list (one-key-eval-if-symbol (one-key-menu-struct-items currentmenu)))
+           (this-name (one-key-menu-struct-name currentmenu))
+           (filter (one-key-menu-struct-filter currentmenu)))
       ;; Filter the menu items.
-      (one-key-current-menu-displayeditems
-       (if (stringp filter)
-            (remove-if-not (lambda (elt) (string-match filter (cdar elt)))
-             (remq nil full-list))
-         (remq nil full-list)))
+      (setf (one-key-menu-struct-filtereditems currentmenu)
+            (if (stringp filter)
+                (remove-if-not (lambda (elt) (string-match filter (cdar elt)))
+                               (remq nil full-list))
+              (remq nil full-list)))
       ;; Fill the buffer
       (erase-buffer)
       (goto-char (point-min))
       (insert (one-key-highlight-menu
-               (one-key-menu-format (one-key-current-menu-displayeditems))
-               (mapcar (lambda (menu) (one-key-menu-struct-name menu)) (one-key-menus-menus))
-               (one-key-menus-menunumber)
-               (one-key-current-menu-title)))))
-  (one-key-reposition-window-contents))
+               (one-key-menu-format (one-key-menu-struct-filtereditems currentmenu))
+               (mapcar (lambda (menu) (one-key-menu-struct-name menu)) menus)
+               menunumber
+               (one-key-menu-struct-title currentmenu)))))
+  (one-key-reposition-window-contents buf))
 
 (defun* one-key-menu (&optional menus buf)
   "Function to open `one-key' menu of commands. The commands are executed by pressing the associated keys.
@@ -2309,9 +2317,9 @@ will be tried (in accordance with normal emacs behaviour)."
   (let ((onekeybuf (get-buffer one-key-buffer-name)))
     (and onekeybuf (window-live-p (get-buffer-window onekeybuf)))))
 
-(defun one-key-reposition-window-contents nil
-  "Scroll the one-key buffer contents so that the top of the buffer is shown at the top of the window."
-  (let ((onekeywin (get-buffer-window one-key-buffer-name t)))
+(defun* one-key-reposition-window-contents (&optional (buf one-key-buffer-name))
+  "Scroll the contents of buffer BUF so that the top of the buffer is shown at the top of the window."
+  (let ((onekeywin (get-buffer-window buf t)))
     (if onekeywin (with-selected-window onekeywin
                     (goto-char (point-min)) (recenter 0)))))
 
