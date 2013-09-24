@@ -2256,7 +2256,7 @@ a string. By default TITLE is set to `one-key-default-title-func'."
                (one-key-current-menu-title)))))
   (one-key-reposition-window-contents))
 
-(defun* one-key-menu (&optional menus)
+(defun* one-key-menu (&optional menus buf)
   "Function to open `one-key' menu of commands. The commands are executed by pressing the associated keys.
 By default the menus stored in `one-key-current-menus' will be used. If MENUS is non-nil it should be a `one-key-menus'
 object containing `one-key-menu-struct' objects and other relevant information.
@@ -2265,10 +2265,11 @@ The user can switch between the menu lists by pressing the appropriate special k
 
 By default the one-key buffer will be associated with the currently selected window, and all menu commands will be executed
 in that window."
-  (let* ((buf (or (get-buffer one-key-buffer-name)
-                  (generate-new-buffer one-key-buffer-name))))
+  (let* ((buf1 (or buf
+                   (get-buffer one-key-buffer-name)
+                   (generate-new-buffer one-key-buffer-name))))
     ;; Setup the one-key buffer
-    (set-buffer buf)
+    (set-buffer buf1)
     (if (not (equal major-mode 'one-key-mode)) (one-key-mode))
     (unless (setq one-key-current-menus (or menus one-key-current-menus))
       (error "No value set for `one-key-current-menus'"))
