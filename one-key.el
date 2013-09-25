@@ -1208,8 +1208,10 @@ May contain the following items:
 menus : list of `one-key-menu-struct' items
 menunumber : index of the currently displayed menu of previously mentioned menus item
 assocwindow : the window associated with this set of menus
+windowstate : the current state of assocwindow - this should be an element of `one-key-window-toggle-sequence'
+dedicatedframe : whether or not the window should be displayed in a dedicated frame
 "
-  (name nil :read-only t) menus menunumber assocwindow)
+  (name nil :read-only t) menus menunumber assocwindow windowstate)
 
 (defun one-key-get-struct-type (struct)
   "Return the type name of the structure STRUCT."
@@ -2325,18 +2327,18 @@ will be tried (in accordance with normal emacs behaviour)."
 
 ;; WARNING: spaghetti code
 ;; FIXME: look into using dedicated window for dedicated frame, and what about quit-window instead of delete-window ?
-(defun one-key-set-window-state (state &optional noselect)
-  "Set the one-key window into state STATE (a number or symbol).
+(defun* one-key-set-window-state (state &optional noselect (buf (get-buffer one-key-buffer-name)))
+  "Set the window containing buffer BUF into state STATE (a number or symbol).
+By default BUF is set to the buffer named `one-key-buffer-name'.
 For the possible values of state see `one-key-window-toggle-sequence'.
 The one-key window will be selected after calling this function unless optional argument NOSELECT is non-nil."
-  (let* ((onekeybuf (get-buffer one-key-buffer-name))
-         (onekeywin (get-buffer-window one-key-buffer-name t))
+  (let* ((onekeywin (get-buffer-window buf t))
          (onekeyframe (if onekeywin (window-frame onekeywin)))
          (helpbuf (get-buffer one-key-help-buffer-name))
          (helpwin (if helpbuf (get-buffer-window helpbuf t)))
          (helpframe (if helpwin (window-frame helpwin)))
          ;; The number of lines used by the buffer.
-         (buflines (with-current-buffer (or onekeybuf (current-buffer))
+         (buflines (with-current-buffer (or buf (current-buffer))
                      (count-lines (point-min) (point-max))))
          ;; The number of lines currently used by the one-key window
          (winlines (if onekeywin (window-total-height onekeywin)))
@@ -2353,8 +2355,8 @@ The one-key window will be selected after calling this function unless optional 
          (cols (frame-parameter nil 'width))
          ;; Make sure one-key-buffer-dedicated-frame is set correctly
          ;; (the frame may have been deleted, or created outside of this function).
-         (dedicatedframe (if onekeybuf
-                             (with-current-buffer onekeybuf
+         (dedicatedframe (if buf
+                             (with-current-buffer buf
                                (if (not onekeyframe) (setq one-key-buffer-dedicated-frame nil)
                                  ;; If one-key is the only buffer displayed in it's frame, and there are other
                                  ;; frames then assume it has a dedicated frame
@@ -2367,15 +2369,15 @@ The one-key window will be selected after calling this function unless optional 
                               (unless noselect
                                 (select-frame-set-input-focus dedicatedframe)
                                 (raise-frame dedicatedframe))
-                              (one-key-update-buffer-contents)))
-         (resizewindow '(let* ((win (or onekeywin (display-buffer onekeybuf)))
+                              (one-key-update-buffer-contents buf)))
+         (resizewindow '(let* ((win (or onekeywin (display-buffer buf)))
                                (frame (window-frame win)))
                           (fit-window-to-buffer win newlines)
                           (unless noselect (select-frame-set-input-focus frame)
                                   (select-window win))
-                          (one-key-update-buffer-contents))))
-    (cond ((not (or onekeybuf helpbuf)) (error "No one-key buffer found"))
-          ((and (not onekeybuf) (equal (current-buffer) helpbuf))
+                          (one-key-update-buffer-contents buf))))
+    (cond ((not (or buf helpbuf)) (error "No one-key buffer found"))
+          ((and (not buf) (equal (current-buffer) helpbuf))
            (kill-buffer helpbuf))
           ((integerp state)
            (let ((newlines (max (min state (if dedicatedframe maxlines (1- maxlines))
@@ -2383,33 +2385,33 @@ The one-key window will be selected after calling this function unless optional 
                                          (+ buflines 3) (+ buflines 2)))
                                 5))
                  (helpp (windowp helpwin)))
-             (if helpp (one-key-set-window-state 'hidehelp))             
-             (if onekeybuf
+             (if helpp (one-key-set-window-state 'hidehelp noselect buf))
+             (if buf
                  (if dedicatedframe (eval resizeframe) (eval resizewindow)))
-             (if helpp (one-key-set-window-state 'showhelp))))
+             (if helpp (one-key-set-window-state 'showhelp noselect buf))))
           ((floatp state)
            (let ((newlines (max (min (round (* (max (min state 1.0) 0.0)
                                                (if dedicatedframe maxlines (1- maxlines))))
                                      (if dedicatedframe
                                          (+ buflines 3) (+ buflines 2))) 5))
                  (helpp (windowp helpwin)))
-             (if helpp (one-key-set-window-state 'hidehelp))
-             (if onekeybuf
+             (if helpp (one-key-set-window-state 'hidehelp noselect buf))
+             (if buf
                  (if dedicatedframe (eval resizeframe) (eval resizewindow)))
-             (if helpp (one-key-set-window-state 'showhelp))))
+             (if helpp (one-key-set-window-state 'showhelp noselect buf))))
           ((eq state 'ownframe)
            (let ((newlines (max (min maxlines (+ buflines 3) maxlines) 5))
                  (helpp (windowp helpwin)))
-             (if helpp (one-key-set-window-state 'hidehelp))
+             (if helpp (one-key-set-window-state 'hidehelp noselect buf))
              (if dedicatedframe (eval resizeframe)
                (if onekeywin (delete-window onekeywin))
-               (switch-to-buffer-other-frame onekeybuf t)
-               (with-current-buffer onekeybuf (setq one-key-buffer-dedicated-frame (selected-frame)
-                                                    dedicatedframe one-key-buffer-dedicated-frame))
+               (switch-to-buffer-other-frame buf t)
+               (with-current-buffer buf (setq one-key-buffer-dedicated-frame (selected-frame)
+                                              dedicatedframe one-key-buffer-dedicated-frame))
                (set-frame-size dedicatedframe cols newlines)
                (if noselect (select-frame-set-input-focus (previous-frame dedicatedframe)))
-               (one-key-update-buffer-contents))
-             (if helpp (one-key-set-window-state 'showhelp))))
+               (one-key-update-buffer-contents buf))
+             (if helpp (one-key-set-window-state 'showhelp noselect buf))))
           ((eq state 'deselect)
            (if dedicatedframe
                (select-frame-set-input-focus (previous-frame dedicatedframe))
@@ -2452,7 +2454,7 @@ The one-key window will be selected after calling this function unless optional 
                    (if (> (length (window-list onekeyframe)) 1)
                        (delete-window helpwin)
                      (switch-to-prev-buffer helpwin))))))))
-  (one-key-reposition-window-contents))
+  (one-key-reposition-window-contents buf))
 
 (defun one-key-menu-window-toggle (&optional nochange)
   "Toggle the one-key menu window to the next state in `one-key-window-toggle-sequence'.
