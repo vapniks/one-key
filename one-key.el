@@ -1213,6 +1213,13 @@ dedicatedframe : whether or not the window should be displayed in a dedicated fr
 "
   (name nil :read-only t) menus menunumber assocwindow windowstate)
 
+(defun one-key-all-one-key-menus nil
+  "Return a list of all currently defined `one-key-menus' objects."
+  (loop for x being the symbols
+        if (one-key-menus-p
+            (condition-case nil (symbol-value x) (error nil)))
+        collect x))
+
 (defun one-key-get-struct-type (struct)
   "Return the type name of the structure STRUCT."
   (substring (symbol-name (elt struct 0)) 10))
