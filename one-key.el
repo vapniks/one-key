@@ -1208,10 +1208,11 @@ May contain the following items:
 menus : list of `one-key-menu-struct' items
 menunumber : index of the currently displayed menu of previously mentioned menus item
 assocwindow : the window associated with this set of menus
+assocbuffer : the buffer in which to display the menus
 windowstate : the current state of assocwindow - this should be an element of `one-key-window-toggle-sequence'
 dedicatedframe : whether or not the window should be displayed in a dedicated frame
 "
-  (name nil :read-only t) menus menunumber assocwindow windowstate)
+  (name nil :read-only t) menus menunumber assocwindow assocbuffer windowstate dedicatedframe)
 
 (defun one-key-all-one-key-menus nil
   "Return a list of all currently defined `one-key-menus' objects."
@@ -1580,23 +1581,16 @@ MENU-NUMBER should be nil if NAMES is a single name, otherwise it should index t
                     (modify-syntax-entry char "w" table))
                   table)
   ;; Set buffer local variables
-  (dolist (var '(one-key-buffer-menu-number
-                 one-key-buffer-menu-names
-                 one-key-buffer-menu-alists
-                 one-key-buffer-special-keybindings
-                 one-key-buffer-filter-regex
-                 one-key-buffer-filtered-list
-                 one-key-buffer-temp-action
-                 one-key-buffer-miss-match-action
-                 one-key-buffer-match-action
-                 one-key-buffer-associated-window
-                 one-key-buffer-dedicated-frame))
+  (dolist (var '(one-key-buffer-menus
+                 one-key-buffer-temp-action))
     (set (make-local-variable var) nil))
   ;; Set mode-line and header-line
   (setq mode-line-format one-key-mode-line-format
         header-line-format (one-key-header-line-format
-                            (or one-key-buffer-menu-names "one-key")
-                            one-key-buffer-menu-number)
+                            (or (mapcar (lambda (menu) (one-key-menu-struct-name menu))
+                                        (one-key-menus-menus one-key-buffer-menus))
+                                        "one-key")
+                            (one-key-menus-menunumber one-key-buffer-menus))
         cursor-type nil
         one-key-mode-map (make-keymap)
         buffer-read-only nil)
