@@ -594,9 +594,6 @@ At the moment the car is fixed to ownframe, but more states will be added soon."
                                          (float :tag "Max height as fraction of frame/screen")))))
   :group 'one-key)
 
-(defvar one-key-window-toggle-pos 0
-  "The position in `one-key-window-toggle-sequence' indicating the current one-key window state.")
-
 (defcustom one-key-buffer-name "*One-Key*"
   "The buffer name of the one-key menu window."
   :type 'string
@@ -1209,10 +1206,10 @@ menus : list of `one-key-menu-struct' items
 menunumber : index of the currently displayed menu of previously mentioned menus item
 assocwindow : the window associated with this set of menus
 assocbuffer : the buffer in which to display the menus
-windowstate : the current state of assocwindow - this should be an element of `one-key-window-toggle-sequence'
 dedicatedframe : whether or not the window should be displayed in a dedicated frame
+togglepos : the position in `one-key-window-toggle-sequence' indicating the current window state
 "
-  (name nil :read-only t) menus menunumber assocwindow assocbuffer windowstate dedicatedframe)
+  (name nil :read-only t) menus menunumber assocwindow assocbuffer dedicatedframe togglepos)
 
 (defun one-key-all-one-key-menus nil
   "Return a list of all currently defined `one-key-menus' objects."
@@ -2285,9 +2282,8 @@ in that window."
     ;; Setup the one-key buffer
     (set-buffer buf1)
     (if (not (equal major-mode 'one-key-mode)) (one-key-mode))
-    (unless (setq one-key-current (or menus one-key-current))
-      (error "No value set for `one-key-current'"))
-    (setq one-key-window-toggle-pos 0)
+    (if menus (setq one-key-current menus))
+    (one-key-current-togglepos 0)
     ;; Set the special keys 
     (one-key-current-menu-specialkeys
      (one-key-get-special-key-contents
@@ -2464,10 +2460,12 @@ The one-key window will be selected after calling this function unless optional 
   "Toggle the one-key menu window to the next state in `one-key-window-toggle-sequence'.
 If optional arg NOCHANGE is non-nil then set window to the current state in the `one-key-window-toggle-sequence'."
   (interactive)
-  (setq one-key-window-toggle-pos
-        (mod (if nochange one-key-window-toggle-pos (1+ one-key-window-toggle-pos))
-             (length one-key-window-toggle-sequence)))
-  (let* ((nextstate (nth one-key-window-toggle-pos
+  (let ((oldpos (one-key-current-togglepos)))
+    (one-key-current-togglepos
+     (mod (if nochange oldpos (1+ oldpos))
+          (length one-key-window-toggle-sequence))))
+  
+  (let* ((nextstate (nth (one-key-current-togglepos)
                          one-key-window-toggle-sequence))
          (pair (consp nextstate)))
     (if pair
@@ -2646,7 +2644,7 @@ This function only works when called within the context of the one-key buffer si
     (if one-key-submenus-replace-parents
         (one-key-delete-menus (1- one-key-buffer-menu-number)))
     (setq one-key-buffer-temp-action
-          (nth one-key-window-toggle-pos one-key-window-toggle-sequence))))
+          (nth (one-key-current-togglepos) one-key-window-toggle-sequence))))
 
 (defun one-key-merge-menu-lists (lista listb)
   "Given two one-key menu lists, merge them and return the result.
