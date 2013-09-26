@@ -1232,23 +1232,23 @@ dedicatedframe : whether or not the window should be displayed in a dedicated fr
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; GLOBAL VARIABLES ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defvar one-key-current-menus (make-one-key-menus)
+(defvar one-key-current (make-one-key-menus)
   "The current `one-key-menus' object used in the current one-key buffer.")
 
-;; Build accessor functions for `one-key-current-menus'
-;; Function names are in the form one-key-current-menus-<MEM> where <MEM> is the member to to get/set
-(let ((slots (one-key-get-slots one-key-current-menus)))
+;; Build accessor functions for `one-key-current'
+;; Function names are in the form one-key-current-<MEM> where <MEM> is the member to to get/set
+(let ((slots (one-key-get-slots one-key-current)))
   (dolist (slot slots)
     (let ((symb (symbol-name slot)))
-      (eval `(defun ,(intern (concat "one-key-current-menus-" symb)) (&optional val)
+      (eval `(defun ,(intern (concat "one-key-current-" symb)) (&optional val)
                ,(concat "Get/set the value of " symb " in the current menu.
 If called with no args, return the value of " symb ", otherwise set the value to VAL.")
                (if val
                    (setf (,(intern-soft (concat "one-key-menus-" symb))
-                          one-key-current-menus)
+                          one-key-current)
                          val)
                  (,(intern-soft (concat "one-key-menus-" symb))
-                  one-key-current-menus)))))))
+                  one-key-current)))))))
 
 ;; Functions for accessing specific menu (current menu by default) 
 ;; Function names are in the form one-key-current-menu-<MEM> where <MEM> is the member to to get/set
@@ -1261,8 +1261,8 @@ If called with no args, return the value of " symb " for the current menu,
 If optional arg VAL is supplied, set the value of " symb " to VAL and return it.
 By default the current menu will be used, but if the optional arg MENUNUM is set then
 the MENUNUM'th menu will be used instead.")
-               (let ((menu (nth (or menunum (one-key-current-menus-menunumber) 0)
-                                (one-key-current-menus-menus))))
+               (let ((menu (nth (or menunum (one-key-current-menunumber) 0)
+                                (one-key-current-menus))))
                  (if (not (one-key-menu-struct-p menu))
                      (error "Invalid menu object")
                    (if val
@@ -1581,16 +1581,16 @@ MENU-NUMBER should be nil if NAMES is a single name, otherwise it should index t
                     (modify-syntax-entry char "w" table))
                   table)
   ;; Set buffer local variables
-  (dolist (var '(one-key-buffer-menus
+  (dolist (var '(one-key-current
                  one-key-buffer-temp-action))
     (set (make-local-variable var) nil))
   ;; Set mode-line and header-line
   (setq mode-line-format one-key-mode-line-format
         header-line-format (one-key-header-line-format
                             (or (mapcar (lambda (menu) (one-key-menu-struct-name menu))
-                                        (one-key-menus-menus one-key-buffer-menus))
+                                        (one-key-current-menus))
                                         "one-key")
-                            (one-key-menus-menunumber one-key-buffer-menus))
+                            (one-key-current-menunumber))
         cursor-type nil
         one-key-mode-map (make-keymap)
         buffer-read-only nil)
@@ -2208,7 +2208,7 @@ a string. By default TITLE is set to `one-key-default-title-func'."
                    (issymbol (symbolp thislist)))
               (if issymbol (add-to-list 'one-key-altered-menus (symbol-name thislist)))))
           ;; Execute the menu command in the associated window, (and get action to perform afterwards).
-          (with-selected-window (one-key-current-menus-assocwindow) (call-interactively command))
+          (with-selected-window (one-key-current-assocwindow) (call-interactively command))
           (setq postaction (or one-key-buffer-temp-action
                                (one-key-current-menu-match-action)
                                one-key-buffer-match-action))))
@@ -2220,25 +2220,25 @@ a string. By default TITLE is set to `one-key-default-title-func'."
       (cond ((functionp postaction)
              (funcall postaction))
             ((eq postaction 'execute)
-             (with-temp-buffer (one-key-current-menus-assocwindow)
+             (with-temp-buffer (one-key-current-assocwindow)
                                (one-key-execute-binding-command key)))
             ((eq postaction 'executeclose)
-             (with-temp-buffer (one-key-current-menus-assocwindow)
+             (with-temp-buffer (one-key-current-assocwindow)
                                (one-key-execute-binding-command key))
              (one-key-set-window-state 'close))
             (t (one-key-set-window-state postaction)))
       ;; Reset one-key-buffer-temp-action.
       (setq one-key-buffer-temp-action nil))))
 
-(defun one-key-update-buffer-contents (&optional (menustructs one-key-current-menus)
+(defun one-key-update-buffer-contents (&optional (menustructs one-key-current)
                                                  (buf one-key-buffer-name))
   "Update the contents of buffer BUF with the contents of MENUSTRUCTS.
-MENUSTRUCTS should be a `one-key-menu-struct' structure, and is set to `one-key-current-menus' by default.
+MENUSTRUCTS should be a `one-key-menu-struct' structure, and is set to `one-key-current' by default.
 BUF can be a buffer or the name of a buffer and is set to `one-key-buffer-name' by default.
 
 Note: the actual menu displayed will depend on the value of menunum in the MENUSTRUCTS object."
   (with-current-buffer buf
-    ;; Check menus in one-key-current-menus
+    ;; Check menus in one-key-current
     (unless (one-key-menus-p menustructs)
       (error "Invalid structure for menus"))
     (unless (one-key-menus-menus menustructs)
@@ -2269,7 +2269,7 @@ Note: the actual menu displayed will depend on the value of menunum in the MENUS
 
 (defun* one-key-menu (&optional menus buf)
   "Function to open `one-key' menu of commands. The commands are executed by pressing the associated keys.
-By default the menus stored in `one-key-current-menus' will be used. If MENUS is non-nil it should be a `one-key-menus'
+By default the menus stored in `one-key-current' will be used. If MENUS is non-nil it should be a `one-key-menus'
 object containing `one-key-menu-struct' objects and other relevant information.
 
 The user can switch between the menu lists by pressing the appropriate special keys (see `one-key-default-special-keybindings').
@@ -2282,8 +2282,8 @@ in that window."
     ;; Setup the one-key buffer
     (set-buffer buf1)
     (if (not (equal major-mode 'one-key-mode)) (one-key-mode))
-    (unless (setq one-key-current-menus (or menus one-key-current-menus))
-      (error "No value set for `one-key-current-menus'"))
+    (unless (setq one-key-current (or menus one-key-current))
+      (error "No value set for `one-key-current'"))
     (setq one-key-window-toggle-pos 0)
     ;; Set the special keys 
     (one-key-current-menu-specialkeys
@@ -2292,8 +2292,8 @@ in that window."
        (or (one-key-current-menu-specialkeysymbols)
            one-key-default-special-keybindings))))
     ;; Associate current window with one-key buffer
-    (unless (one-key-current-menus-assocwindow)
-      (one-key-current-menus-assocwindow (selected-window)))
+    (unless (one-key-current-assocwindow)
+      (one-key-current-assocwindow (selected-window)))
     ;; Display the buffer contents
     (one-key-update-buffer-contents))
   ;; Open the one-key window
