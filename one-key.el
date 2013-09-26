@@ -1250,6 +1250,11 @@ If called with no args, return the value of " symb ", otherwise set the value to
                  (,(intern-soft (concat "one-key-menus-" symb))
                   one-key-current)))))))
 
+(defun one-key-current-names nil
+  "Returns the list of menu names for the current menus in `one-key-current'"
+  (mapcar (lambda (menu) (one-key-menu-struct-name menu))
+          (one-key-current-menus)))
+
 ;; Functions for accessing specific menu (current menu by default) 
 ;; Function names are in the form one-key-current-menu-<MEM> where <MEM> is the member to to get/set
 (let ((slots (mapcar 'car (cdr (get 'one-key-menu-struct 'cl-struct-slots)))))
@@ -1587,9 +1592,7 @@ MENU-NUMBER should be nil if NAMES is a single name, otherwise it should index t
   ;; Set mode-line and header-line
   (setq mode-line-format one-key-mode-line-format
         header-line-format (one-key-header-line-format
-                            (or (mapcar (lambda (menu) (one-key-menu-struct-name menu))
-                                        (one-key-current-menus))
-                                        "one-key")
+                            (or (one-key-current-names) "one-key")
                             (one-key-current-menunumber))
         cursor-type nil
         one-key-mode-map (make-keymap)
