@@ -138,7 +138,7 @@
 ;; edit this file. Instead you can create and edit menus from within the *One-Key* buffer.
 ;; If you press the special key corresponding to "Add a menu" you will be prompted for the type of menu to add.
 ;; By default the following menu types are defined, but more may be added with extension libraries, or by creating
-;; them yourself (see `one-key-types-of-menu'):
+;; them yourself (see `one-key-menu-types-alist'):
 
 ;;; Default menu types:
 ;;
@@ -165,7 +165,7 @@
 ;; in `one-key-default-menu-set'. You can define other menu sets by customizing `one-key-sets-of-menus-alist', and
 ;; associate them with different major-modes or buffers by customizing `one-key-associations-for-menu-sets'.
 ;; Each menu set consists of a name for the menu set, and a list of menu names.
-;; one-key reconstructs a menu from its name by searching `one-key-types-of-menu' for a matching entry, and applying
+;; one-key reconstructs a menu from its name by searching `one-key-menu-types-alist' for a matching entry, and applying
 ;; the associated function to create the menu.
 ;; With the "menu-sets" menu you can see what menu sets are currently defined, switch menu sets, and save the current
 ;; menus as a menu set (C-s).
@@ -279,7 +279,7 @@
 ;; `one-key-menu-sets-special-keybindings' : List of special keys to be used for menu-sets menus (see 
 ;;                                           `one-key-default-special-keybindings' for more info).
 ;; `one-key-disallowed-keymap-menu-keys' : List of keys that should be excluded from one-key menus created from keymaps.
-;; `one-key-types-of-menu' : A list of names of different types of `one-key' menu, and associated functions.
+;; `one-key-menu-types-alist' : A list of names of different types of `one-key' menu, and associated functions.
 ;; `one-key-persistent-menu-number' : If non-nil then when the default menu set is opened it will start with the same 
 ;;                                    menu as when previously opened.
 ;; `one-key-mode-line-message' : Form that when evaluated should produce a string for the mode-line in the *One-Key* 
@@ -448,7 +448,7 @@
 ;; Handle mouse clicks so that item is executed when clicked on, and clicks outside the window close it. Make these customizable.
 ;; Applications of one-key-read-logical-formula : emms, org-mode header filtering, dired filtering?, gnus?, bbdb?
 ;; Allow background colour of menu items to be different.
-;; Change `one-key-types-of-menu' to include sorting methods, and add buffer local variable to store current sort methods for each
+;; Change `one-key-menu-types-alist' to include sorting methods, and add buffer local variable to store current sort methods for each
 ;; menu.
 ;; one-key-read-logical-formula : change recursive algorithm to iterative one and allow more flexible editing of logical formula
 ;; (left/right to move to previous/next clause, and <insert>/<delete> to insert/delete clause. Need cursor to show position).
@@ -788,13 +788,13 @@ The key should be entered in the same format as that returned by `describe-key'.
 (defcustom one-key-sets-of-menus-alist (list '("default" "major-mode" "top-level" "menu-sets"))
   "Saved menu sets (sets of menus).
 Each element in this list is a cons cell whose car is a name or description for the set, and whose cdr is a list of names
-of menus which make up the set. Each menu name must correspond to a type in `one-key-types-of-menu' (which see),
+of menus which make up the set. Each menu name must correspond to a type in `one-key-menu-types-alist' (which see),
 and `one-key' must be able to reconstruct the menu from the name (which it will be able to if the corresponding entry
-in `one-key-types-of-menu' is complete.
+in `one-key-menu-types-alist' is complete.
 These menu sets may be opened from the \"menu-sets\" menu, and you may want to create different sets for different
 projects."
   :type '(alist :key-type (string :tag "Set description/name" :help-echo "A name or description for this collection of menus")
-                :value-type (repeat (string :tag "Menu" :help-echo "The name of the menu. Must correspond to a type in `one-key-types-of-menu'.")))
+                :value-type (repeat (string :tag "Menu" :help-echo "The name of the menu. Must correspond to a type in `one-key-menu-types-alist'.")))
   :group 'one-key-menu-sets)
 
 (defcustom one-key-default-menu-set "default"
@@ -1107,9 +1107,9 @@ Each item in this list is a key description as returned by `one-key-key-descript
   :group 'one-key
   :type '(repeat string))
 
-(defcustom one-key-types-of-menu nil
-  "A list of names of different types of `one-key' menu, and associated functions.
-Each item in the list contains (in this order):
+(defcustom one-key-menu-types-alist nil
+  "An alist of names of different types of `one-key' menu, and associated menu creation functions.
+Each item in this list is a cons cell whose car contains (in this order):
 
   1) The name for this menu type.
 
@@ -1202,12 +1202,12 @@ miss-match-action : Indicates what to do after a miss-match (non menu item) key 
   "Set of one-key-menu objects, and name of menu set, along with other relevant information.
 May contain the following items:
 
-menus : list of `one-key-menu-struct' items
-menunumber : index of the currently displayed menu of previously mentioned menus item
-assocwindow : the window associated with this set of menus
-assocbuffer : the buffer in which to display the menus
+menus          : list of `one-key-menu-struct' items
+menunumber     : index of the currently displayed menu of previously mentioned menus item
+assocwindow    : the window associated with this set of menus
+assocbuffer    : the buffer in which to display the menus
 dedicatedframe : whether or not the window should be displayed in a dedicated frame
-togglepos : the position in `one-key-window-toggle-sequence' indicating the current window state
+togglepos      : the position in `one-key-window-toggle-sequence' indicating the current window state
 "
   (name nil :read-only t) menus menunumber assocwindow assocbuffer dedicatedframe togglepos)
 
@@ -1885,7 +1885,7 @@ NAME is the name of the menu, and MENU-STRUCT is either a one-key menu list, or 
 If PREV is non-nil then the previous method in SORT-METHODS will be used instead.
 If MULTISORT is nil (default is t) then the associated menus will not be sorted, only the current menu.
 
-The list of sort methods for the current menu are stored in the 5th element of the element of `one-key-types-of-menu' associated
+The list of sort methods for the current menu are stored in the 5th element of the element of `one-key-menu-types-alist' associated
 with this menu. The current sort index is stored for this menu is stored in `one-key-sort-method-indices-alist', or 0 otherwise."
   (let* ((name (nth one-key-buffer-menu-number one-key-buffer-menu-names))
          (indices (if multisort (one-key-get-associated-menu-indices
@@ -1932,17 +1932,17 @@ This function must be called within the context of the one-key buffer to work."
   (one-key-update-buffer-contents))
 
 (defun one-key-get-menu-type (name)
-  "Return the element of `one-key-types-of-menu' corresponding to menu with name NAME, or nil if none exists."
+  "Return the element of `one-key-menu-types-alist' corresponding to menu with name NAME, or nil if none exists."
   (find-if (lambda (x)
              (let ((one (first x))
                    (two (second x)))
                (or (equal one name)
                    (and (functionp two)
                         (funcall two name)))))
-           one-key-types-of-menu))
+           one-key-menu-types-alist))
 
 (defun* one-key-get-menus-for-type (name &optional (remapkeys t))
-  "Given the name NAME of an existing menu or menu type in `one-key-types-of-menu', return associated menu object.
+  "Given the name NAME of an existing menu or menu type in `one-key-menu-types-alist', return associated menu object.
 The returned object is of type `one-key-menu-struct'. If no such menu object exists, return nil.
 The optional argument REMAPKEYS is t by default and indicates whether or not to remap the keys in the menu using
 the `one-key-remap-invalid-keys' function."
@@ -1963,7 +1963,7 @@ the `one-key-remap-invalid-keys' function."
 
 (defun one-key-prompt-for-menu nil
   "Prompt the user for a `one-key' menu type, and return the corresponding one-key-menu-struct."
-  (let* ((alltypes (remq nil (mapcar 'car one-key-types-of-menu)))
+  (let* ((alltypes (remq nil (mapcar 'car one-key-menu-types-alist)))
          (type (if (featurep 'ido)
                    (ido-completing-read "Menu type: " alltypes)
                  (completing-read "Menu type: " alltypes))))
@@ -2082,18 +2082,22 @@ Returns the number of menus deleted.
 This function only works when called within the context of the one-key buffer since it depends on buffer local variables."
   (one-key-delete-menus (one-key-get-associated-menu-indices menunum one-key-buffer-menu-names)))
 
-(defun one-key-open-menus (names &optional menu-number)
+(defun one-key-open-menus (names &optional menunum)
   "Invoke `one-key-menu' with names and corresponding menu-alists.
 NAMES should be the name of a single `one-key' menu or menu type, or a list of such names.
 If called interactively a single name will be prompted for."
+  (if (and names alists)
+      (one-key-menu (one-key-build-menus names menunum))
+    (message "Invalid menu names!")))
+
+(defun one-key-build-menus (names &optional menunum)
+  "Build a `one-key-menus' object from the list of NAMES.
+If optional arg MENUNUM is non-nil it should be a non-negative integer to set the menunumber member to."
   (let* ((names (if (stringp names) (list names) names))
-         (pairs (remq nil (mapcar 'one-key-get-menus-for-type names)))
-         (names (mapcan (lambda (x) (let ((y (car x))) (if (stringp y) (list y) y))) pairs))
-         (alists (mapcan (lambda (x) (let ((a (car x)) (b (cdr x)))
-                                       (if (stringp a) (list b) b))) pairs)))
-    (if (and names alists)
-        (one-key-menu names alists menu-number)
-      (message "Invalid menu names!"))))
+         (menus (remq nil (mapcar 'one-key-get-menus-for-type names))))
+    (if menus
+        (one-key-menus :menus menus :menunumber menunum :togglepos 0)
+      (error "No valid menus"))))
 
 (defun one-key-open-menu-set (menuset &optional menu-number)
   "Open `one-key' menus defined by `one-key' menu set MENUSET.
@@ -2273,6 +2277,7 @@ By default the menus stored in `one-key-current' will be used. If MENUS is non-n
 object containing `one-key-menu-struct' objects and other relevant information.
 
 The user can switch between the menu lists by pressing the appropriate special keys (see `one-key-default-special-keybindings').
+
 
 By default the one-key buffer will be associated with the currently selected window, and all menu commands will be executed
 in that window."
@@ -3076,7 +3081,7 @@ Any menu names that match the regular expressions in `one-key-exclude-from-save'
 
 (defun one-key-get-major-mode-menu (name)
   "Return a menu name and menu alist for the current major mode.
-This function is used by `one-key-types-of-menu' and the NAME argument is redundant.
+This function is used by `one-key-menu-types-alist' and the NAME argument is redundant.
 A cons cell in the form (menu-name . menu-alist) will be returned.
 If there is an element of `one-key-major-mode-remap-alist' associated with the current major mode then that will be used,
 otherwise the name of the current major mode will be used.
@@ -3232,7 +3237,7 @@ If SUBMENUP is non-nil then the `one-key-open-submenu' command is used to add/re
            'one-key-special-keybindings
            'one-key-submenus-replace-parents
            'one-key-menu-toplevel-alist
-           'one-key-types-of-menu)
+           'one-key-menu-types-alist)
      nil nil
      "Remember to cover the basics, that is, what you expected to happen and
 what in fact did happen.
@@ -3481,32 +3486,32 @@ This function assumes dynamic binding of okr-title-string to the current title s
       (list 'not retchoice))))
 
 ;; Set one-key menu types
-(one-key-add-to-alist 'one-key-types-of-menu
+(one-key-add-to-alist 'one-key-menu-types-alist
                       (list "top-level"
                             (lambda (name) (equal name "top-level"))
                             (cons "top-level" 'one-key-menu-toplevel-alist)
                             nil nil) t)
-(one-key-add-to-alist 'one-key-types-of-menu
+(one-key-add-to-alist 'one-key-menu-types-alist
                       (list "blank menu"
                             (lambda (name) (equal name "blank menu"))
                             'one-key-create-blank-menu
                             nil nil) t)
-(one-key-add-to-alist 'one-key-types-of-menu
+(one-key-add-to-alist 'one-key-menu-types-alist
                       (list "major-mode"
                             (lambda (name) (string-match "^major-mode" name))
                             'one-key-get-major-mode-menu
                             nil 'one-key-major-mode-special-keybindings) t)
-(one-key-add-to-alist 'one-key-types-of-menu
+(one-key-add-to-alist 'one-key-menu-types-alist
                       (list "existing menu"
                             (lambda (name) (equal name "existing menu"))
                             'one-key-retrieve-existing-menu
                             nil nil) t)
-(one-key-add-to-alist 'one-key-types-of-menu
+(one-key-add-to-alist 'one-key-menu-types-alist
                       (list "existing keymap"
                             (lambda (name) (equal name "existing keymap"))
                             'one-key-create-menu-from-existing-keymap
                             nil nil) t)
-(one-key-add-to-alist 'one-key-types-of-menu
+(one-key-add-to-alist 'one-key-menu-types-alist
                       (list "prefix-key"
                             (lambda (name) (string-match "^prefix-key" name))
                             (lambda (name)
@@ -3516,7 +3521,7 @@ This function assumes dynamic binding of okr-title-string to the current title s
                                     (one-key-create-menu-from-prefix-key-keymap keystr2)
                                   (call-interactively 'one-key-create-menu-from-prefix-key-keymap))))
                             nil nil) t)
-(one-key-add-to-alist 'one-key-types-of-menu
+(one-key-add-to-alist 'one-key-menu-types-alist
                       (list "menu-sets"
                             (lambda (name) (equal name "menu-sets"))
                             (lambda (name)
