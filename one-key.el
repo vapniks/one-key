@@ -1905,11 +1905,8 @@ This function must be called within the context of the one-key buffer to work."
 (defun one-key-get-menu-type (name)
   "Return the element of `one-key-menu-types-alist' corresponding to menu with name NAME, or nil if none exists."
   (find-if (lambda (x)
-             (let ((one (first x))
-                   (two (second x)))
-               (or (equal one name)
-                   (and (functionp two)
-                        (funcall two name)))))
+             (if (and (consp x) (functionp (cdr x)))
+                 (funcall (cdr x) name)))
            one-key-menu-types-alist))
 
 (defun* one-key-get-menus-for-type (name &optional (remapkeys t))
