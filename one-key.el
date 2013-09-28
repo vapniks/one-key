@@ -1107,39 +1107,10 @@ Each item in this list is a key description as returned by `one-key-key-descript
   :group 'one-key
   :type '(repeat string))
 
-(defcustom one-key-menu-types-alist nil
+(defvar one-key-menu-types-alist nil
   "An alist of names of different types of `one-key' menu, and associated menu creation functions.
-Each item in this list is a cons cell whose car contains (in this order):
-
-  1) The name for this menu type.
-
-  2) A function which takes a string as its only argument and returns non-nil if that string corresponds to the name of
-     a menu of this type, otherwise it returns nil. Note: this function should only return non-nil if a menu can be
-     reconstructed from the name using the next item in this list.
-
-  3) A function which takes the menu name as its only argument and returns a `one-key-menu-struct' object containing
-     the title string, menu items, and special-keys etc.
-
-  4) An function that takes no arguments and returns a title string for the `one-key' menu.
-     The function will be evaluated in the context of the `one-key-highlight-menu' function, and will be processed by
-     `one-key-highlight' before display. You should look at the `one-key-highlight-menu' function to see which variables
-     may be used in this format string.
-     Alternatively if this item is nil then `one-key-default-title-func' will be used.
-
-  5) Either a list of special keybindings in the same form as `one-key-default-special-keybindings', or a symbol
-     whose value is such a list, or nil. If nil then `one-key-default-special-keybindings' will be used.
-
-  6) An alist of sort methods to use for this menu type. If nil then `one-key-default-sort-method-alist' will be used.
-     See the documentation for `one-key-default-sort-method-alist' to see the required format of this variable."
-  :type '(repeat (list (string :tag "Name"
-                               :help-echo "A name for this menu type.")
-                       (function :tag "Condition"
-                                 :help-echo "A function which returns the new menu name(s) when passed a name corresponding to this type, and returns nil otherwise.")
-                       (choice (symbol :tag "Menu alist symbol(s)"
-                                       :help-echo "A symbol whose value is a `one-key-menu-struct' object.")
-                               (function :tag "Menu alist function"
-                                         :help-echo "A function which takes the menu name as its only argument and returns a `one-key-menu-struct' object or a symbol whose value is such an object."))))
-  :group 'one-key)
+The car of each item is the name of the type. The cdr of each item is a function which takes a menu name
+as its only arg and returns a `one-key-menu-struct' if the name corresponds to that type and nil otherwise.")
 
 (defcustom one-key-persistent-menu-number t
   "If non-nil then when the default menu set is opened it will start with the same menu as when previously opened."
