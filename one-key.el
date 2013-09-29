@@ -1112,6 +1112,15 @@ Each item in this list is a key description as returned by `one-key-key-descript
 The car of each item is the name of the type. The cdr of each item is a function which takes a menu name
 as its only arg and returns a `one-key-menu-struct' if the name corresponds to that type and nil otherwise.")
 
+(defvar one-key-menu-variables-alist nil
+  "An alist associating menu names with variables and indicating which ones have been altered.
+This is used to keep a track of which menus have been stored in variables (and don't need to be rebuilt),
+and which ones have been altered (and may need to be saved to disk on exit).
+Each element is a list containing the following items:
+1) the name of the menu
+2) a variable containing the menu
+3) a value which is non-nil if the menu has been altered (and may need to be saved to disk when emacs closes).")
+
 (defcustom one-key-persistent-menu-number t
   "If non-nil then when the default menu set is opened it will start with the same menu as when previously opened."
   :group 'one-key
@@ -1140,15 +1149,15 @@ as its only arg and returns a `one-key-menu-struct' if the name corresponds to t
   "Information for constructing a one-key menu.
 May contain the following items:
 
-name : the name of the menu (a string)
-items : list of menu items
+name         : the name of the menu (a string)
+items        : list of menu items
 displayeditems : list of currently displayed menu items
-filter : regular expression for filtering menu items
+filter       : regular expression for filtering menu items
 specialkeysymbols : list of special key symbols for this menu
-specialkeys : list of special key items corresponding to specialkeysymbols
-title : title string to place above menu items
-sortmethods : list of names of sort methods that can be used with this menu
-sortnumber : index for the current sort method in sortmethods 
+specialkeys  : list of special key items corresponding to specialkeysymbols
+title        : title string to place above menu items
+sortmethods  : list of names of sort methods that can be used with this menu
+sortnumber   : index for the current sort method in sortmethods 
 match-action : indicate what to do after a matching (menu item) key is pressed, and the associated
                command is executed. The value should be either nil which means do nothing and leave
                the window open, a function to be called with no arguments, or a symbol which is interpreted
@@ -1159,9 +1168,11 @@ miss-match-action : Indicates what to do after a miss-match (non menu item) key 
                The possible values are the same as for `one-key-buffer-match-action' or the symbols
                'execute 'executeclose which will execute the key (in the associated window) and leave the
                one-key window open/closed respectively. The default value is 'close (i.e. close the one-key window).
+savable      : whether the menu can be saved to disk
+dynamic      : whether the menu needs to be rebuilt each time it is opend (otherwise it will be stored in a variable)
 "
   name items filter displayeditems specialkeysymbols specialkeys 
-  title sortmethods sortindex (match-action 'close) (miss-match-action 'close))
+  title sortmethods sortindex (match-action 'close) (miss-match-action 'close) savable dynamic)
 
 (defcustom one-key-menu-struct-savable-items
   '("name" "displayeditems" "title")
@@ -2064,7 +2075,7 @@ If optional arg MENUNUM is non-nil it should be a non-negative integer to set th
   (let* ((names (if (stringp names) (list names) names))
          (menus (remq nil (mapcar 'one-key-get-menus-for-type names))))
     (if menus
-        (one-key-menus :menus menus :menunumber menunum :togglepos 0)
+        (make-one-key-menus :menus menus :menunumber menunum :togglepos 0)
       (error "No valid menus"))))
 
 (defun one-key-open-menu-set (menuset &optional menu-number)
