@@ -1110,7 +1110,9 @@ Each item in this list is a key description as returned by `one-key-key-descript
 (defvar one-key-menu-types-alist nil
   "An alist of names of different types of `one-key' menu, and associated menu creation functions.
 The car of each item is the name of the type. The cdr of each item is a function which takes a menu name
-as its only arg and returns a `one-key-menu-struct' if the name corresponds to that type and nil otherwise.")
+as its only arg and returns a `one-key-menu-struct' if the name corresponds to that type and nil otherwise.
+Since the creation function may be called frequently with incompatible types it should check the name first
+the prevent unnecessary processing.")
 
 (defvar one-key-menu-variables-alist nil
   "An alist associating menu names with variables and indicating which ones have been altered.
@@ -1913,40 +1915,23 @@ This function must be called within the context of the one-key buffer to work."
       (add-to-list 'one-key-altered-menus (symbol-name this-list))))
   (one-key-update-buffer-contents))
 
-(defun one-key-get-menu-type (name)
-  "Return the element of `one-key-menu-types-alist' corresponding to menu with name NAME, or nil if none exists."
-  (find-if (lambda (x)
-             (if (and (consp x) (functionp (cdr x)))
-                 (funcall (cdr x) name)))
-           one-key-menu-types-alist))
-
-(defun* one-key-get-menus-for-type (name &optional (remapkeys t))
-  "Given the name NAME of an existing menu or menu type in `one-key-menu-types-alist', return associated menu object.
-The returned object is of type `one-key-menu-struct'. If no such menu object exists, return nil.
-The optional argument REMAPKEYS is t by default and indicates whether or not to remap the keys in the menu using
-the `one-key-remap-invalid-keys' function."
-  (let* ((pair (if name (let* ((listname (concat "one-key-menu-" name "-alist"))
-                               (type (one-key-get-menu-type name))
-                               (func (or (third type)
-                                         (and (not type)
-                                              (loop for sym being the symbols
-                                                    for symname = (symbol-name sym)
-                                                    when (equal listname symname)
-                                                    return (cons name sym))))))
-                          (if (functionp func) (funcall func name) func))))
-         (menus (if remapkeys
-                    (if onep (one-key-remap-invalid-keys (cdr pair))
-                      (mapcar 'one-key-remap-invalid-keys (cdr pair)))
-                  (cdr pair))))
-    (cons names menus)))
-
+(defun* one-key-get-menu-from-name (name &optional (remapkeys t))
+  "Return the `one-key-menu-struct' object associated with name NAME.
+If the object does not already exist then create it using the appropriate function in `one-key-menu-types-alist'.
+If NAME does not correspond to any existing menu or menu type then return nil."
+  (or (second (assoc name one-key-menu-variables-alist))
+      (find-if (lambda (x)
+                 (if (and (consp x) (functionp (cdr x)))
+                     (funcall (cdr x) name)))
+               one-key-menu-types-alist)))
+  
 (defun one-key-prompt-for-menu nil
   "Prompt the user for a `one-key' menu type, and return the corresponding one-key-menu-struct."
   (let* ((alltypes (remq nil (mapcar 'car one-key-menu-types-alist)))
          (type (if (featurep 'ido)
                    (ido-completing-read "Menu type: " alltypes)
                  (completing-read "Menu type: " alltypes))))
-    (one-key-get-menus-for-type type)))
+    (one-key-get-menu-from-name type)))
 
 (defun one-key-add-menus (&optional newnames newlists)
   "Add a menu/menus to the current list of menus in the `one-key' menu function call.
@@ -2073,7 +2058,7 @@ If called interactively a single name will be prompted for."
   "Build a `one-key-menus' object from the list of NAMES.
 If optional arg MENUNUM is non-nil it should be a non-negative integer to set the menunumber member to."
   (let* ((names (if (stringp names) (list names) names))
-         (menus (remq nil (mapcar 'one-key-get-menus-for-type names))))
+         (menus (remq nil (mapcar 'one-key-get-menu-from-name names))))
     (if menus
         (make-one-key-menus :menus menus :menunumber menunum :togglepos 0)
       (error "No valid menus"))))
@@ -2091,13 +2076,13 @@ If called interactively, MENUSET will be prompted for."
 
 (defun one-key-rebuild-menu nil
   "Rebuild the currently displayed one-key menu according to it's name.
-This should only be used with menus that can be rebuilt using `one-key-get-menus-for-type'."
+This should only be used with menus that can be rebuilt using `one-key-get-menu-from-name'."
   (let* ((this-list (nth one-key-buffer-menu-number one-key-buffer-menu-alists))
          (this-name (nth one-key-buffer-menu-number one-key-buffer-menu-names))
          (isref (symbolp this-list))
          (full-list (if isref (eval this-list) this-list)))
     (if isref
-      (let ((newlist (cdr (one-key-get-menus-for-type this-name))))
+      (let ((newlist (cdr (one-key-get-menu-from-name this-name))))
         (if newlist (unintern this-list)
           (if (get-buffer-window (help-buffer)) (kill-buffer (help-buffer)))
           (set this-list newlist)
