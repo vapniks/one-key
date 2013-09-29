@@ -1213,11 +1213,11 @@ togglepos      : the position in `one-key-window-toggle-sequence' indicating the
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; GLOBAL VARIABLES ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defvar one-key-current (make-one-key-menus)
+(defvar one-key-current nil
   "The current `one-key-menus' object used in the current one-key buffer.")
 
 ;; Build accessor functions for `one-key-current'
-;; Function names are in the form one-key-current-<MEM> where <MEM> is the member to to get/set
+;; Function names are in the form one-key-current-<MEM> where <MEM> is the member to get/set
 (let ((slots (one-key-get-slots one-key-current)))
   (dolist (slot slots)
     (let ((symb (symbol-name slot)))
@@ -1920,11 +1920,23 @@ This function must be called within the context of the one-key buffer to work."
 If the object does not already exist then create it using the appropriate function in `one-key-menu-types-alist'.
 If NAME does not correspond to any existing menu or menu type then return nil."
   (or (second (assoc name one-key-menu-variables-alist))
-      (find-if (lambda (x)
-                 (if (and (consp x) (functionp (cdr x)))
-                     (funcall (cdr x) name)))
-               one-key-menu-types-alist)))
-  
+      (one-key-build-menu name)))
+
+(defun one-key-build-menu (name)
+  "Build the appropriate menu for NAME and return its variable, or nil if the name is invalid.
+If a menu variable associated with that name already exists the menu will be rebuilt (and stored in the same variable)."
+  (let ((menu (find-if (lambda (x) (if (and (consp x) (functionp (cdr x)))
+                                       (funcall (cdr x) name)))
+                       one-key-menu-types-alist)))
+    (if (and menu (one-key-menu-struct-dynamic menu)) 
+        (let ((menuvar (or (second (assoc name one-key-menu-variables-alist))
+                           (gensym "one-key-menu-"))))
+          (set menuvar menu)
+          (add-to-list one-key-menu-variables-alist (list name menuvar nil)
+                       nil (lambda (x y) (equal (car x) (car y))))
+          menuvar)
+      menu)))
+
 (defun one-key-prompt-for-menu nil
   "Prompt the user for a `one-key' menu type, and return the corresponding one-key-menu-struct."
   (let* ((alltypes (remq nil (mapcar 'car one-key-menu-types-alist)))
@@ -2073,20 +2085,6 @@ If called interactively, MENUSET will be prompted for."
   (let* ((names (assoc-default menuset one-key-sets-of-menus-alist)))
     (if names (one-key-open-menus names menu-number)
       (message "Invalid menu set name!"))))
-
-(defun one-key-rebuild-menu nil
-  "Rebuild the currently displayed one-key menu according to it's name.
-This should only be used with menus that can be rebuilt using `one-key-get-menu-from-name'."
-  (let* ((this-list (nth one-key-buffer-menu-number one-key-buffer-menu-alists))
-         (this-name (nth one-key-buffer-menu-number one-key-buffer-menu-names))
-         (isref (symbolp this-list))
-         (full-list (if isref (eval this-list) this-list)))
-    (if isref
-      (let ((newlist (cdr (one-key-get-menu-from-name this-name))))
-        (if newlist (unintern this-list)
-          (if (get-buffer-window (help-buffer)) (kill-buffer (help-buffer)))
-          (set this-list newlist)
-          (one-key-update-buffer-contents))))))
 
 (defun one-key-open-default-menu-set nil
   "Open the menu set defined by `one-key-default-menu-set'."
