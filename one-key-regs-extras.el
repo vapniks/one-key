@@ -522,6 +522,27 @@ bookmark should be added to the `one-key' menu."
                         (if desktop-buffer-args-list
                             (format ", %d to restore lazily" (length desktop-buffer-args-list)) ""))))))
 
+(if (require 'yaoddmuse nil t)
+    (progn
+      (add-to-list 'one-key-regs-custom-register-types
+                   '(yaoddmuse
+                     `(progn ,(let* ((wiki (yaoddmuse-read-wikiname))
+                                     (pagename
+                                      (if (featurep 'ido)
+                                          (ido-completing-read
+                                           "Page: "
+                                           (cons "*PROMPT*"
+                                                 (mapcar 'car (yaoddmuse-get-pagename-table wiki))))
+                                        (completing-read
+                                         "Page: "
+                                         (cons "*PROMPT*"
+                                               (mapcar 'car (yaoddmuse-get-pagename-table wiki)))))))
+                                `(yaoddmuse-edit ,wiki ,(unless (equal pagename "*PROMPT*") pagename))))
+                     (lambda (reg) (format "%s: %s" (second (caddr reg)) (third (caddr reg))))))
+      (if (not (assq 'yaoddmuse one-key-regs-colours-alist))
+          (add-to-list 'one-key-regs-colours-alist (cons 'yaoddmuse "yellow")))))
+
+
 (provide 'one-key-regs-extras)
 ;;; one-key-regs-extras.el ends here
 
