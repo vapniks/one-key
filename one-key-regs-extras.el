@@ -6,8 +6,8 @@
 ;; Maintainer: Joe Bloggs <vapniks@yahoo.com>
 ;; Copyleft (Ↄ) 2012, Joe Bloggs, all rites reversed.
 ;; Created: 2012-02-10 00:03:58
-;; Version: 0.1
-;; Last-Updated: 2012-02-10 00:03:58
+;; Version: 0.2
+;; Last-Updated: 2013-11-17 20:57:00
 ;;           By: Joe Bloggs
 ;; URL: http://www.emacswiki.org/emacs/download/one-key-regs-extras.el
 ;; Keywords: abbrev, convenience, files, frames, tools
@@ -38,7 +38,9 @@
 ;; If not, see <http://www.gnu.org/licenses/>.
 
 ;;; Commentary: 
-;; 
+;;
+;; Bitcoin donations gratefully accepted: 1HnSqGHrVenb1t2V2aijyocWyZcd7qt1k
+
 ;; Extra register types for `one-key-regs', including starting various different types of processes (shell, database
 ;; clients, repl's, debuggers, etc.), bookmarks, desktops, and window configs (using policy switch).
 ;; If you want to use auth-source for obtaining login credentials for the database registers then you should set
@@ -78,8 +80,8 @@
 ;;
 
 ;;; TODO
-;; 
-;; Register for calling idomenu for a specific buffer, from any other buffer.
+;;
+;; Do I really need to require all those other libraries? 
 ;;
 ;;; Require
 (require 'one-key-regs)
@@ -110,14 +112,19 @@ options argument to be passed to FUNC."
                       (optfun (third proctype))
                       (options (funcall optfun)))
                  `(let ((type ,type)) (funcall ,startfun ',options)))
-               (lambda (reg) (format "Start %s process" (cadar (third reg))))))
+               (lambda (reg)
+                 (format "*%s*" (car (cdaadr (cdr reg)))))))
+(if (not (assq 'start-process one-key-regs-colours-alist))
+    (add-to-list 'one-key-regs-colours-alist '(start-process . "green")))
+
+
 ;; add processes that only need the starting directory to be set
 (let ((proclist '(("shell" . shell)
                   ("eshell" . eshell)
                   ("python-shell" . python-shell)
                   ("octave" . run-octave)
                   ("matlab" . matlab-shell)
-                  ("interactive elisp" . ielm)
+                  ("ielm" . ielm)
                   ("slime" . slime)
                   ("haskell" . run-haskell))))
   (loop for (name . func) in proclist
@@ -542,10 +549,69 @@ bookmark should be added to the `one-key' menu."
       (if (not (assq 'yaoddmuse one-key-regs-colours-alist))
           (add-to-list 'one-key-regs-colours-alist (cons 'yaoddmuse "yellow")))))
 
+(defun one-key-regs-webjump (name)
+  "Jumps to the webjump with name NAME.
+This is a wrapper to the `webjump' command, which uses NAME as the webjump item
+instead of prompting the user for one."
+  (interactive)
+  (let* ((completion-ignore-case t)
+	 (item (assoc-string name webjump-sites t))
+	 (name (car item))
+	 (expr (cdr item)))
+    (browse-url (webjump-url-fix
+		 (cond ((not expr) "")
+		       ((stringp expr) expr)
+		       ((vectorp expr) (webjump-builtin expr name))
+		       ((listp expr) (eval expr))
+		       ((symbolp expr)
+			(if (fboundp expr)
+			    (funcall expr name)
+			  (error "WebJump URL function \"%s\" undefined"
+				 expr)))
+		       (t (error "WebJump URL expression for \"%s\" invalid"
+				 name)))))))
+
+(if (require 'webjump nil t)
+    (progn
+      (add-to-list 'one-key-regs-custom-register-types
+                   '(webjump
+                     `(one-key-regs-webjump
+                       ,(if (featurep 'ido)
+                            (ido-completing-read "WebJump to site: " (mapcar 'car webjump-sites) nil t)
+                          (completing-read "WebJump to site: " (mapcar 'car webjump-sites) nil t)))
+                     (lambda (reg) (format "Web: %s" (caddr reg)))))
+      (if (not (assq 'webjump one-key-regs-colours-alist))
+          (add-to-list 'one-key-regs-colours-alist '(webjump . "magenta1")))))
+
+(if (require 'erc nil t)
+    (progn
+      (add-to-list 'one-key-regs-custom-register-types
+                   '(ERC
+                     `(let* ((args ',(append (erc-select-read-args)
+                                            (list :channel (read-string "Channel (leave blank for none): " ))))
+                             (server (plist-get args :server))
+                             (nick (plist-get args :nick))
+                             (port (plist-get args :port))
+                             (password (plist-get args :password))
+                             (channel (plist-get args :channel))
+                             (bufs (erc-already-logged-in server port nick)))
+                        (unless bufs (erc-open server port nick (erc-compute-full-name) t password))
+                        (if (string-match "\\S-" channel) (erc-join-channel channel)))
+                     (lambda (reg)
+                       (let* ((args (cadar (cdaadr (cdr reg)))) 
+                              (server (plist-get args :server))
+                              (channel (plist-get args :channel)))
+                         (format "IRC: %s" (if (string-match "\\S-" channel) channel server))))))
+      (if (not (assq 'ERC one-key-regs-colours-alist))
+          (add-to-list 'one-key-regs-colours-alist '(ERC . "red")))))
+
+  
 
 (provide 'one-key-regs-extras)
 ;;; one-key-regs-extras.el ends here
 
+;; (magit-push)
+;; (yaoddmuse-post "EmacsWiki" "one-key-regs-extras.el" (buffer-name) (buffer-string) "update")
 
 
 
