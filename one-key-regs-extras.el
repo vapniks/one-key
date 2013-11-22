@@ -230,9 +230,11 @@ options argument to be passed to FUNC."
                        (lambda (args)
                          (ssh args))
                        (lambda nil
-                         (concat (read-string "Username: ") "@"
-                                 (read-string "Host: ")
-                                 (read-string "Further command line args: "))))))
+                         (let ((user (read-string "Username: "))
+                               (host (read-string "Host: "))
+                               (args (read-string "Further command line args: ")))
+                           (concat user (unless (= user "") "@") host args))))))
+
 (if (and (functionp 'telnet)
          (not (assoc "telnet" one-key-regs-processes)))
     (add-to-list 'one-key-regs-processes
