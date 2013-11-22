@@ -233,7 +233,7 @@ options argument to be passed to FUNC."
                          (let ((user (read-string "Username: "))
                                (host (read-string "Host: "))
                                (args (read-string "Further command line args: ")))
-                           (concat user (unless (= user "") "@") host args))))))
+                           (concat user (unless (= user "") "@") host " " args))))))
 
 (if (and (functionp 'telnet)
          (not (assoc "telnet" one-key-regs-processes)))
