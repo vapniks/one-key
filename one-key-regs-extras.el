@@ -607,7 +607,30 @@ instead of prompting the user for one."
       (if (not (assq 'ERC one-key-regs-colours-alist))
           (add-to-list 'one-key-regs-colours-alist '(ERC . "red")))))
 
-  
+
+(if (functionp 'multi-occur-in-matching-buffers)
+    (progn
+      (add-to-list 'one-key-regs-custom-register-types
+                   '(occur
+                     `(let ((files
+                             ',(let (filenames)
+                                 (while
+                                     (not (progn
+                                            (add-to-list
+                                             'filenames
+                                             (ido-read-file-name "File: " nil))
+                                            (y-or-n-p "Done?"))))
+                                 filenames)))
+                        (dolist (file files)
+                          (find-file file))
+                        (multi-occur-in-matching-buffers
+                         (regexp-opt (mapcar 'file-name-nondirectory files))
+                         (read-regexp "List lines matching regexp" (car regexp-history)))
+                        (other-window 1))
+                     (lambda (reg) "occur")))
+      (if (not (assq 'occur one-key-regs-colours-alist))
+          (add-to-list 'one-key-regs-colours-alist '(occur . "RoyalBlue")))))
+
 
 (provide 'one-key-regs-extras)
 ;;; one-key-regs-extras.el ends here
