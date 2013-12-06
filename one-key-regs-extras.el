@@ -607,7 +607,6 @@ instead of prompting the user for one."
       (if (not (assq 'ERC one-key-regs-colours-alist))
           (add-to-list 'one-key-regs-colours-alist '(ERC . "red")))))
 
-
 (if (functionp 'multi-occur-in-matching-buffers)
     (progn
       (add-to-list 'one-key-regs-custom-register-types
@@ -618,7 +617,7 @@ instead of prompting the user for one."
                                      (not (progn
                                             (add-to-list
                                              'filenames
-                                             (ido-read-file-name "File: " nil))
+                                             (ido-read-file-name "File to be searched: " nil))
                                             (y-or-n-p "Done?"))))
                                  filenames)))
                         (dolist (file files)
@@ -630,6 +629,23 @@ instead of prompting the user for one."
                      (lambda (reg) "occur")))
       (if (not (assq 'occur one-key-regs-colours-alist))
           (add-to-list 'one-key-regs-colours-alist '(occur . "RoyalBlue")))))
+
+(if (require 'helm-grep nil t)
+    (progn
+      (add-to-list 'one-key-regs-custom-register-types
+                   '(helm-grep
+                     `(let ((files ',(helm-read-file-name
+                                      "Search in file(s): "
+                                      :marked-candidates t
+                                      :preselect (and helm-do-grep-preselect-candidate
+                                                      (if helm-ff-transformer-show-only-basename
+                                                          (helm-basename preselection)
+                                                        preselection))))
+                            (prefarg (or current-prefix-arg helm-current-prefix-arg)))
+                        (helm-do-grep-1 files prefarg))
+                     (lambda (reg) "helm-grep")))
+      (if (not (assq 'helm-grep one-key-regs-colours-alist))
+          (add-to-list 'one-key-regs-colours-alist '(helm-grep . "purple")))))
 
 
 (provide 'one-key-regs-extras)
