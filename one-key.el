@@ -40,6 +40,8 @@
 
 ;;; Commentary:
 ;;
+;; Bitcoin donations gratefully accepted: 1HnSqGHrVenb1t2V2aijyocWyZcd7qt1k
+
 ;; With so many Emacs extensions, you have a lot of keystrokes to remember, and you probably forget most of them.
 ;;
 ;; This package fixes that problem, and helps new users to learn the common keybindings.
@@ -440,6 +442,7 @@
 
 ;;; TODO
 ;;
+;; Make use of iterator.el library for cycling menus and other things instead of my hacks.
 ;; New special keybinding for limiting by regexp all items in current menu and all submenus?
 ;; Make functions autoloadable.
 ;; Prompt to save submenus when saving menu. Special keybinding to save all altered menus?
@@ -457,10 +460,11 @@
 ;;
 ;; one-key menus listing all commands in a given elisp library. Prompt user for library name first.
 ;; one-key-navigate - for navigating org-files and call trees
-
+;; one-key-template - select a file template from a list (e.g. for latex invoices, shell scripts, etc.)
 
 ;;; Require
 (eval-when-compile (require 'cl))
+(require 'anaphora)
 (require 'dired)
 (require 'hexrgb)
 ;;; Code:
@@ -766,8 +770,7 @@ current major mode) will be used (and created if necessary)."
                                             (funcall 'one-key-prefix-key-menu-command "C-c ." t)))
                                          (("/" . "prefix-key:C-c / (Srecode commands)") .
                                           (lambda nil (interactive)
-                                            (funcall 'one-key-prefix-key-menu-command "C-c /" t)))
-                                         )
+                                            (funcall 'one-key-prefix-key-menu-command "C-c /" t))))
   "The `one-key' top-level alist.
 Contains list of key items for toplevel one-key menu.
 Each item contains a key, description and command, in that order.
@@ -1462,32 +1465,6 @@ recognized the same way.")
 
 ;; Only declaring these vars here so that they are documented. They don't actually need to be declared globally,
 ;; as they are declared local to the one-key buffer when one-key-mode is run.
-(defvar one-key-buffer-menu-number nil
-  "The index of the current menu in `one-key-buffer-menu-alists'.
-
-This variable is local to the one-key buffer.")
-
-(defvar one-key-buffer-menu-names nil
-  "The current list of menu names.
-
-This variable is local to the one-key buffer.")
-
-(defvar one-key-buffer-menu-alists nil
-  "The current list of menu lists.
-
-This variable is local to the one-key buffer.")
-
-(defvar one-key-buffer-special-keybindings nil
-  "The special keybindings for the current menu.
-
-This variable is local to the one-key buffer.")
-
-(defvar one-key-buffer-associated-window nil
-  "The window associated with the one-key buffer.
-This is set to the window that was selected when the one-key menu was opened.
-
-This variable is local to the one-key buffer.")
-
 (defvar one-key-buffer-temp-action nil
   "Indicates what to do after the last key was pressed in the one-key buffer. 
 This variable may be set by special key or menu commands in the context of the one-key buffer.
@@ -1497,39 +1474,8 @@ The default value is nil and it is reset to nil after performing the associated 
 
 This variable is local to the one-key buffer.")
 
-(defvar one-key-buffer-match-action 'close
-  "Indicates what to do after a matching (menu item) key is pressed, and the associated command is executed.
-The value should be either nil which means do nothing and leave the window open, a function to be called with
-no arguments, or a symbol which is interpreted in the same way as the possible values for `one-key-window-toggle-sequence'.
-The default value is 'close (i.e. close the one-key window).
-This variable may be temporarily overridden by the value of `one-key-buffer-temp-action' by individual commands.
-
-This variable is local to the one-key buffer.")
-
-(defvar one-key-buffer-miss-match-action 'close
-  "Indicates what to do after a miss-match (non menu item) key is pressed.
-The possible values are the same as for `one-key-buffer-match-action' or the symbols 'execute 'executeclose
-which will execute the key (in the associated window) and leave the one-key window open/closed respectively.
-The default value is 'close (i.e. close the one-key window).
-
-This variable is local to the one-key buffer.")
-
 (defvar one-key-buffer-dedicated-frame nil
   "If non-nil then this var holds the frame dedicated to the one-key menu.
-
-This variable is local to the one-key buffer.")
-
-(defvar one-key-buffer-filter-regex nil
-  "A regular expression matching menu items to be diplayed in one-key menu.
-Any menu items in the current menu alist that don't match this regexp won't be displayed
-when `one-key-update-buffer-contents' is executed.
-If nil then all items are displayed.
-
-This variable is local to the one-key buffer.")
-
-(defvar one-key-buffer-filtered-list nil
-  "The list of menu items that match `one-key-buffer-filter-regex'.
-These are the items that are displayed in the one-key buffer.
 
 This variable is local to the one-key buffer.")
 
@@ -1924,17 +1870,24 @@ If NAME does not correspond to any existing menu or menu type then return nil."
 
 (defun one-key-build-menu (name)
   "Build the appropriate menu for NAME and return its variable, or nil if the name is invalid.
-If a menu variable associated with that name already exists the menu will be rebuilt (and stored in the same variable)."
-  (let ((menu (find-if (lambda (x) (if (and (consp x) (functionp (cdr x)))
-                                       (funcall (cdr x) name)))
-                       one-key-menu-types-alist)))
-    (if (and menu (one-key-menu-struct-dynamic menu)) 
-        (let ((menuvar (or (second (assoc name one-key-menu-variables-alist))
-                           (gensym "one-key-menu-"))))
+If a menu variable associated with that name already exists the menu will be rebuilt (and stored in the same variable).
+If the menu associated with that name is dynamic (see `one-key-menu-struct') then return the menu itself."
+  (let ((menu (loop for item in one-key-menu-types-alist
+                    if (and (consp x) (functionp (cdr x)))
+                    do (aif (funcall (cdr item) name)
+                           (return it))))
+        (var (second (assoc name one-key-menu-variables-alist))))
+    (setq one-key-menu-variables-alist
+          (remove-if (lambda (x) (equal name (car x))) one-key-menu-variables-alist))
+    (if (and menu (not (one-key-menu-struct-dynamic menu)))
+        (let ((menuvar (or var (gensym "one-key-menu-"))))
           (set menuvar menu)
-          (add-to-list one-key-menu-variables-alist (list name menuvar nil)
-                       nil (lambda (x y) (equal (car x) (car y))))
+          (add-to-list one-key-menu-variables-alist (list name menuvar nil))
           menuvar)
+      ;; For dynamic menus unintern the associated menu variable if it exists,
+      ;; and return the newly created menu
+      (if (and (symbolp var) (string-match "^one-key-menu-[0-9]+$" (symbol-name var)))
+          (unintern var))
       menu)))
 
 (defun one-key-prompt-for-menu nil
@@ -2640,7 +2593,8 @@ These keys will only be excluded from the toplevel menu, not the submenus."
          ;; if the keymap has only one item which is itself a keymap then use that instead
          (keymap2 (if (= (length keymap) 2)
                       (let* ((item (cadr keymap))
-                             (pos (position 'keymap item)))
+                             ;; condition-case is to handle situation where item is not a nil terminated list
+                             (pos (condition-case nil (position 'keymap item) (error nil))))
                         (if pos (nthcdr pos item)
                           (find-if 'keymapp item)
                           keymap))
@@ -3357,6 +3311,7 @@ See `one-key-read-tree' for a description of the arguments."
     (string-match ".*\n.*\n *\\(.*[^ ]\\) *) *$" okr-title-string)
     (if returntitle (cons (match-string 1 okr-title-string) list1) list1)))
 
+;; TODO: have a look at --tree-reduce-from in dash.el
 (defun* one-key-read-logical-formula (prompt collection &optional actionfunc returntitle)
   "Function for reading logical formula from the user with a one-key menu.
 The result is returned as a recursive list, with 'and' or 'or' symbols as the first element of each list depending on the depth.
