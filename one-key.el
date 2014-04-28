@@ -1104,7 +1104,7 @@ The keys will be displayed in the one-key help buffer in the order shown when th
   :group 'one-key
   :type '(repeat (symbol :tag "Name" :help-echo "The name/symbol corresponding to the keybinding.")))
 
-(defcustom one-key-disallowed-keymap-menu-keys '("M-TAB")
+(defcustom one-key-disallowed-keymap-menu-keys '("M-TAB" "C-c")
   "List of keys that should be excluded from one-key menus created from keymaps.
 Each item in this list is a key description as returned by `one-key-key-description'."
   :group 'one-key
