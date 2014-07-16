@@ -88,8 +88,8 @@
 ;; macro : last stored keyboard macro.
 ;; bookmark : prompts for a bookmark to store.
 ;; new-bookmark : creates a new bookmark at point.
-;; buffer : current buffer. Position of cursor is not stored.
-;; file-or-dir : current file or directory (for dired buffers). Position of cursor is not stored.
+;; file-or-dir-or-buffer : current file or directory (for dired buffers) or buffer (if it has no associated file/dir).
+;;                         Position of cursor is not stored.
 ;; browse-url : prompts for a URL, and opens it with `browse-url' when executed.
 ;; emacs-command : prompts for an emacs command.
 ;; eval-sexp : prompts for an sexp.
@@ -189,7 +189,7 @@
 ;;
 
 ;;; TODO
-;; 
+;;
 ;; Update documentation.
 
 
@@ -334,17 +334,18 @@ Any new register type defined in `one-key-regs-custom-register-types' cannot sha
        ,(let ((name (completing-read "Set bookmark " (mapcar 'car bookmark-alist))))
           (bookmark-set name t) name))
      (lambda (reg) (format "Bookmark: %s" (caddr reg))))
-    (buffer
-     `(switch-to-buffer ,(buffer-name))
-     (lambda (reg) (format "Buffer: %s" (caddr reg))))
-    (file-or-dir
-     `(let ((buf (or ,(buffer-file-name) ,dired-directory)))
-        (if buf (find-file buf) (message "No file associated with buffer!")))
-     (lambda (reg) (let* ((path (or (car (cdadar (caddr reg)))
-                                    (cadr (cdadar (caddr reg)))))
-                          (file (file-name-nondirectory path)))
-                     (if (equal file "") (format "Dir: %s" path)
-                       (format "File: %s" file)))))
+    (file-or-dir-or-buffer
+     `(let ((buf (or ,(buffer-file-name) ,dired-directory ,(buffer-name))))
+        (if (file-exists-p buf) (find-file buf) (switch-to-buffer buf)))
+     (lambda (reg) (let* ((lst (cdadar (caddr reg)))
+                          (path (or (car lst)
+                                    (cadr lst)
+                                    (caddr lst))))
+                     (if (file-exists-p path)
+                         (let ((file (file-name-nondirectory path)))
+                           (if (equal file "") (format "Dir: %s" path)
+                             (format "File: %s" file)))
+                       (format "Buffer: %s" path)))))
     (browse-url
      `(browse-url ,(read-string "URL: " "http://"))
      (lambda (reg) (format "URL: %s" (caddr reg))))
@@ -395,8 +396,7 @@ The second sexp is stored in the register and will be evaluated when the registe
 
 (defcustom one-key-regs-colours-alist '((buffer-marker . "steel blue")
                                         (file-marker . "cadet blue")
-                                        (buffer . "steel blue")
-                                        (file-or-dir . "cadet blue")
+                                        (file-or-dir-or-buffer . "cadet blue")
                                         (text-region . "firebrick")
                                         (rectangle . "dark magenta")                                        
                                         (cut-text-region . "firebrick")
