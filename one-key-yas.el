@@ -7,7 +7,7 @@
 ;; Copyright (C) 2010, , all rights reserved.
 ;; Created: 2010-09-21 14:31:52
 ;; Version: 1.0
-;; Last-Updated: 2012-08-07 18:30:52
+;; Last-Updated: 2014-10-22 18:30:52
 ;;           By: Joe Bloggs
 ;; URL: http://www.emacswiki.org/emacs/download/one-key-yas.el
 ;; Keywords: yasnippet one-key snippet
@@ -38,7 +38,9 @@
 ;; Floor, Boston, MA 02110-1301, USA.
 
 ;;; Commentary: 
-;; 
+;;
+;; Bitcoin donations gratefully accepted: 1HnSqGHrVenb1t2V2aijyocWyZcd7qt1k
+
 ;; This library defines a `one-key' menu type for accessing yasnippets.
 ;; See the documentation for `one-key' for how to add a new menu to a menu-set.
 ;; You can add a menu of type "yasnippet" which will contain snippets for the major-mode of the current buffer,
@@ -77,6 +79,7 @@
 
 ;;; TODO
 ;;
+;; Add special keys for creating new snippets and editing existing snippets.
 
 ;;; Require
 (require 'one-key)
@@ -84,6 +87,14 @@
 (require 'yasnippet)
 
 ;;; Code:
+
+(defun one-key-yas/root-directory nil
+  "Returns the users root snippets directory."
+  (if (stringp yas/root-directory)
+      yas/root-directory
+    (if (listp yas/root-directory)
+        (car yas/root-directory)
+      (error "Invalid `yas/root-directory'"))))
 
 ;;; Unlike the original version in Yasnippet `yas/get-snippet-tables'
 ;;; this function only uses mode-symbol to index the loaded tables
@@ -99,14 +110,14 @@ Return a list of 'yas/snippet-table' objects indexed by mode."
 
 (defun one-key-yas-get-mode-dir (mode)
   "Given major-mode symbol MODE, return the directory containing snippets for that mode.
-If there is no snippets directory associated with that mode return `yas/root-directory'."
+If there is no snippets directory associated with that mode return `(one-key-yas/root-directory)'."
   (let* ((templates (yas/all-templates (one-key-yas/get-snippet-tables mode)))
          (full-file-names (mapcar #'(lambda (template) (yas/template-file template)) templates))
          (regex (regexp-opt (list (concat "/" (symbol-name mode) "/")))))
     (or (dolist (file-name full-file-names)
           (when (string-match regex file-name)
             (return (substring file-name 0 (match-end 0)))))
-        yas/root-directory)))
+        (one-key-yas/root-directory))))
 
 (defun one-key-yas-filefunc (file)
   "Expand the snippet stored in snippet file FILE.
@@ -144,7 +155,7 @@ This function is used in calls to `one-key-dir-build-menu-alist'."
                          :filefunc 'one-key-yas-filefunc
                          :filename-map-func 'one-key-yas-filename-map-func
                          :exclude-regex "^\\.\\|~$"
-                         :topdir yas/root-directory)))))
+                         :topdir (one-key-yas/root-directory))))))
 
 ;; Set the menu-alist, title string format and special keybindings for `yasnippet' menus
 (one-key-add-to-alist 'one-key-types-of-menu
@@ -159,7 +170,5 @@ This function is used in calls to `one-key-dir-build-menu-alist'."
 (provide 'one-key-yas)
 ;;; one-key-yas.el ends here
 
-
-
-
-
+;; (magit-push)
+;; (yaoddmuse-post "EmacsWiki" "one-key-yas.el" (buffer-name) (buffer-string) "update")
