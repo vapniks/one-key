@@ -6,16 +6,17 @@
 ;; Maintainer: Joe Bloggs <vapniks@yahoo.com>
 ;; Copyright (C) 2010, , all rights reserved.
 ;; Created: 2010-09-21 14:31:52
-;; Version: 1.0
+;; Version: 1.1
 ;; Last-Updated: 2014-10-22 18:30:52
 ;;           By: Joe Bloggs
 ;; URL: http://www.emacswiki.org/emacs/download/one-key-yas.el
 ;; Keywords: yasnippet one-key snippet
+;; Package-Requires: ((one-key "1.1") (yasnippet "20141017.736"))
 ;; Compatibility: GNU Emacs 24.1.1
 ;;
 ;; Features that might be required by this library:
 ;;
-;; one-key.el (tested on version 1.0) yasnippet.el (tested on version 0.6.1b)
+;; one-key.el (tested on version 1.0) yasnippet.el (tested on version 0.8.1)
 ;;
 
 ;;; This file is NOT part of GNU Emacs
@@ -63,10 +64,10 @@
 
 ;;; Customize: 
 ;;
-;; You may need to change the value of `yas/root-directory'
+;; You may need to change the value of `yas-snippet-dirs'
 ;; so that it matches the location of your snippets files.
 ;; This can be done by:
-;;      M-x customize-variable RET yas/root-directory RET
+;;      M-x customize-variable RET yas-snippet-dirs RET
 ;;
 
 ;;; Change log:
@@ -88,36 +89,27 @@
 
 ;;; Code:
 
-(defun one-key-yas/root-directory nil
+(defun one-key-yas-root-directory nil
   "Returns the users root snippets directory."
-  (if (stringp yas/root-directory)
-      yas/root-directory
-    (if (listp yas/root-directory)
-        (car yas/root-directory)
-      (error "Invalid `yas/root-directory'"))))
+  (if (stringp yas-snippet-dirs) yas-snippet-dirs
+    (if (listp yas-snippet-dirs) (car yas-snippet-dirs)
+      (error "Invalid `yas-snippet-dirs'"))))
 
-;;; Unlike the original version in Yasnippet `yas/get-snippet-tables'
-;;; this function only uses mode-symbol to index the loaded tables
-(defun one-key-yas/get-snippet-tables (mode-symbol)
+(defun one-key-yas-get-snippet-tables (mode-symbol)
   "Get snippet tables for mode MODE-SYMBOL.
-Return a list of 'yas/snippet-table' objects indexed by mode."
-  (let ((mode-tables (list (gethash mode-symbol yas/snippet-tables)))
-        all-tables)
-    (dolist (table (remove nil mode-tables))
-      (push table all-tables)
-      (nconc all-tables (yas/snippet-table-get-all-parents table)))
-    (remove-duplicates all-tables)))
-
+Return a list of yas--table objects indexed by mode."
+  (remove-duplicates (list (gethash mode-symbol yas--tables))))
+  
 (defun one-key-yas-get-mode-dir (mode)
   "Given major-mode symbol MODE, return the directory containing snippets for that mode.
-If there is no snippets directory associated with that mode return `(one-key-yas/root-directory)'."
-  (let* ((templates (yas/all-templates (one-key-yas/get-snippet-tables mode)))
-         (full-file-names (mapcar #'(lambda (template) (yas/template-file template)) templates))
+If there is no snippets directory associated with that mode return `(one-key-yas-root-directory)'."
+  (let* ((templates (yas--all-templates (one-key-yas-get-snippet-tables mode)))
+         (full-file-names (mapcar #'(lambda (template) (yas--template-file template)) templates))
          (regex (regexp-opt (list (concat "/" (symbol-name mode) "/")))))
     (or (dolist (file-name full-file-names)
           (when (string-match regex file-name)
             (return (substring file-name 0 (match-end 0)))))
-        (one-key-yas/root-directory))))
+        (one-key-yas-root-directory))))
 
 (defun one-key-yas-filefunc (file)
   "Expand the snippet stored in snippet file FILE.
@@ -130,7 +122,7 @@ This function is used in calls to `one-key-dir-build-menu-alist'."
             (buffer-substring-no-properties 
              (re-search-forward "# --.*\n") 
              (point-max))))
-    (yas/expand-snippet snippet)))
+    (yas-expand-snippet snippet)))
 
 (defun one-key-yas-filename-map-func (file)
   "Return name for menu item corresponding to file or dir FILE in yasnippet one-key menus."
@@ -139,7 +131,7 @@ This function is used in calls to `one-key-dir-build-menu-alist'."
       (let ((full-file (file-truename file)))
         (if (file-readable-p full-file)
             (progn (insert-file-contents full-file nil nil nil t)
-                   (third (yas/parse-template full-file)))
+                   (third (yas--parse-template full-file)))
           file)))))
 
 (defun one-key-yas-get-menu (name)
@@ -155,7 +147,7 @@ This function is used in calls to `one-key-dir-build-menu-alist'."
                          :filefunc 'one-key-yas-filefunc
                          :filename-map-func 'one-key-yas-filename-map-func
                          :exclude-regex "^\\.\\|~$"
-                         :topdir (one-key-yas/root-directory))))))
+                         :topdir (one-key-yas-root-directory))))))
 
 ;; Set the menu-alist, title string format and special keybindings for `yasnippet' menus
 (one-key-add-to-alist 'one-key-types-of-menu
