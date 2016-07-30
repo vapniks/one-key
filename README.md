@@ -24,6 +24,7 @@ Copyright (C) 2009, rubikitch, all rights reserved.
 Licensed under the [GPL version 3](http://www.gnu.org/licenses/) or later.
 
 # Commentary
+<pre lang="lisp">
 ;; With so many Emacs extensions, you have a lot of keystrokes to remember, and you probably forget most of them.
 ;; This package fixes this problem.
 ;; One Key provides a TOP keystroke that when pressed presents you with
@@ -159,8 +160,9 @@ You can quickly test your menu by pressing "C-c C-t".
 ;; If you set `one-key-auto-load-menus' to t (in the customization group for one-key), then any files
 in the directory specified by `one-key-menus-location' that match the regexp `one-key-menus-regexp'
 will automatically be loaded on startup.
-
+</pre>
 # Installation
+<pre lang="lisp">
 ;; Put one-key.el in a directory in your load-path, e.g. ~/.emacs.d/
 You can add a directory to your load-path with the following line in ~/.emacs
 (add-to-list 'load-path (expand-file-name "~/elisp"))
@@ -174,8 +176,9 @@ sometimes a `max-lisp-eval-depth' or `max-specpdl-size' error can occur.
 E.g:
 ;; (setq max-lisp-eval-depth 10000)
 (setq max-specpdl-size 10000)
-
+</pre>
 # Customize
+<pre lang="lisp">
 ;; `one-key-buffer-name' : the buffer name of the popup menu.
 `one-key-help-window-max-height' : the maximal height use in popup window.
 `one-key-items-per-line' : number of items in one line, if this option is `nil', will be calculated by `window-width'.
@@ -201,7 +204,7 @@ E.g:
 
 All above options can by customized through:
      M-x customize-group RET one-key RET
-
+</pre>
 # Change log
 2010/12/07
    * Joe Bloggs
@@ -319,6 +322,7 @@ All above options can by customized through:
              For send many patches.
 
 # TODO
+<pre lang="lisp">
 ;; Add configurable colourization of menu items.
 Could have alist of alists, called e.g. `one-key-colours-regexp-alist',
 the keys to the list would be symbols for the one-key menu alists (e.g. 'one-key-menu-bookmark-alist)
@@ -331,3 +335,4 @@ all the same colour, and other items a different colour.
 ;; Automatically generate one-key menus for common keybindings and store them in memory. This is already implemented
 to a certain extent but I think it could be improved. Needs further investigation.
 ;;; Require
+</pre>
