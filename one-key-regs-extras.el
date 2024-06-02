@@ -630,23 +630,32 @@ instead of prompting the user for one."
       (if (not (assq 'occur one-key-regs-colours-alist))
           (add-to-list 'one-key-regs-colours-alist '(occur . "RoyalBlue")))))
 
-(if (require 'helm-grep nil t)
-    (progn
-      (add-to-list 'one-key-regs-custom-register-types
-                   '(helm-grep
-                     `(let ((files ',(helm-read-file-name
-                                      "Search in file(s): "
-                                      :marked-candidates t
-                                      :preselect (and helm-do-grep-preselect-candidate
-                                                      (if helm-ff-transformer-show-only-basename
-                                                          (helm-basename preselection)
-                                                        preselection))))
-                            (prefarg (or current-prefix-arg helm-current-prefix-arg)))
-                        (helm-do-grep-1 files prefarg))
-                     (lambda (reg) "helm-grep")))
-      (if (not (assq 'helm-grep one-key-regs-colours-alist))
-          (add-to-list 'one-key-regs-colours-alist '(helm-grep . "purple")))))
+(when (require 'helm-grep nil t)
+  (add-to-list 'one-key-regs-custom-register-types
+	       '(helm-grep
+		 `(let ((files ',(helm-read-file-name
+				  "Search in file(s): "
+				  :marked-candidates t
+				  :preselect (and helm-do-grep-preselect-candidate
+						  (if helm-ff-transformer-show-only-basename
+						      (helm-basename preselection)
+						    preselection))))
+			(prefarg (or current-prefix-arg helm-current-prefix-arg)))
+		    (helm-do-grep-1 files prefarg))
+		 (lambda (reg) "helm-grep")))
+  (when (not (assq 'helm-grep one-key-regs-colours-alist))
+    (add-to-list 'one-key-regs-colours-alist '(helm-grep . "purple"))))
 
+(when (require 'org-table-jb-extras nil t)
+  (add-to-list 'one-key-regs-custom-register-types
+	       '(org-table-jump
+		 `(progn (org-table-jump-next 0
+					      ',(cdr org-table-jump-condition)
+					      ',(car org-table-jump-condition))
+			 (org-table-show-jump-condition))
+		 (lambda (x) (org-table-describe-jump-condition (cadr (caddr (caddr x))) 10))))
+  (when (not (assq 'org-table-jump one-key-regs-colours-alist))
+    (add-to-list 'one-key-regs-colours-alist '(org-table-jump . "LightSlateBlue"))))
 
 (provide 'one-key-regs-extras)
 ;;; one-key-regs-extras.el ends here

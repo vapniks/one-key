@@ -362,8 +362,7 @@ Any new register type defined in `one-key-regs-custom-register-types' cannot sha
                                     (with-current-buffer buf
                                       (string-match node Info-current-file)))
                             do (return buf))))
-        (if infobuf (switch-to-buffer infobuf)
-          (info node)))
+        (if infobuf (switch-to-buffer infobuf) (info node)))
      (lambda (reg) (format "%s *info*" (cadr (caaddr reg))))))
   "A list of different types of registers for use with one-key-regs.
 Each type contains three elements in this order:
